@@ -1,0 +1,67 @@
+#ifndef __COMMAND_ANALYSER__
+#define __COMMAND_ANALYSER__
+
+#include "separator"
+
+/*
+	cmd ::= cmd1?p11=v11&p12=v12&...&p1n=v1n\r\n
+			...
+			cmdm?pm1=vm1&pm2=vm2&...&pmn=vmn\r\n
+ */
+ 
+class command_analyser
+{
+public:
+	command_analyser(const char * cmd, 
+					 std::string sep = "\r\n")
+	{
+		analyse(cmd, sep);
+	}
+	
+	void analyse(const char * cmd, std::string sep = "\r\n")
+	{
+		_clear();
+		if(!cmd || strlen(cmd) == 0)
+			return;
+		_septor.partition(cmd, sep.c_str());
+	}
+	
+	int size() { return _septor.size(); }
+	
+	const char * get_cmd(const int index, std::string & cmd)
+	{
+		const char * p = _septor[index];
+		if(!p)
+			return NULL;
+		const char * ptr = strstr(p, "?");
+		if(ptr)
+		{
+			*(char *)ptr = 0;
+			ptr++;
+		}
+		cmd = p;
+		return ptr;
+	};
+	
+	const char * get_param(const int index, std::string & param)
+	{
+		const char * p = _septor[index];
+		if(!p)
+			return NULL;
+		const char * ptr = strstr(p, "=");
+		if(ptr)
+		{
+			*(char *)ptr = 0;
+			ptr++;
+		}
+		param = p;
+		return ptr;
+	};
+				
+private:
+	separator _septor;
+	
+	void _clear() { _septor.clear(); }
+};
+
+#endif

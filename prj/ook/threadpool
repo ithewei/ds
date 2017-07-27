@@ -1,0 +1,239 @@
+#ifndef __TMC_THREADPOOL_H__
+#define __TMC_THREADPOOL_H__
+
+#include "thread"
+#include <list>
+
+#undef THREADPOOL_DEBUG
+///#define THREADPOOL_DEBUG
+
+#ifdef THREADPOOL_DEBUG
+#include <ook/trace>
+DECTRACE
+#endif
+
+template <typename t_type >
+struct tmc_threadpool_type 
+{
+	typedef tmc_threadpool_type<t_type > this_type_;
+	typedef tmc_thread_type<tmc_threadpool_type > thread_type_;
+	typedef std::list<void * > list_type_;
+	list_type_ list_;
+	
+	typedef void (t_type::*exe_type)(int *, void *);
+
+	// thread run params
+	exe_type exe_;
+	t_type * t_;
+	void   * arg_;
+
+	bool released_;
+	bool newtask_;
+	bool bready_;
+	
+	int capability_;  // thread numb
+	int thindex_;	  // thread index
+	int runthreads_;  // how much thread running
+	int freethreads_; // how much thread be in free status
+
+	unsigned int taskid_;
+	unsigned int pnmask_;
+		
+	tmc_mutex_type mutex_;
+	tmc_cond_type  condn_;
+	tmc_cond_type  condt_; // has new task condition
+
+	static void cleanup_(void * arg) 
+	{
+		this_type_ * this_ = (this_type_ *)arg;
+		this_->mutex_.unlock();
+	}
+	
+	bool is_ready() const { return bready_; }
+	
+	void run_(int * thstatus, void *) 
+	{
+		int init = 0;
+		int indx = -1;
+		
+		while(!released_) 
+		{
+			exe_type exe = NULL;
+			t_type * t   = NULL;
+			void   * arg = NULL;
+
+		  #ifndef __ANDROID__
+			if(thstatus)
+				*thstatus |= PTHREAD_CANCEL_MASK;
+			pthread_cleanup_push(cleanup_, this);
+		  #endif
+
+			mutex_.lock();
+
+			freethreads_++;
+			if(pnmask_ & 0x80)
+				printf("thpool::run::wait::freethreads=%d, newtask=%d\n", freethreads_, newtask_);
+
+			if(init == 0)
+			{
+				init = 1;
+				indx = thindex_++;
+				runthreads_++;
+				if(runthreads_ == capability_)
+				{
+					bready_ = true;
+					if(pnmask_ & 0x80)
+						printf("thpool::run::ready::runthreads=%d\n", runthreads_);
+				}
+			}
+						
+			if(released_)
+			{
+				mutex_.unlock();
+				break;
+			}
+			
+			// thread waiting here for new task
+			while(!newtask_ && !released_) {
+			  #ifdef __ANDROID__
+				condt_.wait(mutex_, 50);
+			  #else
+				condt_.wait(mutex_);
+			  #endif
+			}
+
+			if(released_)
+			{
+				mutex_.unlock();
+				break;
+			}
+				
+		  #ifndef __ANDROID__
+			if(thstatus)
+				*thstatus &= (~PTHREAD_CANCEL_MASK);
+		  #endif
+		
+			freethreads_--;
+			if(pnmask_ & 0x80)
+				printf("thpool[%d]::run::wake::freethreads=%d\n", indx, freethreads_);
+					
+			exe      = exe_;
+			t        = t_;
+			arg      = arg_;
+			newtask_ = false;
+
+			condn_.signal();
+			mutex_.unlock();
+		  #ifndef __ANDROID__
+			pthread_cleanup_pop(0);
+		  #endif
+
+			if(pnmask_ & 0x80)
+				printf("thpool[%d]::run::exec {\n", indx);
+
+			// linux gcc high version do not allow try() here for pthread destroy, otherwise will cause program abort.
+			//try {
+				(t->*exe)(thstatus, arg);
+			//} catch(...) {
+			//}
+			
+			if(pnmask_ & 0x80)
+				printf("} thpool::run::exec\n");
+		}
+		
+		pthread_exit(NULL);
+	}
+
+	bool execute(exe_type exe, t_type & t, void * arg = NULL, bool block = true, int printmask = -1) 
+	{
+		if(printmask < 0)
+			printmask = (int)pnmask_;
+		
+		taskid_++;
+		if(printmask & 0x01)
+			printf("thpool[%u]::execute\n", taskid_);
+		
+		tmc_autolock_type<tmc_mutex_type> autolock(mutex_);
+
+		if(printmask & 0x01)
+			printf("thpool[%u]::execute::block=%d, newtask=%d, freethreads=%d\n", taskid_, block, newtask_, freethreads_);
+		
+		if(!block && freethreads_ < 1) 
+			return false;
+		
+		if(printmask & 0x01)
+			printf("thpool[%u]::execute::waiting...\n", taskid_);
+			
+		while(newtask_) 
+			condn_.wait(mutex_);
+		
+		if(printmask & 0x01)
+			printf("thpool[%u]::execute::signal\n", taskid_);
+		
+		exe_     = exe;
+		t_       = &t;
+		arg_     = arg;
+		newtask_ = true;
+		
+		condt_.signal();
+		
+		if(printmask & 0x01)
+			printf("thpool[%u]::execute::out\n", taskid_);
+		return true;
+	}
+
+	tmc_threadpool_type(int capability, unsigned int printmask = 0, unsigned int thprintmask = 0)
+		: released_(false),
+		  newtask_(false),
+		  bready_(false),
+		  capability_(capability),
+		  thindex_(1),
+		  runthreads_(0),
+		  freethreads_(0),
+		  taskid_(0),
+		  pnmask_(printmask)
+	{
+		// create N threads, all running run_()
+		for(int i = 0; i < capability; i++) 
+		{
+			thread_type_ * th = new thread_type_(&this_type_::run_, *this);
+			if(th)
+				th->printmask_ = thprintmask;
+			list_.push_back(th);
+		}
+	}
+
+	~tmc_threadpool_type() 
+	{
+	#ifdef THREADPOOL_DEBUG
+		BTRACE(3, "del thpool {")
+	#endif
+
+		released_ = true;
+
+		for(list_type_::const_iterator ite = list_.begin(); ite != list_.end(); ite++)
+		{
+			thread_type_ * th = (thread_type_ *)(*ite);
+			if(th)
+			{
+			#ifdef THREADPOOL_DEBUG
+				BTRACE(3, "del th {")
+			#endif
+			
+				delete th;
+				
+			#ifdef THREADPOOL_DEBUG
+				ETRACE(3, "}")
+			#endif
+			}
+		}
+		list_.clear();
+		
+	#ifdef THREADPOOL_DEBUG
+		ETRACE(3, "} thpool")
+	#endif
+	}
+
+};
+
+#endif

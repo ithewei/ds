@@ -1,0 +1,182 @@
+/***************************************************************************
+                           rmt_trace 1.00
+                         -------------------
+    begin                : 2005 -  6 - 29
+    last modify			 : 2005 -  6 - 29
+    copyright            : (C) 2005 by ChengYang
+    email                : hellocy@263.net
+ ***************************************************************************/
+/*
+ * This material is provided "as is", with absolutely no warranty expressed
+ * or implied. Any use is at your own risk.
+ *
+ * Permission to use or copy this software for any purpose is hereby granted 
+ * without fee, provided the above notices are retained on all copies.
+ * Permission to modify the code and to distribute modified code is granted,
+ * provided the above notices are retained, and a notice that the code was
+ * modified is included with the above copyright notice.
+ *
+ *
+ */
+#ifndef __RMT_TRACE_H__
+#define __RMT_TRACE_H__
+
+#include <sstream>
+#include <iostream>
+
+//#undef TRANSPORT_INCLUDE
+#define TRANSPORT_INCLUDE
+
+#ifdef TRANSPORT_INCLUDE
+#include <ook/sock/transport_tcp.h>
+#endif
+
+typedef void (*TRACE_CALLBACK)(const char * txt);
+
+extern TRACE_CALLBACK trace_callback_;
+
+inline void set_trace_callback(TRACE_CALLBACK callback) { trace_callback_ = callback; }
+
+namespace std {
+
+/////////////////////////////////////////////////////////////////////
+// basic_debugbuf<CharT, TraitsT, Alloc>
+
+template <typename CharT, typename TraitsT = std::char_traits<CharT >, typename Alloc = std::allocator<CharT > >
+class basic_debugbuf : public basic_stringbuf<CharT, TraitsT, Alloc >
+					   #ifdef TRANSPORT_INCLUDE
+					   , public ook::socket::transport_tcp
+					   #endif
+{
+public:
+	basic_debugbuf()
+	#ifdef TRANSPORT_INCLUDE
+		: ook::socket::transport_tcp(2048)
+	#endif
+	{
+	}
+    virtual ~basic_debugbuf()
+    {
+        //sync();
+	#ifdef TRANSPORT_INCLUDE
+		close();       
+	#endif		 
+    }
+
+protected:
+    int sync()
+    {
+    #ifdef WIN32
+	  ///#ifdef WINCE
+		output_debug_string(str().c_str());
+	  ///#else
+    	///_Mystr s = str();
+    	///output_debug_string(s.c_str());
+	  ///#endif
+    #else
+    	typename basic_stringbuf<CharT, TraitsT, Alloc >::__string_type s = basic_stringbuf<CharT, TraitsT, Alloc >::str();
+    	output_debug_string(s.c_str());
+    #endif
+        this->str(std::basic_string<CharT >());    // Clear the string buffer
+        return 0;
+    }
+
+    void output_debug_string(const CharT * text);
+};
+
+template<>
+void basic_debugbuf<char >::output_debug_string(const char * text)
+{
+	if(trace_callback_)
+	{
+		trace_callback_(text);
+		return;
+	}
+
+	//printf("%s", text);
+#ifdef TRANSPORT_INCLUDE
+	snd((const unsigned char *)text, (unsigned int)strlen(text));
+#endif
+	// need buffer maybe better
+	//char tmp[10240];
+	//strcpy(tmp, text);
+	//snd((const unsigned char *)tmp, strlen(tmp));
+}
+
+template<>
+void basic_debugbuf<wchar_t >::output_debug_string(const wchar_t * text)
+{
+	//printf("%s", text);
+}
+
+/////////////////////////////////////////////////////////////////////
+//
+
+template<typename CharT, typename TraitsT = std::char_traits<CharT > >
+class basic_debug_ostream : public basic_ostream<CharT, TraitsT >
+{
+public:
+    basic_debug_ostream() : std::basic_ostream<CharT, TraitsT >(NULL)
+    						#ifdef TRANSPORT_INCLUDE
+    						, _trans(NULL)
+    						#endif
+	{
+		_buffer = new basic_debugbuf<CharT, TraitsT >;
+		this->rdbuf(_buffer);
+	}
+	virtual ~basic_debug_ostream()
+	{
+	#ifdef WIN32
+	  #ifdef WIN32
+	    delete rdbuf();
+	  #else
+		typename basic_ios<CharT, TraitsT >::_Mysb * sb = rdbuf();
+		delete sb;
+	  #endif
+	#else
+		basic_streambuf<CharT, TraitsT> * sb = basic_ostream<CharT, TraitsT >::rdbuf();
+		delete sb;
+	#endif
+	#ifdef TRANSPORT_INCLUDE
+		if(_trans)
+			_trans->release();
+	#endif
+	}
+
+	bool connect(const char * r_addr, unsigned short r_port)
+	{
+		bool ret = false;
+	#ifdef TRANSPORT_INCLUDE
+		if(!_trans)
+			_trans = new transaction(THREAD_PRIORITY_NORMAL, false);
+		_buffer->set_transaction(_trans);
+		ret = _buffer->tcp(r_addr, r_port, 6000);
+		if(ret)
+			_buffer->snd((const unsigned char *)"Hello World from RemoteTrace!\n", sizeof("Hello World from RemoteTrace!\n"));
+	#endif
+		return ret;	
+	}
+
+	void disconnect()
+	{
+		_buffer->close();
+	}
+	
+private:
+	basic_debugbuf<CharT, TraitsT > * _buffer;
+
+#ifdef TRANSPORT_INCLUDE
+	transaction * _trans;
+#endif
+};
+
+}
+
+typedef std::basic_debug_ostream<char > rmt_trace;
+typedef std::basic_debug_ostream<wchar_t > rmt_wtrace;
+
+#ifdef TRANSPORT_INCLUDE
+#undef TRANSPORT_INCLUDE
+#endif
+
+#endif

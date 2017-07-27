@@ -1,0 +1,136 @@
+#ifndef __OOK_FILE_SOURCE__
+#define __OOK_FILE_SOURCE__
+
+/*
+	file_source class (M):mem alloc safe
+	by ook @ 2011/03/16
+	version: 1.2
+ */
+
+#include <ook/thread>
+#include <ook/ifrender>
+
+//#include <ook/trace>
+//DECTRACE
+
+extern "C" {
+	#include "mem.h"
+}
+
+class file_source : public ifrender
+{
+public:
+	file_source(unsigned int bufsize = 4096)
+		: _release(false),
+		  _bufunit(bufsize),
+		  _fp(NULL),
+		  _th(NULL)
+	{
+		IFUNKNOW_INI
+		
+		//BTRACE(3, "new file_source {")
+		
+		_buf = (unsigned char *)malloc__(_bufunit);
+		
+		//ETRACE(3, "}")
+	}
+	virtual ~file_source() 
+	{
+		//BTRACE(3, "del file_source {")
+
+		_release = true;
+		delete _th;
+		
+		if(_fp)
+			fclose(_fp);
+		
+		if(_buf)
+			free__(_buf);
+		
+		//ETRACE(3, "}")
+	}
+
+	IFUNKNOW_IMP
+	
+	bool open(const char * file_path)
+	{
+		if(!file_path)
+			return false;
+		if(!_fp)
+		{
+			_fp = fopen(file_path, "rb");
+			if(!_fp)
+				return false;
+			_th = new thread(&file_source::_run, *this);
+		}
+		return true;
+	}
+	
+	int render_input(int opt, int wparam, int lparam, void * ptr)
+	{
+		return ifrender::e_ifrenderret_err;
+	}
+
+private:
+	IFUNKNOW_DEC
+	
+	FILE * _fp;	
+
+	bool _release;
+	unsigned char * _buf;
+	unsigned int _bufunit;
+	
+	typedef tmc_thread_type<file_source > thread;
+	thread * _th;
+
+	void _run(int * thstatus, void *)
+	{
+		unsigned int count = 0;
+		while(!_release)
+		{
+			int size = fread(_buf, 1, _bufunit, _fp);
+			if(size == 0)
+				break;
+
+			count++;
+		#if 0 // simulate loss
+			if((count % 8) == 0)
+				continue;
+		#endif
+			
+			enum_render(NULL);
+			while(!_release)
+			{
+				ifrender * r = NULL;
+				enum_render(&r);
+				if(!r)
+					break;
+				
+				int ret = r->render_input(0, 0, size, _buf);
+				
+				if(ret == ifrender::e_ifrenderret_err)
+				{
+					r->release();
+					break;
+				}
+				
+				if(ret == ifrender::e_ifrenderret_block)
+				{
+					while(!_release)
+					{
+						ret = r->render_input(ifrender::e_ifrenderopt_blocked, 0, 0, NULL);
+						if(ret != ifrender::e_ifrenderret_block)
+							break;
+					}
+				}
+				r->release();
+			}			
+		}
+
+		fclose(_fp);	
+		_fp = NULL;
+		pthread_exit(NULL);
+	}
+};
+
+#endif

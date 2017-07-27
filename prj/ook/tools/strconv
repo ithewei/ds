@@ -1,0 +1,265 @@
+#ifndef __OOK_STRCONV__
+#define __OOK_STRCONV__
+
+#ifdef WIN32
+#include <ook/win32/strtool>
+#else
+
+#include <string.h>
+#include <errno.h>
+#include <iconv.h>
+
+struct UNICODE2CHAR
+{
+	UNICODE2CHAR(const unsigned char * p, unsigned int l) 
+		: _err(0),
+		  _invalid(0),
+		  _c(NULL) 
+	{ 
+		_x(p, l); 
+	}
+	~UNICODE2CHAR() { delete [] _c;	}
+	
+	const char * c_str()    { return _c;       }
+	int error_code()  const { return _err;     }
+	int get_invalid() const { return _invalid; }
+	
+private:
+	int _err;
+	int _invalid;
+	
+	char * _c;
+	
+	void _x(const unsigned char * p, unsigned int l)
+	{
+	#ifndef __em8622l__
+		if(!p || l == 0)
+		{
+			_err = -1001;
+			return;
+		}
+
+		if(_c)
+		{
+			delete [] _c;
+			_c = NULL;
+		}
+		
+		iconv_t handle = iconv_open("GB2312", "UNICODE");
+		if(handle == (iconv_t)-1)
+		{
+			_err = -1000;
+			return;
+		}
+
+		size_t in_len = (size_t)l;
+		unsigned char * in_buf = new unsigned char[in_len + 8];
+		memcpy(in_buf, p, in_len);
+		
+		size_t out_len = (in_len << 1) + 16;
+		_c = new char[out_len];
+		memset(_c, 0, out_len);
+
+		char * pin  = (char *)in_buf;
+		char * pout = _c;
+		while(1)
+		{
+		/*
+			An invalid multibyte sequence is encountered in the input.  In
+          	this case, it sets errno to EILSEQ and returns (size_t) -1.
+          	*inbuf is left pointing to the beginning of the invalid multibyte
+          	sequence.
+         */		
+			_err = iconv(handle, &pin, &in_len, &pout, &out_len);
+			if(_err != -1)
+				break;
+			
+			///perror("iconv");
+			///printf("errno=%d\n", errno);
+			if(errno != EILSEQ)
+				break;
+			_invalid++;
+			
+			if(in_len < 3)
+				break;
+			
+			///printf("in_len=%d\n", (int)in_len);
+			///printf("ot_len=%d\n", (int)out_len);
+			///printf("pin=[%p]\n", pin);
+			///printf("pot=[%p]\n", pout);	
+
+			in_len -= 2;
+			pin    += 2;
+		}
+		delete [] in_buf;
+		iconv_close(handle);
+	#endif
+	}
+};
+
+// utf8 to ansi code
+struct UTF82ANSICODE
+{
+public:	
+	UTF82ANSICODE(const char * p, const char * tocode = NULL, unsigned int printmask = 0) 
+		: _err(0), 
+		  _c(NULL) 
+	{ 
+		_x(p, tocode, printmask); 
+	}
+	~UTF82ANSICODE() { delete [] _c; }
+	
+	const char * c_str()   { return _c;   }
+	int error_code() const { return _err; }
+	
+	void operator=(const char * p) { _x(p, NULL); }
+	
+private:
+	int _err;
+	
+	char * _c;
+	
+	void _x(const char * p, const char * tocode, unsigned int printmask = 0)
+	{
+	#ifndef __em8622l__
+		if(!p)
+		{
+			_err = -1001;
+			return;
+		}
+
+		if(_c)
+		{
+			delete [] _c;
+			_c = NULL;
+		}
+		
+		iconv_t handle;
+		if(tocode && strlen(tocode) > 0)
+			handle = iconv_open(tocode, "UTF-8");
+		else
+			handle = iconv_open("GB18030", "UTF-8"); // GB2312
+		if(handle == (iconv_t)-1)
+		{
+			_err = -1000;
+			return;
+		}
+
+		size_t in_len = strlen(p);
+		if(in_len == 0)
+		{
+			_err = -1001;
+			return;
+		}
+
+		char * in_buf = new char[in_len + 8];
+		strcpy(in_buf, p);
+		
+		size_t out_len = (in_len << 1) + 16;
+		_c = new char[out_len];
+		memset(_c, 0, out_len);
+
+		char * pin  = in_buf;
+		char * pout = _c;
+		
+		while(in_len > 0 && out_len > 0)
+		{
+			_err = iconv(handle, &pin, &in_len, &pout, &out_len);
+			
+			if(printmask & 0x01)
+				printf("iconv=%d, in_len=%d, out_len=%d\n", _err, (int)in_len, (int)out_len);
+			
+			if(_err == -1)
+			{
+				if(errno != EINVAL)
+				{
+					if(printmask & 0x08)
+						perror("strconv::iconv");
+				
+					pin++;
+					in_len--;
+					continue;
+				}
+				_err = 0;
+			}
+			
+			break;
+		}
+		
+		delete [] in_buf;
+		iconv_close(handle);
+	#endif
+	}
+};
+
+// ansi code to utf8
+struct ANSICODE2UTF8
+{
+public:	
+	ANSICODE2UTF8(const char * p) 
+		: _err(0), 
+		  _c(NULL) 
+	{ 
+		_x(p); 
+	}
+	~ANSICODE2UTF8() { delete [] _c; }
+	
+	const char * c_str()   { return _c;   }
+	int error_code() const { return _err; }
+	
+	void operator=(const char * p) { _x(p); }
+	
+private:
+	int _err;
+	
+	char * _c;
+	
+	void _x(const char * p)
+	{
+	#ifndef __em8622l__
+		if(!p)
+		{
+			_err = -1001;
+			return;
+		}
+
+		if(_c)
+		{
+			delete [] _c;
+			_c = NULL;
+		}
+		
+		iconv_t handle = iconv_open("UTF-8", "GB2312");
+		if(handle == (iconv_t)-1)
+		{
+			_err = -1000;
+			return;
+		}
+
+		size_t in_len = strlen(p);
+		if(in_len == 0)
+		{
+			_err = -1001;
+			return;
+		}
+
+		char * in_buf = new char[in_len + 8];
+		strcpy(in_buf, p);
+		
+		size_t out_len = (in_len << 1) + 16;
+		_c = new char[out_len];
+		memset(_c, 0, out_len);
+
+		char * pin  = in_buf;
+		char * pout = _c;
+		_err = iconv(handle, &pin, &in_len, &pout, &out_len);
+		
+		delete [] in_buf;
+		iconv_close(handle);
+	#endif
+	}
+};
+
+#endif
+
+#endif

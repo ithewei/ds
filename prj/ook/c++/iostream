@@ -1,0 +1,6 @@
+#ifndef _INC_IOSTREAM
+#define _INC_IOSTREAM
+
+#include "imp/_iostream"
+
+#endif

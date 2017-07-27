@@ -1,0 +1,173 @@
+/***************************************************************************
+                           sys/call 1.02
+                         -------------------
+    begin                : 2003 -  4 - 8
+    last modify			 : 2004 -  6 - 19
+    email                : hellocy@263.net
+ ***************************************************************************/
+/*
+ * This material is provided "as is", with absolutely no warranty expressed
+ * or implied. Any use is at your own risk.
+ *
+ * Permission to use or copy this software for any purpose is hereby granted 
+ * without fee, provided the above notices are retained on all copies.
+ * Permission to modify the code and to distribute modified code is granted,
+ * provided the above notices are retained, and a notice that the code was
+ * modified is included with the above copyright notice.
+ *
+ */
+#ifndef __OOK_SYSCALL__
+#define __OOK_SYSCALL__
+
+#ifdef WIN32
+
+#ifdef FD_SETSIZE
+#undef FD_SETSIZE
+#define FD_SETSIZE 1024
+#endif
+
+#include <stdint.h>
+#include <winsock2.h>
+#include <windows.h>
+#include <mmsystem.h>
+
+#define INIT_PERF_TIMER int __perf_timer_flag__ = -1; \
+						__int64 __perf_freq__ = 1;
+
+extern int __perf_timer_flag__;
+extern __int64 __perf_freq__;
+						
+inline unsigned long __timeGetTime__()
+{
+	if(__perf_timer_flag__ > 0)
+	{
+		__int64 pert_cnt;
+		QueryPerformanceCounter((LARGE_INTEGER *)&pert_cnt);
+		return (unsigned long)(((double)pert_cnt * 1000.0) / __perf_freq__);
+	}
+	else if(__perf_timer_flag__ == 0)
+	{
+		return timeGetTime();
+	}
+	
+	if(QueryPerformanceFrequency((LARGE_INTEGER *)&__perf_freq__))
+	{
+		__perf_timer_flag__ = 1;
+		
+		__int64 pert_cnt;
+		QueryPerformanceCounter((LARGE_INTEGER *)&pert_cnt);
+		return (unsigned long)(((double)pert_cnt * 1000.0) / __perf_freq__);
+	}
+	else
+	{
+		__perf_timer_flag__ = 0;
+		return timeGetTime();
+	}
+}
+
+#else
+
+#include <stdint.h>
+#include <unistd.h>
+#include <time.h>
+#include <sys/time.h>
+#include <sys/types.h>
+
+#define INIT_PERF_TIMER
+
+#endif
+
+#ifdef WIN32
+#define INITSRAND { long ltime = (long)time(NULL); int stime = (unsigned)ltime / 2; srand(stime); }
+#else
+#define INITSRAND srand48(time(NULL));
+#endif
+
+inline void chsc_sleep(unsigned int ms) 
+{
+#ifdef WIN32
+
+	//DelayUs(ms * 1000);
+	Sleep(ms);
+	
+#else
+
+  #if 1
+	if(ms < 1000)
+	{
+		timespec rqtp;
+		rqtp.tv_sec  = 0;
+		rqtp.tv_nsec = ms * 1000000;
+		nanosleep(&rqtp, NULL);
+	}			
+	else
+	{
+		usleep(ms * 1000);
+	}
+  #else  
+    struct timeval timev;
+   	timev.tv_sec  = ms / 1000;
+   	timev.tv_usec = (ms % 1000) * 1000;
+    select(0, 0, 0, 0, &timev);
+  #endif
+  
+#endif
+}
+
+inline unsigned long chsc_gettick() 
+{
+#ifdef WIN32
+	
+	return GetTickCount();
+	
+#else
+	
+  #ifdef __APPLE__
+	struct timeval t;
+	gettimeofday(&t, NULL);
+	return t.tv_sec * 1000 + t.tv_usec / 1000;
+  #else
+	struct timespec t = { 0, 0 };
+	clock_gettime(CLOCK_MONOTONIC, &t);
+	return t.tv_sec * 1000 + t.tv_nsec / 1000000;
+  #endif
+  
+#endif
+}
+
+inline unsigned long chsc_gettick_h() 
+{
+#ifdef WIN32
+
+	return __timeGetTime__();
+	
+#else
+
+	return chsc_gettick();
+	
+#endif
+}
+
+inline uint64_t chsc_gettick_us()
+{
+#ifdef WIN32
+
+	///return __timeGetTime__() * 1000;
+	return (uint64_t)GetTickCount() * 1000;
+
+#else
+
+  #ifdef __APPLE__
+	struct timeval t;
+	gettimeofday(&t, NULL);
+	return (uint64_t)t.tv_sec * 1000000 + t.tv_usec;
+  #else  
+  	struct timespec t = { 0, 0 };
+	clock_gettime(CLOCK_MONOTONIC, &t);
+	return (uint64_t)t.tv_sec * 1000000 + t.tv_nsec / 1000;
+  #endif
+
+#endif
+}
+
+#endif

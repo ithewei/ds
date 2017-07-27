@@ -1,0 +1,167 @@
+#ifndef __STREAM_BUFFER__
+#define __STREAM_BUFFER__
+
+#include <deque>
+#include "buf"
+#include "thread"
+
+unsigned int streambuf_debug_ = 0x01;
+
+class stream_buffer
+{
+public:
+	stream_buffer()
+		: _bufferdeep(2048), 	// 2048 frames
+		  _stampdeep(16000), 	// 16 second (stampdeep >= stampdiff * 2.5)
+		  _stampdiff(6000),		// 6 second
+		  _stampwait(0),
+		#ifdef STREAMBUF_DEBUG_		  
+		  _loctimer(0),
+		#endif		  
+		  _waiting(true)
+	{
+	}
+	virtual ~stream_buffer()
+	{
+	}
+	
+	void set_bufferdeep(unsigned int deep) { _bufferdeep = deep; }
+	void set_stampdeep(unsigned int deep)  { _stampdeep = deep; }
+	void set_stampdiff(unsigned int diff)  
+	{ 
+		_stampdiff = diff;
+		unsigned int s = (_stampdiff << 1) + (_stampdiff >> 1);
+		if(_stampdeep < s)
+			_stampdeep = s;
+	}
+	
+	void req_lock()   { _mu.lock(); }
+	void req_unlock() { _mu.unlock(); }
+	
+	void stream_push(unsigned int stamp, 
+					 const unsigned char * buf, 
+					 unsigned int len)
+	{
+	#ifdef STREAMBUF_DEBUG_
+		unsigned int tm = chsc_gettick();
+		if(_loctimer == 0)
+			_loctimer = tm;
+	#endif
+	
+		if(_stampwait == 0)
+			_stampwait = stamp;
+		if(stamp < _stampwait)
+			_stampwait = stamp;
+		
+		_mu.lock();
+
+		bool overflow = false;
+		unsigned int deep = stamp - _stampwait;
+		
+	#ifdef STREAMBUF_DEBUG_
+		printf("[%u]@%u", stamp, tm - _loctimer);
+	#endif
+		if(_bufs.size() > _bufferdeep) 
+		{
+			overflow = true;
+			if(streambuf_debug_ & 0x01)
+				printf("SBOF[%u]", _bufs.size());
+		}
+		else if(deep > _stampdeep)
+		{
+			overflow = true;
+			if(streambuf_debug_ & 0x01)
+				printf("SBOF[%u]", _stampwait);			
+		}
+		
+		if(overflow)
+		{
+			__queue::iterator ite = _bufs.begin();
+			if(ite != _bufs.end())
+			{
+				if(_stampwait == (unsigned int)(*ite)->unknow())
+				{
+					ite++;
+					if(ite != _bufs.end())
+						_stampwait = (unsigned int)(*ite)->unknow();
+					ite--;
+				}
+				delete *ite;
+				_bufs.erase(ite);
+			}
+		}
+				
+		if(_waiting)
+		{
+			if(deep > _stampdiff)
+			{
+				printf("\nstream_buffer::recover from waiting status\n");
+				_waiting = false;
+			}
+		}
+
+		// save buffer
+		any_buf * b = new any_buf;
+		b->copy(buf, len);
+		b->unknow((void *)stamp);		
+		_bufs.push_back(b);
+			
+		//printf("stream_buffer::bufs=%u, stamp=%u\n", _bufs.size(), stamp);
+		///printf("[%u,%u]", stamp, _bufs.size());
+		if(streambuf_debug_ & 0x02)
+			printf("[%u]", _bufs.size());
+		_mu.unlock();
+	}
+	
+	any_buf * stream_pop(unsigned int * stamp)
+	{
+		if(_waiting)
+		{
+			if(streambuf_debug_ & 0x04)
+				printf("<w>");
+			return NULL;
+		}
+		any_buf * b = NULL;
+		_mu.lock();
+		if(_bufs.size() == 0)
+		{
+			_waiting = true;
+			printf("stream_buffer::change to waiting status\n");
+		}
+		else
+		{
+			__queue::iterator ite = _bufs.begin();
+			if(ite != _bufs.end())
+			{
+				b = *ite;
+				unsigned int s = (unsigned int)b->unknow();
+				if(stamp)
+					*stamp = s;
+				if(s > 0)
+					_stampwait = s;
+				_bufs.erase(ite);
+				if(streambuf_debug_ & 0x04)
+					printf("<%u>", s);
+			}
+		}
+		_mu.unlock();
+		return b;
+	}
+	
+private:
+	unsigned int _bufferdeep;
+	unsigned int _stampdeep;
+	unsigned int _stampdiff;
+	unsigned int _stampwait;
+#ifdef STREAMBUF_DEBUG_	
+	unsigned int _loctimer;
+#endif	
+	bool _waiting;
+	
+	tmc_mutex_type _mu;
+	
+	typedef std::deque<any_buf * > __queue;
+	__queue _bufs;
+};
+
+#endif

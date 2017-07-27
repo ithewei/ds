@@ -1,0 +1,296 @@
+#ifndef __OOK_TGAREADER__
+#define __OOK_TGAREADER__
+
+/*
+		   |图像信息字段长度
+		      |颜色表类型
+		         |图像类型码
+		            |颜色表规格字段
+		                           |图像 X 坐标起始位置
+		                                 |图像 Y 坐标起始位置
+		                                       |图像宽度=324
+		                                             |图像高度=97
+00000000h: 00 00 02 00 00 00 00 00 00 00 00 00 44 01 61 00 ; ............D.a.
+           |图像每像素存储占用位数=32
+              |图像描述符字节
+                 !图像数据
+00000010h: 20 28 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ;  (..............
+00000020h: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
+00000030h: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
+00000040h: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
+00000050h: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
+00000060h: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
+00000070h: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
+00000080h: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
+00000090h: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ................
+
+图像描述符字节:
+ 	bits 3-0 - 每像素的属性位（bit）数			       
+	bit 4    - 保留，必须为 0		                       
+	bit 5    - 屏幕起始位置标志	                       
+		0 = 原点在左下角        		       
+		1 = 原点在左上角          		       
+		truevision 图像必须为 0              	       
+	bits 7-6 - 交叉数据存储标志		               
+		00 = 无交叉	                               
+		01 = 两路奇/偶交叉 		               
+		10 = 四路交叉		                       
+		11 = 保留
+ */
+
+class tga_reader
+{
+public:
+	int colorMode;
+	int imageWidth;
+	int imageHeight;
+	int rleCompress;
+		
+	tga_reader()
+	{
+		__init();
+	}
+	~tga_reader()
+	{
+	}
+	
+	int load(const char * file_path, 
+			 unsigned char ** ptr,
+			 int buffer_size)
+	{
+    	if(!file_path) 
+			return -1;
+
+		FILE * fp = fopen(file_path, "rb");
+		if(!fp) 
+			return -1;
+		
+		fseek(fp, 0L, SEEK_END);
+		unsigned int filesize = (unsigned int)ftell(fp);
+		fseek(fp, 0L, SEEK_SET);
+		
+		unsigned char * buffer = new unsigned char[filesize + 32];
+		int r = fread(buffer, 1, filesize, fp);
+		fclose(fp);
+		
+		if(r == (int)filesize)
+			r = load(buffer, filesize, ptr, buffer_size);
+		else
+			r = -2;
+		
+		delete [] buffer;
+		return r;
+	}
+	
+	int load(const unsigned char * buffer, 
+			 unsigned int buflen, 
+			 unsigned char ** ptr,
+			 int buffer_size)
+	{		
+		unsigned char bitCount; 
+		unsigned char synHeader[12] = {0, 0, 0/* 2 */, 0, 0, 0, 0, 0, 0, 0, 0, 0}; /* uncompress first TAG file header */
+		unsigned char tgaHeader[12];
+		unsigned char header[6];
+		unsigned char aux;
+		
+		// tagheader
+		if(buflen < sizeof(tgaHeader))
+			return -1;		
+
+		memcpy(tgaHeader, buffer, sizeof(tgaHeader));
+		buffer += sizeof(tgaHeader);
+		buflen -= sizeof(tgaHeader);
+		
+		///pbuf(tgaHeader, 12);	
+		unsigned char imgType = tgaHeader[2];
+		tgaHeader[2] = 0;
+		if(memcmp(synHeader, tgaHeader, sizeof(synHeader)) != 0)
+			return -2;
+		tgaHeader[2] = imgType;
+		
+		rleCompress = (imgType & TGA_RLE) ? 1 : 0;
+		switch(imgType)
+		{
+		case 2:	// uncompress color
+		case 3: // uncompress monochrome
+		case 10: // RLE compress color
+		case 11: // RLE compress monochrome
+			break;
+		default:
+			return -3;
+		}
+		///printf("tga_reader::rleCompress=%d\n", rleCompress);
+		
+		// header
+		if(buflen < sizeof(header))
+			return -4;		
+
+		memcpy(header, buffer, sizeof(header));
+		buffer += sizeof(header);
+		buflen -= sizeof(header);
+		
+		imageWidth   = ((int)header[1] << 8) + header[0];    
+		imageHeight  = ((int)header[3] << 8) + header[2];
+		bitCount     = (int)header[4];
+		colorMode    = bitCount / 8;
+		int reversed = (header[5] & 0x20) == 0;
+		///printf("tga_reader::size=%dX%d, bitCount=%d, reversed=%d\n", imageWidth, imageHeight, bitCount, reversed);
+
+		if(ptr)
+		{
+			int imagesize = imageWidth * imageHeight * colorMode;
+			///printf("tga_reader::imagesize=%d\n", imagesize);
+						
+			if(rleCompress < 1 && (int)buflen < imagesize)
+			{
+				///printf("tga_reader::imagesize mismatch, size=%d/%u\n", imagesize, buflen);
+				return -5;
+			}
+			
+			unsigned char * image = NULL;
+			if(*ptr)
+			{
+				if(buffer_size < imagesize)
+					return -6;
+				image = *ptr;
+			}
+			else
+			{
+				///printf("malloc\n");
+				image = (unsigned char *)malloc(imagesize + 32);
+				*ptr  = image;
+			}
+			
+			if(rleCompress > 0)
+			{
+				///printf("RLE decompress...\n");
+				
+				char * d = (char *)image;  // beg of image buffer
+				char * p = (char *)buffer; // end of image buffer
+				char * e = p + buflen;	   // soure buffer
+				
+				int w = imageWidth;
+				int h = imageHeight;
+				int s = colorMode;
+				
+				int x, y, n, t, c;
+				
+				// ff   0   0   0   0  ff   0   0   0   0  ff   0   0   0
+				
+			    x = y = c = 0;
+			    while(y < h)
+			    {
+			        if(p == e) 
+			        {
+			         	printf("EOF\n");
+			         	break;
+			        }
+			        
+			        t = *p++;
+			        c = (t & 0x7F) + 1;
+			        ///printf("%d %d ", t, c);
+			        			        
+			        if((t & 0x80) == 0) 
+			        {
+			            do {
+			                n = c < w - x ? c : w - x;
+			                memcpy(d, p, n * s);
+			                c -= n;
+			                x += n;
+			                d += n * s;
+			                p += n * s;
+			                if(x == w) 
+			                {
+			                    x = 0;
+			                    y++;
+			                    ///printf(" # %d\n", y);
+			                }
+			            } while(c > 0);
+			        } 
+			        else 
+			        {
+			            ///printf(" B");
+			            do {
+			                n  = c < w - x ? c : w - x;
+			                c -= n;
+			                x += n;
+			                ///printf(" (%d %d %d) ", n, c, x);
+			                do {
+			                    memcpy(d, p, s);
+			                    d += s;
+			                } while (--n);
+			                p += s;
+			                if(x == w) 
+			                {
+			                    x = 0;
+			                    y++;
+			                    ///printf(" # %d\n", y);
+			                }
+			            } while(c > 0);
+			        }
+			    }
+			    ///int l = (int)(e - p);
+			    ///printf("tga_reader::decompress::left=%d\n", l);
+			    ///exit(0);
+				return 0;
+			}
+
+			memcpy(image, buffer, imagesize);			
+			if(reversed)
+			{
+				unsigned int w = imageWidth * colorMode;
+				unsigned char * b = (unsigned char *)malloc(w + 32);
+				unsigned char * t = image;
+				unsigned char * l = image + w * (imageHeight - 1);
+				for(long j = 0; j < imageHeight / 2; j++)
+				{
+					memcpy(b, t, w);
+					memcpy(t, l, w);
+					memcpy(l, b, w);
+					t += w;
+					l -= w;
+				}
+				free(b);
+			}
+			
+		#if 1 // BGR --> RGB
+			for(long i = 0; i < imagesize; i += colorMode)
+			{
+				aux          = image[i];
+				image[i]     = image[i + 2];
+				image[i + 2] = aux;
+			}
+		#endif
+		}
+
+		return 0;
+	}
+	
+	void __init()
+	{
+		colorMode   = -1;
+		imageWidth  = 0;
+		imageHeight = 0;
+		rleCompress = 0;
+	}
+	
+private:
+	enum TargaCompr 
+	{
+	    TGA_NODATA = 0, // no image data
+	    TGA_PAL    = 1, // palettized
+	    TGA_RGB    = 2, // true-color
+	    TGA_BW     = 3, // black & white or grayscale
+	    TGA_RLE    = 8, // flag pointing that data is RLE-coded
+	};
+	
+	enum TargaFlags 
+	{
+	    TGA_RIGHTTOLEFT = 0x10, // right-to-left (flipped horizontally)
+	    TGA_TOPTOBOTTOM = 0x20, // top-to-bottom (NOT flipped vertically)
+	    TGA_INTERLEAVE2 = 0x40, // 2-way interleave, odd then even lines
+	    TGA_INTERLEAVE4 = 0x80, // 4-way interleave
+	};	
+};
+
+#endif

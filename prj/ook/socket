@@ -1,0 +1,249 @@
+#ifndef __TMC_SOCKET_H__
+#define __TMC_SOCKET_H__
+
+#ifdef __llvm__ // add @ 2017/04/18 for iOS
+#pragma GCC diagnostic ignored "-Wdangling-else"
+#endif
+
+#include "thread"
+
+#include <map>
+
+#ifndef NOIOSTREAM
+#include <sstream>
+#endif // NOIOSTREAM
+
+#ifdef WIN32
+	#include <time.h>
+	#include <Ws2tcpip.h>
+
+	#define NPEXXX(e) WSA##e
+	typedef int socklen_t;
+#else
+  #ifdef __GNUC__
+	#include <unistd.h>
+	#include <errno.h>
+	#include <signal.h>
+	#include <netdb.h>
+	#include <fcntl.h>
+	#include <sys/socket.h>
+	#include <sys/types.h>
+	#include <sys/time.h>
+	#include <sys/ioctl.h>
+	#include <sys/stat.h>
+	#include <arpa/inet.h>
+	#include <netinet/in.h>
+	#include <netinet/tcp.h>
+	#include <net/if.h>
+  #endif
+  
+	#define NPEXXX(e) e
+	typedef int SOCKET;
+	#define INVALID_SOCKET (-1)
+	#define ioctlsocket ioctl
+	#define closesocket close
+	#define SOCKET_ERROR (-1)
+	#define WSAGetLastError() errno
+	#define WSASetLastError(e) (errno = e)
+	
+	#define LPHOSTENT struct hostent *  
+#endif // WIN32
+
+#define tmc_fileid 10000000 // 10000000 ~ 19900000
+#define tmc_line (tmc_fileid + __LINE__)
+
+
+/////////////////////////////////////
+// tmc_assert
+
+#ifdef NOIOSTREAM
+
+	struct pseudo_stringstream {
+	};
+	inline  pseudo_stringstream & operator<<(pseudo_stringstream & __os, const char * __x) 
+	{
+	  	return __os;
+	}
+	inline  pseudo_stringstream & operator<<(pseudo_stringstream & __os, const std::exception & __x) 
+	{
+	  	return __os;
+	}
+	
+	extern pseudo_stringstream pseudo_stringstream_;
+	
+	#define tmc_assert(expr) \
+		if(!(expr)) \
+			for(bool b = false; ;) \
+				for(pseudo_stringstream ss; ; b = true) \
+					if(b) { \
+					} else \
+						ss << "] THROW: '" << #expr << "' failed. "
+	
+	#define tmc_filter if(0)
+	#define tmc_error pseudo_stringstream_
+	#define tmc_catch pseudo_stringstream_
+
+#else
+  #ifdef __APPLE__
+    #define tmc_assert(expr) \
+        if(!(expr)) \
+			for(bool b = false; ;) \
+				for(std::stringstream ss; ; b = true) \
+					if(b) { \
+						throw tmc_exception_type(ss.str()); \
+					} else \
+						ss << tmc_line << #expr  
+  #else			
+	#define tmc_assert(expr) \
+		if(!(expr)) \
+			for(bool b = false; ;) \
+				for(std::stringstream ss; ; b = true) \
+					if(b) { \
+						throw tmc_exception_type(ss.str()); \
+					} else \
+						ss << "[" << tmc_line << "] THROW: '" << #expr << "' failed. "
+  #endif
+
+	/////////////////////////////////////
+	// tmc_filter
+	
+  #ifndef WINCE
+  #define NOTMCFILTER
+  #endif
+	
+  #ifndef NOTMCFILTER
+	
+	template <typename spec_type>
+	struct tmc_filter_type {
+	
+		typedef std::map<spec_type, bool > map_type_;
+		map_type_ map_;
+		bool default_;
+		tmc_rwlock_ext_type rwlock_;
+	
+		tmc_filter_type(bool default__ = false): default_(default__) {
+		}
+	
+		bool operator ()(const spec_type & spec) {
+	
+			tmc_autolock_type<tmc_rwlockrd_type > autolock(rwlock_);
+	
+			typename map_type_::iterator it = map_.find(spec);
+	
+			if(it == map_.end()) {
+				return default_;
+			}
+	
+			return it->second;
+		}
+	
+		void setdefault(bool b) {
+	
+			tmc_autolock_type<tmc_rwlockwr_type> autolock(rwlock_);
+	
+			default_ = b;
+		}
+	
+		void unset(const spec_type & spec) {
+	
+			tmc_autolock_type<tmc_rwlockwr_type> autolock(rwlock_);
+	
+			map_.erase(spec);
+		}
+	
+		void unset(bool b) {
+	
+			tmc_autolock_type<tmc_rwlockwr_type> autolock(rwlock_);
+	
+			for(typename map_type_::iterator it = map_.begin(); it != map_.end();) {
+				if(it->second == b) {
+					map_.erase(it++);
+				} else {
+					it++;
+				}
+			}
+		}
+	
+		void set(const spec_type & spec, bool b) {
+	
+			tmc_autolock_type<tmc_rwlockwr_type> autolock(rwlock_);
+			map_[spec] = b;
+		}
+	
+	}; // struct tmc_filter_type
+	
+	extern tmc_filter_type<int > tmc_filter_;
+	#define tmc_filter if(tmc_filter_(tmc_line))
+		
+  #else
+	
+	#define tmc_filter if(0)
+
+  #endif // NOTMCFILTER
+
+	/////////////////////////////////////
+	// tmc_out
+	
+	#define tmc_out(out) \
+		if(true) \
+			for(bool b = false; ; b = true) \
+				if(b) { \
+					out << std::endl; \
+					break; \
+				} else \
+					out << "[" << tmc_line << "] "
+	
+	#define tmc_info tmc_out(std::cout)     << "INFO: "
+	#define tmc_warning tmc_out(std::cout)  << "WARNING: "
+	#define tmc_error tmc_out(std::cerr)    << "ERROR: "
+	#define tmc_question tmc_out(std::cout) << "QUESTION: "
+	#define tmc_catch tmc_out(std::cerr)    << "CATCH: "
+
+#endif // NOIOSTREAM
+
+
+#ifdef tmc_socket_object
+
+	static struct tmc_socket_pthread_init {
+		tmc_socket_pthread_init() {	tmc_pthread_init();	}
+	} tmc_socket_pthread_init_;
+	
+  #ifdef NOIOSTREAM
+	pseudo_stringstream pseudo_stringstream_;
+  #else
+    #ifndef NOTMCFILTER
+	tmc_filter_type<int > tmc_filter_;
+	#endif
+  #endif
+
+#endif // tmc_socket_object
+
+
+#include "np_sockinfo_type"
+#include "np_sock_typex"
+
+#ifdef tmc_socket_object
+#ifdef WIN32
+	struct np_winsock_init_type {
+	
+		np_winsock_init_type() {
+			
+			tmc_pthread_init();
+			
+			WSADATA wsd;
+			if(WSAStartup(MAKEWORD(2,2), &wsd) != 0) {
+				tmc_filter tmc_error << "'WSAStartup' failed.";
+			}
+			np_sock_type::errorstr();
+		}
+	
+		~np_winsock_init_type() {
+			WSACleanup();
+		}
+
+	} np_winsock_init_;
+#endif
+#endif // #ifdef tmc_socket_object
+
+#undef tmc_fileid
+#endif

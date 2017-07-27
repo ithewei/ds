@@ -1,0 +1,216 @@
+/***************************************************************************
+                           trace 3.01
+                         -------------------
+    begin                : 2003 - 06 -  08
+    last modify			 : 2006 - 03 -  24
+    copyright            : (C) 2003 - 2006 by ook
+    email                : hellocy@263.net
+ ***************************************************************************/
+/*
+ * This material is provided "as is", with absolutely no warranty expressed
+ * or implied. Any use is at your own risk.
+ *
+ * Permission to use or copy this software for any purpose is hereby granted 
+ * without fee, provided the above notices are retained on all copies.
+ * Permission to modify the code and to distribute modified code is granted,
+ * provided the above notices are retained, and a notice that the code was
+ * modified is included with the above copyright notice.
+ *
+ *
+ */
+#ifndef __TRACE_H__
+#define __TRACE_H__
+
+#ifdef NOTRACE_DEFINE
+
+#define NEWTRACE(a)
+#define DECTRACE
+#define SETIOS(a) {}
+#define RECIOS  {}
+#define DUP_TRACE_FILE(a) {}
+#define RELEASE_TRACE_FILE {}
+#define DUP_TRACE_FILE_(a) {}
+#define RELEASE_TRACE_FILE_ {}
+#define SETTRACE(a) {}
+#define NEATTRACE {}
+#define BTRACE(a, b) {}
+#define FTRACE(a, b) {}
+#define ETRACE(a, b) {}
+#define TRACE(a, b) {}
+#define NTRACE(a, b) {}
+#define STRACE(a, b) {}
+#define SNTRACE(a, b) {}
+#define LGTRACE(b)
+#define EXCEPTION_TRACE(ex, txt) {}
+
+#else
+
+#ifdef WIN32
+#ifndef WINCE
+#include <io.h>
+#endif
+#endif // WIN32
+
+#include <string>
+#include <iostream>
+#include <ook/thread>
+
+// common trace declear
+
+#ifdef WINCE
+
+#define NEWTRACE(a) int _com_hg_trace_        = a; \
+				    int _com_hg_trace_tab_    = 0; \
+					int _com_hg_trace_fp_bak_ = 0; \
+				    FILE * _com_hg_trace_fp_  = NULL; \
+					std::basic_ostream<char> * _com_hg_trace_ios_ = NULL; \
+				    std::string _com_hg_trace_sp_    = ""; \
+				    std::string _com_hg_trace_sp_tab = "    ";
+
+#else
+
+typedef std::basic_ostream<char > TRACESTREAM;
+
+#define NEWTRACE(a) int _com_hg_trace_        = a; \
+				    int _com_hg_trace_tab_    = 0; \
+					int _com_hg_trace_fp_bak_ = 0; \
+				    FILE           * _com_hg_trace_fp_   = NULL; \
+					tmc_mutex_type * _com_hg_trace_lock_ = NULL; \
+					TRACESTREAM    * _com_hg_trace_ios_  = &std::cout; \
+				    std::string _com_hg_trace_sp_    = ""; \
+				    std::string _com_hg_trace_sp_tab = "    ";
+
+#endif // WINCE
+
+#define DECTRACE 	extern int _com_hg_trace_; \
+				 	extern int _com_hg_trace_tab_; \
+				 	extern int _com_hg_trace_fp_bak_;\
+				 	extern FILE           * _com_hg_trace_fp_;   \
+				 	extern tmc_mutex_type * _com_hg_trace_lock_; \
+				 	extern TRACESTREAM    * _com_hg_trace_ios_;  \
+				 	extern std::string _com_hg_trace_sp_; \
+				 	extern std::string _com_hg_trace_sp_tab;
+
+// ios trace output
+
+#define SETIOS(a) 	_com_hg_trace_ios_ = a;
+
+#ifdef WINCE
+#define RECIOS 		_com_hg_trace_ios_ = NULL;
+#else
+#define RECIOS 		_com_hg_trace_ios_ = &std::cout;
+#endif // WINCE
+
+// trace to file
+
+#ifndef WINCE
+
+#define DUP_TRACE_FILE(a) 	{  	_com_hg_trace_fp_bak_ = dup(fileno(stdout)); \
+								if(_com_hg_trace_fp_) \
+									fclose(_com_hg_trace_fp_); \
+								_com_hg_trace_fp_ = fopen(a, "a"); \
+								dup2(fileno(_com_hg_trace_fp_), fileno(stdout)); \
+							}
+
+#define RELEASE_TRACE_FILE 	{ 	if(_com_hg_trace_fp_) \
+								{ \
+									fflush(stdout); \
+									fclose(_com_hg_trace_fp_); \
+									_com_hg_trace_fp_ = NULL; \
+									dup2(_com_hg_trace_fp_bak_, fileno(stdout)); \
+								} \
+							}
+
+#define DUP_TRACE_FILE_(a) 	{ 	_com_hg_trace_fp_bak_ = dup(fileno(stdout)); \
+								dup2(fileno(a), fileno(stdout)); \
+							}
+
+#define RELEASE_TRACE_FILE_	{	if(_com_hg_trace_fp_bak_ > 0) \
+								{ \
+									dup2(_com_hg_trace_fp_bak_, fileno(stdout)); \
+									_com_hg_trace_fp_bak_ = 0; \
+								} \
+							}
+
+#endif // WINCE
+
+// common trace invoke
+
+#define SETTRACE(a) 	_com_hg_trace_ = a;
+
+#define TRACE_LOCK		{ if(_com_hg_trace_lock_) _com_hg_trace_lock_->lock();   }
+#define TRACE_UNLOCK	{ if(_com_hg_trace_lock_) _com_hg_trace_lock_->unlock(); }
+
+#define NEATTRACE		{ _com_hg_trace_tab_ = 0; _com_hg_trace_sp_ = ""; }
+
+#define BTRACE(a, b) 	{ 	if(_com_hg_trace_ios_ && (a <= _com_hg_trace_)) \
+							{ \
+								TRACE_LOCK \
+								*_com_hg_trace_ios_ << _com_hg_trace_sp_ << b << std::endl; \
+								_com_hg_trace_tab_++; \
+								_com_hg_trace_sp_ += _com_hg_trace_sp_tab; \
+								TRACE_UNLOCK \
+							} \
+					 	}
+
+#define FTRACE(a, b) 	{ 	if(_com_hg_trace_ios_ && (a <= _com_hg_trace_)) \
+							{ \
+								TRACE_LOCK \
+								*_com_hg_trace_ios_ << _com_hg_trace_sp_ << b << std::endl; \
+								TRACE_UNLOCK \
+							} \
+						}
+
+#define ETRACE(a, b) 	{ 	if(_com_hg_trace_ios_ && (a <= _com_hg_trace_)) \
+							{ \
+								TRACE_LOCK \
+								if(_com_hg_trace_tab_ > 0) \
+									_com_hg_trace_tab_--; \
+								int len = _com_hg_trace_tab_ * 4; \
+								_com_hg_trace_sp_ = _com_hg_trace_sp_.substr(0, len); \
+								*_com_hg_trace_ios_ << _com_hg_trace_sp_ << b << std::endl; \
+								TRACE_UNLOCK \
+							} \
+					 	}
+
+#define LGTRACE(b) (_com_hg_trace_ > b)
+
+#ifdef TRACE
+#undef TRACE
+#endif
+
+#define TRACE(a, b) 	{ 	if(_com_hg_trace_ios_ && (a <= _com_hg_trace_)) \
+							{ \
+								TRACE_LOCK \
+								*_com_hg_trace_ios_ << b << std::endl; \
+								TRACE_UNLOCK \
+							} \
+						}
+
+#define NTRACE(a, b) 	{ 	if(_com_hg_trace_ios_ && (a <= _com_hg_trace_)) \
+							{ \
+								TRACE_LOCK \
+								*_com_hg_trace_ios_ << b; \
+								TRACE_UNLOCK \
+							} \
+					 	}
+
+#define STRACE(a, b) 	{ 	if(_com_hg_trace_ios_ && (a <= _com_hg_trace_)) \
+								cout << b << endl; \
+					 	}
+
+#define SNTRACE(a, b) 	{ 	if(_com_hg_trace_ios_ && (a <= _com_hg_trace_)) \
+								cout << b; \
+					  	}
+
+#ifdef WIN32
+#define EXCEPTION_TRACE(ex, txt) TCHAR sz_err[256];\
+								 ex.GetErrorMessage(sz_err, 256);\
+								 char c_err[256];\
+								 WideCharToMultiByte(CP_ACP, 0, sz_err, -1, c_err, 256, NULL, NULL);\
+								 TRACE(3, txt << c_err)
+#endif
+
+#endif // end of #ifdef NOTRACE_DEFINE
+
+#endif

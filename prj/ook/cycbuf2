@@ -1,0 +1,231 @@
+/***************************************************************************
+                           cyc_buf 3.03 (M):mem alloc safe
+                         -------------------
+    begin                : 2003 - 6 -  8
+    last modify			 : 2011 - 3 - 16
+    copyright            : (C) 2004 by ChengYang
+    email                : hellocy@263.net
+ ***************************************************************************/
+/*
+ * This material is provided "as is", with absolutely no warranty expressed
+ * or implied. Any use is at your own risk.
+ *
+ * Permission to use or copy this software for any purpose is hereby granted 
+ * without fee, provided the above notices are retained on all copies.
+ * Permission to modify the code and to distribute modified code is granted,
+ * provided the above notices are retained, and a notice that the code was
+ * modified is included with the above copyright notice.
+ *
+ *
+ */
+#ifndef __CYCBUF2_H__
+#define __CYCBUF2_H__
+
+#include <stdio.h>
+#include <string>
+
+extern "C" {
+	#include "mem.h"
+}
+
+template <typename _I, unsigned int buf_size = 2048>
+class cyc_buf
+{
+public:
+	cyc_buf(unsigned int len = buf_size)
+		: _buf(NULL)
+	{
+		size(len);
+	}
+	~cyc_buf()
+	{
+		free__(_buf);
+	}
+
+	void size(unsigned int len)
+	{
+		if(_buf)
+		{
+			free__(_buf);
+			_buf = NULL;
+		}
+			
+		_size = len;
+		if(_size > 0)
+			_buf = (_I *)malloc__(sizeof(_I) * _size);
+		
+		clear();
+	}
+	
+	unsigned int push(const _I * buf, unsigned int len)
+	{
+		if(!_buf)
+			return 0;
+			
+		if(len > _size)
+			len = _size;
+		
+		unsigned int toCopy   = len;
+		unsigned int leftCopy = 0;
+	
+		if((_ptr_w + len) > _size)
+		{
+			toCopy   = _size - _ptr_w;
+			leftCopy = len - toCopy;
+		}
+		
+		if(toCopy > 0)
+		{
+			memcpy(_buf + _ptr_w, buf, sizeof(_I) * toCopy);
+			_ptr_w += toCopy;
+		}
+
+		_len += toCopy + leftCopy;
+		if(_len > _size)
+			_len = _size;
+
+		if(leftCopy > 0)
+		{
+			memcpy(_buf, buf + toCopy, sizeof(_I) * leftCopy);
+			_ptr_w = leftCopy;
+			if(_ptr_r < _ptr_w)
+			{
+				_ptr_r = _ptr_w;
+			}
+			else
+			{
+				if(_len == _size) // this seems impossible
+					_ptr_r = _ptr_w;
+			}
+		}
+		else
+		{	
+			if(_len == _size && _ptr_r < _ptr_w)
+			{
+				_ptr_r = _ptr_w;
+			}
+		}
+			
+		///char logb[128];
+		///__snprintf(logb, 128, "[%6u|%6u][%6u|%6u] %6u", toCopy, leftCopy, _ptr_r, _ptr_w, _len);
+		///TRACE(3, logb)
+
+		return _len;
+	}
+
+	unsigned int pop(_I * buf, unsigned int len, bool keep = false)
+	{
+		if(!_buf)
+			return 0;
+		
+		unsigned int toCopy   = len;
+		unsigned int leftCopy = 0;
+
+		if(_len < len) 
+			return 0;
+		
+		if(_ptr_w > _ptr_r)	
+		{
+			memcpy(buf, _buf + _ptr_r, sizeof(_I) * toCopy);
+			if(!keep)
+				_ptr_r += toCopy;
+		}
+		else
+		{
+			if((_size - _ptr_r) < len)
+			{
+				toCopy   = _size - _ptr_r;
+				leftCopy = len - toCopy;
+			}
+
+			if(toCopy > 0)
+			{
+				memcpy(buf, _buf + _ptr_r, sizeof(_I) * toCopy);
+				if(!keep)
+					_ptr_r += toCopy;
+			}
+
+			if(leftCopy > 0)
+			{
+				memcpy(buf + toCopy, _buf, sizeof(_I) * leftCopy);
+				if(!keep)
+					_ptr_r = leftCopy;
+			}
+		}
+
+		if(!keep)
+			_len -= len;
+		return toCopy + leftCopy;
+	}
+
+	unsigned int mv(cyc_buf<_I, buf_size> & buf, unsigned int len)
+	{
+		if(!_buf)
+			return 0;
+		
+		unsigned int toCopy   = len;
+		unsigned int leftCopy = 0;
+
+		if(_len < len) 
+			return 0;
+		
+		if(_ptr_w > _ptr_r)	
+		{
+			buf.push(_buf + _ptr_r, sizeof(_I) * toCopy);
+			_ptr_r += toCopy;
+		}
+		else
+		{
+			if((_size - _ptr_r) < len)
+			{
+				toCopy   = _size - _ptr_r;
+				leftCopy = len - toCopy;
+			}
+
+			if(toCopy > 0)
+			{
+				buf.push(_buf + _ptr_r, sizeof(_I) * toCopy);
+				_ptr_r += toCopy;
+			}
+
+			if(leftCopy > 0)
+			{
+				buf.push(_buf, sizeof(_I) * leftCopy);
+				_ptr_r = leftCopy;
+			}
+		}
+
+		_len -= len;
+		return toCopy + leftCopy;
+	}
+	
+	void clear()
+	{
+		if(_buf && _size > 0)
+			::memset(_buf, 0, sizeof(_I) * _size);
+		
+		_len   = 0;
+		_ptr_w = 0;
+		_ptr_r = 0;	
+	}
+
+	_I * ptr()     const { return _buf; }
+	_I * cur_ptr() const { return _buf + sizeof(_I) * _ptr_r; }
+	_I * end_ptr() const { return _buf + sizeof(_I) * _ptr_w; }
+	unsigned int size()   const { return _size; }	
+	unsigned int length() const { return _len;  }
+	
+	void print()	
+	{
+		printf("cyc_buf::_ptr_r=%u, _ptr_w=%u, _len=%u\n", _ptr_r, _ptr_w, _len);
+	}
+	
+private:
+	_I * _buf;
+	unsigned int _size;		// buf total length
+	unsigned int _len;		// playload length
+	unsigned int _ptr_w;	// write pointer
+	unsigned int _ptr_r;	// read pointer
+};
+	
+#endif

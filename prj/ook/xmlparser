@@ -1,0 +1,789 @@
+/*
+                         xml parser 0.8 (M):mem alloc safe
+                         the simplest xml parser
+                         -------------------
+    begin                : 
+    last modify			 : 2011 - 3 - 16
+    copyright            : (C) 2011 by ook
+    email                : helloook@hotmail.com
+ */
+
+#ifndef __OOK_XMLPARSE__
+#define __OOK_XMLPARSE__
+
+#include <stdio.h>
+#include <string>
+#include <map>
+#include "predef.h"
+
+extern "C" {
+	#include "mem.h"
+}
+
+#undef XMLPARSER_TRACE
+///#define XMLPARSER_TRACE
+
+#ifdef XMLPARSER_TRACE
+#include <ook/trace>
+DECTRACE
+#define XML_PARSE_TRACE 3
+///#define XML_PARSE_TRACE 2
+#endif
+
+/*
+	ook::xml_parser x;
+	x.parse(ptr);
+	ook::xml_element & root = x.get_root();
+	
+	sample: enum children under a element
+	
+		ook::xml_parser::enum_childen(root, NULL);
+		ook::xml_element * e = NULL;
+		while(1)
+		{
+			e = ook::xml_parser::enum_childen(task, "param");
+		 	if(!e)
+		 		break;
+		 }
+		 
+	sample: find a special element within a xml_parse	 		
+		ook::xml_element * e = ook::xml_parser::find_element(&root, "<IE_HEADER>");
+		std::string UserId = e->get_attribute(""UserID");
+
+	sample: get xml_element you need
+		ook::xml_element * e = ook::xml_parser::get_element(&root, "<params><param><value><array><data>");
+ */
+
+namespace ook {
+
+class xml_element
+{
+public:
+	xml_element(const char * tag = NULL)
+	{
+		if(tag)
+			_tag = tag;
+			
+		//BTRACE(3, "new " << _tag << " {")
+		//ETRACE(3, "}")
+	}
+	~xml_element()
+	{
+	#ifdef XMLPARSER_TRACE
+		BTRACE(XML_PARSE_TRACE + 1, "del " << _tag << " {")
+	#endif
+	
+		clear();
+		
+	#ifdef XMLPARSER_TRACE
+		ETRACE(XML_PARSE_TRACE + 1, "}")
+	#endif
+	}
+
+	void clear()
+	{
+		for(__child::const_iterator ite = _child.begin(); ite != _child.end(); ite++)
+		{
+			xml_element * element = ite->second;
+			if(element)
+				delete element;
+		}
+		
+		_child.clear();
+		_attr.clear();
+
+		_tag = "";
+		_txt = "";
+	}
+	
+	void clone(const xml_element * e, bool insert_sp = false)
+	{
+		clear();
+		if(e)
+		{
+			std::string sp, content;
+			((xml_element *)e)->make(content, sp, insert_sp);
+			///printf("===\n%s\n===\n", content.c_str());
+			parse(content.c_str(), content.length());
+		}
+	}
+	
+	const std::string & tag_name() const { return _tag; }
+	void tag_name(const char * name) { _tag = name; }
+	
+	const std::string & text() const { return _txt; }
+	void text(const char * txt) { _txt = txt; }
+
+	void set_enumpos(int pos) { _enumpos = pos; }
+	int get_enumpos() const   { return _enumpos; }
+
+	bool has_attribute(std::string & name) const
+	{
+		return has_attribute(name.c_str());
+	}
+	
+	bool has_attribute(const char * name) const
+	{
+		__attr::const_iterator ite = _attr.find(name);
+		if(ite != _attr.end())
+			return true;
+		return false;
+	}
+
+	const std::string & get_attribute(std::string & name) const
+	{
+		return get_attribute(name.c_str());
+	}
+	
+	const std::string & get_attribute(const char * name) const
+	{
+		__attr::const_iterator ite = _attr.find(name);
+		if(ite != _attr.end())
+			return ite->second;
+		return blank_string;
+	}
+
+	void set_attribute(std::string & name, std::string & value) 
+	{
+		_attr[name] = value;
+	}
+	void set_attribute(const char * name, const char * value) 
+	{
+		_attr[name] = value;
+	}
+	
+	int size()      const { return (int)_child.size(); }
+	int attr_size() const { return (int)_attr.size();  }
+
+	void add_childElement(xml_element * element) 
+	{
+		_child[(int)_child.size()] = element;
+	}
+
+	const xml_element * get_childElement(const int index) const
+	{
+		__child::const_iterator ite = _child.find(index);
+		if(ite != _child.end())
+			return ite->second;
+		return NULL;
+	}
+
+	void make_attribute(std::string & content) const
+	{
+		for(__attr::const_iterator ite = _attr.begin(); ite != _attr.end(); ite++)
+		{
+			if(content.length() > 0)
+				content += " ";
+			content += (ite->first + "=\"" + ite->second + "\"");
+		}
+	}
+	
+	void make(std::string & content, std::string & sp, bool insert_sp = true) const
+	{
+		if(_tag.length() == 0)
+			return;
+		if(insert_sp)
+			content += sp;
+			
+		content += "<";
+		content += _tag;
+		make_attribute(content);
+		content += ">";
+		
+		bool blank_content = false;
+		if(_txt.length() > 0)
+			content += _txt;
+		else
+			blank_content = true;
+		
+		for(int i = 0; i < size(); i++)
+		{
+			if(blank_content)
+			{
+				blank_content = false;
+				content += "\n";
+			}
+			
+			const xml_element * element = get_childElement(i);
+			if(element)
+			{
+				if(insert_sp)				
+					sp += "    ";
+				
+				((xml_element * )element)->make(content, sp, insert_sp);
+				
+				if(insert_sp)
+				{
+					int len = (int)sp.length();
+					if(len > 3)
+						len -= 4;
+					sp = sp.substr(0, len);
+				}
+			}
+		}
+		
+		if(insert_sp && !blank_content && (_txt.length() == 0))
+			content += sp;
+			
+		content += "</";
+		content += _tag;
+		content += ">\n";
+	}
+	
+	int parse(const char * ptr, int len)
+	{
+		if(len == 0)
+			return -1;
+
+	#ifdef XMLPARSER_TRACE
+		TRACE(3, "====parse====\n" << ptr << "\n========")
+		FTRACE(XML_PARSE_TRACE + 1, "parse " << len << " {")
+	#endif
+		int i;
+		int deep = 0;
+		int pos_tag = 0;
+		int pos_content = 0;
+		xml_element * e = NULL;
+		
+		for(i = 0; i < len; i++)
+		{
+			///NTRACE(3, *(ptr + i))
+			///printf("[%x]%c", *(ptr + i), *(ptr + i));
+			if(*(ptr + i) == ' ')
+			{
+			}
+			else if(*(ptr + i) == 0x09)
+			{
+				///printf("is '\t'\\n");
+			}
+			else if(*(ptr + i) == '\r')
+			{
+				///printf("is '\r'\\n");
+			}			
+			else if(*(ptr + i) == '\n')
+			{
+				///printf("is '\n'\\n");
+			}
+			else if(*(ptr + i) == '<')
+			{
+				if(*(ptr + i + 1) == '!' && *(ptr + i + 2) == '-' && *(ptr + i + 3) == '-')
+				{
+					// <!--
+					i += 4;
+					for(; i < len; i++)
+					{
+						if(*(ptr + i) == '-' && *(ptr + i + 1) == '-' && *(ptr + i + 2) == '>')
+						{
+							i += 2;
+							break;
+						}
+						else
+						{
+							///NTRACE(3, *(ptr + i))
+						}
+					}
+					continue;
+				}
+				
+				if(*(ptr + i + 1) == '/')
+				{
+					deep--;
+					if(deep == 0)
+					{
+						if(!e)
+							_parse_content(ptr + pos_content, i - pos_content);
+						pos_tag = i + 2;
+					}
+					else
+					{
+					#ifdef XMLPARSER_TRACE				
+						FTRACE(3, "label mismatch1")
+						ETRACE(3, "}")
+					#endif
+						return -1;
+					}
+				}
+				else
+				{
+					///TRACE(3, "deep=" << deep)
+					if(deep == 0)
+					{
+						deep++;
+						pos_tag = i + 1;
+					}
+					else
+					{
+						int sz = len - i;
+						if(sz > 0)
+						{
+							e = new xml_element;
+							int l = e->parse(ptr + i, len - i);
+							if(l < 0)
+							{
+								delete e;
+							#ifdef XMLPARSER_TRACE			
+								FTRACE(XML_PARSE_TRACE, "parse error")
+								ETRACE(XML_PARSE_TRACE, "}")
+							#endif							
+								return -1;
+							}
+							add_childElement(e);
+							i += l;
+						}
+					}
+				}
+			}
+			else if(*(ptr + i) == '>')
+			{
+				///TRACE(3, "$deep=" << deep)
+				if(deep == 1)
+				{
+					pos_content = i + 1;
+					if(*(ptr + i - 1) == '/') // <path/>
+					{
+						_parse_tag(ptr + pos_tag, i - pos_tag - 1);
+						deep = 0;
+						break;
+					}
+					else
+					{
+						_parse_tag(ptr + pos_tag, i - pos_tag);
+					}
+				}
+				else if(deep == 0)
+				{
+					if(!_is_fit(ptr + pos_tag, i - pos_tag))
+					{
+					#ifdef XMLPARSER_TRACE
+						FTRACE(XML_PARSE_TRACE, "format error")
+						ETRACE(XML_PARSE_TRACE, "}")
+					#endif
+						return -1;
+					}
+					break;
+				}
+			}
+		}
+		
+		if(deep != 0)
+		{
+		#ifdef XMLPARSER_TRACE
+			FTRACE(XML_PARSE_TRACE, "label mismatch2")
+			ETRACE(XML_PARSE_TRACE, "}")
+		#endif		
+			return -1;
+		}
+		
+	#ifdef XMLPARSER_TRACE
+		ETRACE(XML_PARSE_TRACE, "</" << _tag << ">")
+		FTRACE(XML_PARSE_TRACE + 1, "} " << i)
+	#endif
+		return i;
+	}
+	
+private:
+	std::string _tag;
+	std::string _txt;
+	std::string blank_string;
+	
+	int _enumpos;
+	
+	typedef std::map<std::string, std::string > __attr;
+	__attr _attr;
+	
+	typedef std::map<int, xml_element * > __child;
+	__child _child;
+	
+	void _parse_tag(const char * ptr, int len)
+	{
+		if(len == 0)
+			return;
+			
+		_attr.clear();
+
+		// DO NOT using std::string(const char *, unsigned int len) under VC
+		char * buf = (char *)malloc__(len + 4);
+		if(!buf)
+			return;
+		__memcpy(buf, len, ptr, len);
+		buf[len] = 0;
+		
+		///FTRACE(XML_PARSE_TRACE, "parse_tag=[" << buf << "]")
+		
+		int quotes  = 0;
+		int sub_idx = 0;
+		int sub_len = 0;
+		char bak;
+		char * sub_ptr = buf;
+		char * p = sub_ptr;
+		while(1)
+		{
+			int bsept = 0;
+			///printf("[%c]", *p);
+			if(*p == ' ')
+			{
+				///printf("quotes=%d\n", quotes);
+				if((quotes % 2) == 0)
+					bsept = 1;
+			}
+			else if(*p == '\"')
+			{
+				quotes++;
+			}			
+			else if(*p == '\0' || *p == '\t' || *p == '\n' || (*p == '\r' && *(p + 1) == '\n'))
+			{
+				bsept = 1;
+			}
+			if(bsept > 0)
+			{
+				sub_len = (int)(p - sub_ptr);			
+				///FTRACE(3, "sublen=" << sub_len)
+				if(sub_len > 0)
+				{
+					bak = sub_ptr[sub_len];
+					sub_ptr[sub_len] = 0;
+					std::string sub  = sub_ptr;
+					sub_ptr[sub_len] = bak;
+					///FTRACE(XML_PARSE_TRACE, "sub=[" << sub << "]")
+					if(sub_idx == 0)
+						_tag = sub;
+					else
+						_add_attribute(sub);
+					sub_idx++;
+				}
+				if(*p == '\0')
+					break;				
+				if(*p == '\r' && *(p + 1) == '\n')
+					p += 2;
+				else
+					p++;
+				sub_ptr = p;
+			}
+			else
+			{
+				if(*p == '\0')
+					break;
+				p++;
+			}
+		}
+		free__(buf);
+		
+	#ifdef XMLPARSER_TRACE
+		BTRACE(XML_PARSE_TRACE, "<" << _tag << ">")
+	#endif
+	}
+	
+	void _add_attribute(std::string & sub_content)
+	{
+		///TRACE(3, "[[" << sub_content << "]]")
+		const char * ptr = sub_content.c_str();
+		const char * p = strchr(ptr, '=');
+		if(!p)
+			return;
+
+		int len = (int)(p - ptr);
+		std::string n(ptr, len);
+		std::string v(p + 1, sub_content.length() - len - 1);
+		
+		if((*v.c_str() == '\"') || (*v.c_str() == '\''))
+		   v = v.substr(1, v.length() - 1);
+		 
+		len = (int)v.length();
+		if(len > 0)
+		{
+			len--;
+			if((*(v.c_str() + len) == '\"') ||
+			   (*(v.c_str() + len) == '\''))
+			   v = v.substr(0, len);
+		}
+		
+		///FTRACE(XML_PARSE_TRACE, "ATTR: " << n << "=" << v)
+		set_attribute(n, v);
+	}
+	
+	void _parse_content(const char * ptr, int len)
+	{
+		///FTRACE(XML_PARSE_TRACE, "parse_content: " << ptr)
+		int idx = 0;
+		std::string endsp;
+		char * buf = (char *)malloc__(len + 4);
+		if(!buf)
+			return;
+		
+		for(int i = 0; i < len; i++)
+		{
+			if(*(ptr + i) == ' ')
+			{
+				endsp += ' ';
+			}
+			else if(*(ptr + i) == 0x09 || 
+			        *(ptr + i) == '\r' || 
+			        *(ptr + i) == '\n')
+			{
+			}
+			else
+			{
+				if(endsp.length() > 0) // filter the space before and behide the real content
+				{
+					if(idx > 0)
+					{
+						for(int j = 0; j < (int)endsp.length(); j++)
+							buf[idx++] = *(endsp.c_str() + j);
+					}
+					endsp = "";
+				}
+				buf[idx++] = *(ptr + i);
+			}			
+		}
+		buf[idx] = 0;
+		_txt = buf;
+		free__(buf);
+	#ifdef XMLPARSER_TRACE
+		if(_txt.length() > 0)
+			FTRACE(XML_PARSE_TRACE, _txt)
+	#endif
+	}
+	
+	bool _is_fit(const char * ptr, int len)
+	{
+		if(len == 0)
+			return false;
+		bool ret = false;
+		char * buf = (char *)malloc__(len + 4);
+		if(!buf)
+			return false;
+		__memcpy(buf, len, ptr, len);
+		buf[len] = 0;		
+		//FTRACE(XML_PARSE_TRACE, "is_fit=[" << buf << "]")
+		if(_tag == buf)
+			ret = true;
+		free__(buf);
+		return ret;
+	}
+};
+
+class xml_parser
+{
+public:
+	xml_parser(const char * ptr = NULL)
+	{
+		parse(ptr);
+	}	
+	~xml_parser()
+	{
+	}
+	
+	static const xml_element * enum_childen(const xml_element * e, const char * tag = NULL)
+	{
+		if(!e)
+			return NULL;
+		
+		if(!tag)
+		{
+			((xml_element *)e)->set_enumpos(0);
+			return NULL;
+		}
+			
+	#ifdef XMLPARSER_TRACE		
+		BTRACE(XML_PARSE_TRACE, "<" << e->tag_name() << ">")
+	#endif
+	
+ 		const xml_element * retv = NULL;
+ 		int pos  = e->get_enumpos();
+		int size = e->size();
+		int tagl = strlen(tag);
+		///FTRACE(3, "pos=" << pos << ", size=" << size)
+		for(int i = pos; i < size; i++)
+		{
+			const xml_element * c = e->get_childElement(i);
+			if(!c)
+				break;
+		#ifdef XMLPARSER_TRACE	
+			BTRACE(XML_PARSE_TRACE, "<" << c->tag_name() << ">")
+		#endif
+			retv = NULL;
+			if(tagl == 0 || c->tag_name() == tag)
+				retv = c;	
+			if(retv)
+			{
+				((xml_element *)e)->set_enumpos(i + 1);
+			#ifdef XMLPARSER_TRACE	
+				ETRACE(XML_PARSE_TRACE, "*</" << c->tag_name() << ">")
+			#endif
+				break;
+			}
+			else
+			{
+			#ifdef XMLPARSER_TRACE	
+				ETRACE(XML_PARSE_TRACE, "</" << c->tag_name() << ">")
+			#endif
+			}
+		}
+
+	#ifdef XMLPARSER_TRACE		
+		ETRACE(XML_PARSE_TRACE, "</" << e->tag_name() << ">")
+	#endif		
+		return retv;
+	}
+		
+	static const xml_element * find_element(const xml_element * e, const char * tag = NULL)
+	{
+		if(!e)
+			return NULL;
+		
+	#ifdef XMLPARSER_TRACE		
+		BTRACE(XML_PARSE_TRACE, "<" << e->tag_name() << ">")
+		if(e->text().length() > 0)
+			FTRACE(XML_PARSE_TRACE, e->text())
+	#endif
+
+		if(tag && (e->tag_name() == tag))
+		{
+		#ifdef XMLPARSER_TRACE	
+			ETRACE(XML_PARSE_TRACE, "*</" << e->tag_name() << ">")
+		#endif
+			return e;
+		}
+		
+		int size = e->size();
+		for(int i = 0; i < size; i++)
+		{
+			const xml_element * c = e->get_childElement(i);
+			const xml_element * ret = find_element(c, tag);
+			if(ret)
+			{
+			#ifdef XMLPARSER_TRACE	
+				ETRACE(XML_PARSE_TRACE, "*</" << e->tag_name() << ">")
+			#endif
+				return ret;
+			}
+		}
+		
+	#ifdef XMLPARSER_TRACE		
+		ETRACE(XML_PARSE_TRACE, "</" << e->tag_name() << ">")
+	#endif		
+		return NULL;
+	}
+		
+	static const xml_element * get_element(const xml_element * e, const char * tags)
+	{
+		if(!tags)
+			return NULL;
+		
+	#ifdef XMLPARSER_TRACE
+		ETRACE(XML_PARSE_TRACE, "xml_parser::get_element: " << tags)
+	#endif
+		const xml_element * ret = NULL;
+		
+		int len = (int)strlen(tags) + 4;
+		char * tmp = (char *)malloc__(len);
+		if(!tmp)
+			return NULL;
+		
+		__strcpy(tmp, len, tags);
+		
+		char * tag = tmp + 1;
+		while(1)
+		{
+			char * tok = strstr(tag, ">");
+			if(!tok)
+				break;
+			
+			*tok = 0;
+			///TRACE(3, "tag=" << tag)
+			
+			ret = find_element(e, tag);
+			if(!ret)
+				break;
+			
+			///TRACE(3, "found: " << ret->tag_name())
+			e = ret;
+			tag = tok + 1;
+			if(strlen(tag) == 0)
+				break;
+			tag++;
+		}
+		
+		free__(tmp);
+		return ret;
+	}
+	
+	const xml_element & get_root() const { return _element; }
+	void clear() { _element.clear(); }
+	
+	void make(std::string & content, bool insert_sp = true)
+	{
+		content = "<?xml version='1.0' encoding='ISO-8859-1'?>\n";
+		std::string sp;
+		_element.make(content, sp, insert_sp);
+	}
+		
+	bool parse_file(const char * xml_file)
+	{
+		if(!xml_file)
+			return false;
+			
+		FILE * fp = NULL;
+	#if !defined(WINCE) && (_MSC_VER > 1200)
+		fopen_s(&fp, xml_file, "r");
+	#else
+		fp = fopen(xml_file, "r");
+	#endif
+		if(!fp)
+			return false;
+		
+		int r;
+		char buf[1024];
+		std::string xml_content;
+				
+		while(!feof(fp))
+		{
+			memset(buf, 0, 1024);
+			r = fread(buf, 1, 1000, fp);
+			if(r > 0)
+				xml_content += buf;	
+		}
+		
+		fclose(fp);
+		
+		return parse(xml_content.c_str());
+	}
+	
+	bool parse(const char * ptr)
+	{
+		if(!ptr)
+			return false;
+		int len = (int)strlen(ptr);
+		if(len < 8)
+			return false;
+		//TRACE(3, "xml_parse::parse:\n" << ptr)
+		int i;
+		for(i = 0; i < len; i++)
+		{
+			if(strncmp(ptr + i, "<?xml", 5) == 0)
+			{
+			}
+			else if(strncmp(ptr + i, "?>", 2) == 0)
+			{
+				break;
+			}
+		}
+		i += 2;
+		int ret = _element.parse(ptr + i, len - i);
+		if(ret < 0)
+		{
+		#ifdef XMLPARSER_TRACE
+			TRACE(XML_PARSE_TRACE, "xml_parse::parse::parse fail")
+		#endif		
+			return false;
+		}
+		return true;			
+	}
+
+private:
+	xml_element _element;
+};
+
+}
+
+#endif

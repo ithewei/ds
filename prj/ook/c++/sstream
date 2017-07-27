@@ -1,0 +1,8 @@
+#ifndef _INC_STRINGSTREAM
+#define _INC_STRINGSTREAM
+
+#include <imp/_sstream>
+
+#endif
+
+

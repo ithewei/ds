@@ -1,0 +1,489 @@
+/***************************************************************************
+                           any_cfg 1.03
+                         -------------------
+    begin                : 2003 - 6 - 20
+    last modify			 : 2004 - 6 - 28
+    copyright            : (C) 2004 by ChengYang
+    email                : hellocy@263.net
+ ***************************************************************************/
+/*
+ * This material is provided "as is", with absolutely no warranty expressed
+ * or implied. Any use is at your own risk.
+ *
+ * Permission to use or copy this software for any purpose is hereby granted 
+ * without fee, provided the above notices are retained on all copies.
+ * Permission to modify the code and to distribute modified code is granted,
+ * provided the above notices are retained, and a notice that the code was
+ * modified is included with the above copyright notice.
+ *
+ *
+ */
+#ifndef __ANYCFG_H__
+#define __ANYCFG_H__
+
+#include <stdio.h>
+#include <string>
+#include <map>
+#include "predef.h"
+
+inline bool cfg_syntax_analyse(char * c, char ** ltok, char ** rtok)
+{
+	if(!c)
+		return false;
+
+	// deal left varible
+	
+	//*ltok = strtok(c, "=");
+	//if(!(*ltok))
+		//return false;
+	
+	char * tmp = strstr(c, "=");
+	if(!tmp)
+		return false;
+
+	*tmp = 0;
+	*ltok = c;
+	
+	while(1) // trim the sapce ahead
+	{
+		if(**ltok != ' ')
+			break;
+		(*ltok) ++;
+	}
+
+	while(1) // trim the tab ahead
+	{
+		if(**ltok != '\t')
+			break;
+		(*ltok) ++;
+	}
+
+	size_t len = strcspn(*ltok, " "); // trim the space before '='
+	if(len > 0)
+		(*ltok)[len] = 0;
+
+	// deal rigth varible
+	
+	//*rtok = strtok(NULL, "=");
+	//if(!(*rtok))
+		//return false;
+	
+	if(strlen(c) == strlen(tmp))
+		return false;
+		
+	*rtok = tmp + 1;
+	
+	while(1) // trim the sapce ahead
+	{
+		if(**rtok != ' ')
+			break;
+		(*rtok) ++;
+	}
+
+	len = strcspn(*rtok, "\n"); // trim the '\n' behide '='
+	if(len >= 0)
+		(*rtok)[len] = 0;
+
+	len = strcspn(*rtok, "\r"); // trim the '\r' behide '='
+	if(len >= 0)
+		(*rtok)[len] = 0;
+
+	//len = strcspn(*rtok, " "); // trim the space behide '='
+	//if(len > 0)
+		//(*rtok)[len] = 0;
+
+	///printf("%s = %s\n", *ltok, *rtok);
+
+	return true;
+}
+
+template <class _Index, class _Value >
+class any_pairs
+{
+public:
+	any_pairs() {}
+	~any_pairs() {}
+	
+	int size() const { return _map.size(); }
+	
+	bool being(const _Index & index) const
+	{
+		typename __map::const_iterator ite = _map.find(index);
+		if(ite == _map.end())
+			return false;
+		return true;
+	}
+	
+	_Value & operator[](const _Index & index)
+	{
+		typename __map::iterator ite = _map.find(index);
+		if(ite == _map.end())
+			ite = _map.insert(TValue(index, _Value())).first;
+		return ite->second;
+	}
+
+	const _Value & operator()(const _Index & index) const
+	{
+		typename __map::const_iterator ite = _map.find(index);
+		return ite->second;
+	}
+	
+	void erase(const _Index & index)
+	{
+		_map.erase(index);
+	}
+	
+	const _Index & begin() const
+	{
+		_ite = _map.begin();
+		if(_ite != _map.end())
+			return _ite->first;
+		return _v0;
+	}
+
+	const _Index & operator++(int) const
+	{
+		_ite ++;
+		if(_ite != _map.end())
+			return _ite->first;
+		return _v0;
+	}
+
+	bool end() const
+	{
+		if(_ite == _map.end())
+			return true;
+		return false;
+	}
+	
+protected:
+	_Value _v0;
+	
+	typedef std::map<_Index, _Value > __map;
+	typedef typename __map::value_type TValue;
+	mutable typename __map::const_iterator _ite;
+	__map _map;
+};
+
+class cfg_unit : public any_pairs<std::string, std::string >
+{
+public:
+	cfg_unit() : any_pairs<std::string, std::string >() {}
+	cfg_unit(const char * name) : any_pairs<std::string, std::string >()
+	{
+		if(name)
+			_name = name;
+	}
+	cfg_unit(int argc, char ** argv, const char * name = NULL) : any_pairs<std::string, std::string >()
+	{
+		if(name)
+			_name = name;
+			
+		re_load(argc, argv);
+	}
+	cfg_unit(const char * fle, const char * name) : any_pairs<std::string, std::string >()
+	{
+		if(name)
+			_name = name;
+					
+		re_load(fle);
+	}
+	~cfg_unit() {}
+	
+	void re_load(int argc, char ** argv)
+	{
+		_map.clear();
+
+		std::string n;
+		std::string v;
+		char c[256];
+		int len;
+		
+		for(int i = 1; i < argc; i ++)
+		{
+			__strcpy(c, 256, argv[i]);
+			///printf("[%s]\n", c);
+ 			len = (int)strlen(c);
+ 			if(len < 2)
+ 				continue;
+ 			
+ 			if(c[0] != '-')
+ 				continue;
+
+			n = c[1];
+			v = c + 2;
+
+			///printf("%s=%s\n", n.c_str(), v.c_str());
+			_map[n] = v;
+		}
+	}
+	
+	void re_load(const char * fpath)
+	{
+		_map.clear();
+		
+		if(!fpath || (strlen(fpath) == 0))
+			return;
+
+		FILE * fp = NULL;
+	#if !defined(WINCE) && (_MSC_VER > 1200)
+		fopen_s(&fp, fpath, "r");
+	#else
+		fp = fopen(fpath, "r");
+	#endif
+		if(!fp)
+			return;
+			
+		char c[128];
+		char * ltok, * rtok;
+		
+		while(!feof(fp))
+		{
+			if(!fgets(c, 126, fp)) 
+				continue;
+				
+			if(strlen(c) < 2)
+				continue;
+	
+			if(c[0] == '#') // '#' means unused
+				continue;
+
+			if(cfg_syntax_analyse(c, &ltok, &rtok))	
+				_map[ltok] = rtok;
+		}
+		
+		fclose(fp);
+	}
+
+	void write2file(FILE * fp)
+	{
+		for(__map::const_iterator ite = _map.begin(); ite != _map.end(); ite++)
+		{
+			std::string s = ite->first + "=" + ite->second + "\n";
+			(void) fwrite(s.c_str(), 1, s.length(), fp);
+		}
+	}
+	
+	std::string & name() { return _name; }
+	
+private:
+	std::string _name;	
+};
+
+class cfg_grp
+{
+public:
+	cfg_grp(const char * fle)
+	{
+		_filter = "";
+		re_load(fle);
+	}	
+	~cfg_grp()
+	{
+		for(__grps::iterator ite = _grps.begin(); ite != _grps.end(); ite ++)
+		{
+			cfg_unit * p = ite->second;
+			if(p)
+				delete p;
+		}
+	}
+	
+	void re_load(const char * fpath)
+	{
+		if(!fpath || (strlen(fpath) == 0))
+			return;
+
+		FILE * fp = NULL;
+	#if !defined(WINCE) && (_MSC_VER > 1200)
+		fopen_s(&fp, fpath, "r");
+	#else
+		fp = fopen(fpath, "r");
+	#endif
+		if(!fp)
+			return;
+
+		cfg_unit * unit = NULL;
+		bool new_unit = false;
+		
+		char c[128];
+		char * ltok, * rtok;
+	
+		while(!feof(fp))
+		{
+			if(!fgets(c, 126, fp)) 
+				continue;
+				
+			if(strlen(c) < 2)
+				continue;
+	
+			switch(c[0])
+			{
+			case '#': // comment line
+				continue;
+			
+			case ':': // new cfg unit begin
+				{
+					if(!new_unit)
+					{
+						if(cfg_syntax_analyse(c + 1, &ltok, &rtok))
+						{
+							new_unit = true;
+							unit = new cfg_unit(ltok);
+							_grps.insert(GValue(ltok, unit));
+						}
+					}
+				}
+				continue;
+				
+			case '}': // end of this cfg unit
+				{
+					unit = NULL;
+					new_unit = false;
+				}
+				continue;
+			}
+
+			if(!unit)
+				continue;
+			
+			if(cfg_syntax_analyse(c, &ltok, &rtok))
+				(*unit)[ltok] = rtok;
+		}
+		
+		fclose(fp);
+	}
+	
+	unsigned int size()
+	{
+		return (unsigned int)_grps.size();
+	}
+
+	cfg_unit * begin(const char * filter = NULL)
+	{
+		if(filter)
+			_filter = filter;
+		_ite = _grps.begin();
+		while(_ite != _grps.end())
+		{	
+			if(_filter == "")
+				return _ite->second;
+			if(_ite->first == _filter)
+				return _ite->second;
+			_ite++;
+		}
+		return NULL;
+	}
+
+	cfg_unit * operator++(int)
+	{
+		_ite++;
+		while(_ite != _grps.end())
+		{
+			if(_filter == "")
+				return _ite->second;
+							
+			if(_ite->first == _filter)
+				return _ite->second;
+			
+			_ite++;
+		}
+		return NULL;
+	}
+
+private:
+	typedef std::multimap<std::string, cfg_unit * > __grps;
+	typedef __grps::value_type GValue;	
+	__grps::iterator _ite;
+	__grps _grps;
+	
+	std::string _filter;
+};
+
+class cfg_unit2 : public any_pairs<std::string, std::string >
+{
+public:
+	cfg_unit2(int argc, char ** argv)
+		: any_pairs<std::string, std::string >()
+	{
+		re_load(argc, argv);
+	}
+	~cfg_unit2() {}
+	
+	void re_load(int argc, char ** argv)
+	{
+		_map.clear();
+
+		std::string n;
+		std::string v;
+		int i, j, len;
+		char c[512];
+			
+		for(i = 1; i < argc; i ++)
+		{
+			__strcpy(c, 512, argv[i]);
+			
+ 			len = (int)strlen(c);
+  			if(len == 0)
+ 				continue;
+ 				 			
+ 			for(j = 0; j < len; j++)
+ 			{
+ 				if(c[j] == '\r') // this is used to deal dos format ascii cmd
+ 					c[j] = '\0';
+ 			}
+			///printf("[%s]\n", c); 			
+
+ 			if(c[0] == '-' && !isdigit(c[1]))
+ 			{
+				if(n.length() > 0)
+				{
+					///printf("%s=%s\n", n.c_str(), v.c_str());
+					_map[n] = v;
+				}
+				n = c + 1;
+				v = "";
+			}
+			else
+			{
+				if(n.length() > 0)
+				{
+					v = c;
+					///printf("%s=%s\n", n.c_str(), v.c_str());
+					_map[n] = v;
+					n = "";
+					v = "";
+				}
+			}
+		}
+		
+		if(n.length() > 0)
+		{
+			///printf("%s=%s\n", n.c_str(), v.c_str());
+			_map[n] = v;
+			n = "";
+			v = "";
+		}		
+	}
+};
+
+#ifndef NOIOSTREAM
+#include <iostream>
+inline std::ostream & operator << (std::ostream & os, cfg_unit & cfg)
+{
+	std::string name;
+	for(name = cfg.begin(); !cfg.end(); name = cfg++)
+		os << name << " = " <<  cfg(name) << std::endl;
+	return os;	
+}
+inline std::ostream & operator << (std::ostream & os, cfg_grp & grp)
+{
+	for(cfg_unit * unit = grp.begin(); unit; unit = grp++)
+	{
+		os << ":" << unit->name() << std::endl;
+		os << *unit << std::endl;
+	}
+	return os;	
+}
+#endif // NOIOSTREAM
+
+#endif

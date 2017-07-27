@@ -1,0 +1,309 @@
+#ifndef __ASYN_MAINTH__
+#define __ASYN_MAINTH__
+
+#include <deque>
+#include "thread"
+
+//#include <ook/trace>
+//DECTRACE
+
+#ifdef OEM_MALLOC
+extern "C" {
+	#include <ook/mem.h>
+};
+#endif
+
+template <typename _msgT, int msgSIZE, typename _bufT, int bufSIZE, int condWait, int priority = THREAD_PRIORITY_NORMAL>
+class asyn_mainth
+{
+public:
+#ifdef OEM_MALLOC
+	typedef _msgT * MSGQUEUE;
+	typedef _bufT * BUFQUEUE;
+#else
+	typedef std::deque<_msgT > MSGQUEUE;
+	typedef std::deque<_bufT > BUFQUEUE;
+#endif
+
+	asyn_mainth()
+		: _th(NULL)
+	{
+	#ifdef OEM_MALLOC
+		_mrdcurr = 0;
+		_mwdcurr = 0;
+		_m = NULL;
+		if(msgSIZE > 0)
+		{
+			_m = (_msgT *)lmalloc__(sizeof(_msgT) * msgSIZE);
+			if(_m)
+				memset(_m, 0, sizeof(_msgT) * msgSIZE);
+		}
+		
+		_brdcurr = 0;
+		_bwdcurr = 0;
+		_b = NULL;
+		if(bufSIZE > 0)
+		{
+			_b = (_bufT *)lmalloc__(sizeof(_bufT) * bufSIZE);
+			if(_b)
+				memset(_b, 0, sizeof(_bufT) * bufSIZE);
+		}
+	#endif
+		_signal = false;
+		set_condwait(condWait);
+	}
+	virtual ~asyn_mainth()
+	{
+		stop_mainth();
+	#ifdef OEM_MALLOC
+		if(_m)
+			lfree__(_m);
+		if(_b)
+			lfree__(_b);
+	#endif
+	}
+
+	bool is_started() const  { return _th ? true : false; }
+	void set_condwait(int w) { _condwait = w > 10 ? w : 10; }
+		
+	void start_mainth(int stactsize = -1)
+	{
+		if(!_th)
+		{
+			_signal    = false;
+			_thrunning = true;
+			_th = new thread(&asyn_mainth::_run, *this, NULL, priority, 0, stactsize);
+		}
+	}
+	void stop_mainth()
+	{
+		if(_th)
+		{
+			_thrunning = false;
+			_cond.signal();
+			delete _th;
+			_th = NULL;
+		}
+	}
+	
+	void mainth_signal()
+	{
+		bool signal = false;
+		_mucd.lock();
+		signal = _signal;
+		_mucd.unlock();
+		if(signal)
+			_cond.signal();
+	}
+
+	int msg_size()
+	{
+		int r = 0;
+		_mu.lock();
+	#ifdef OEM_MALLOC
+	#else
+		r = _m.size();
+	#endif
+		_mu.unlock();
+		return r;
+	}
+		
+	void push_msg(_msgT m)
+	{
+		bool signal = false;
+		
+		_mu.lock();
+	#ifdef OEM_MALLOC
+		bool ovflow = true;
+		if(msgSIZE > 0)
+		{
+			int i = ((_mwdcurr + 1) % msgSIZE);
+			if(i != _mrdcurr)
+			{
+				_m[_mwdcurr] = m;
+				_mwdcurr = i;
+				ovflow = false;
+				///printf("--> M[%d/%d]\n", _mwdcurr, _mrdcurr);
+			}
+		}
+		if(ovflow)
+			on_msg_overflow(m);
+	#else
+		if(msgSIZE > 0 && (int)_m.size() > msgSIZE)
+		{
+			on_msg_overflow(_m);
+		}
+		_m.push_front(m);
+	#endif
+		_mu.unlock();
+		
+		_mucd.lock();
+		signal = _signal;
+		_mucd.unlock();
+		if(signal)
+			_cond.signal();	
+	}
+	
+	bool pop_msg(_msgT * m)
+	{
+		bool r = false;
+		_mu.lock();
+	#ifdef OEM_MALLOC
+		if(msgSIZE > 0 && _mrdcurr != _mwdcurr)
+		{
+			r = true;
+			*m = _m[_mrdcurr];
+			_m[_mrdcurr] = 0;
+			_mrdcurr++;
+			if(_mrdcurr >= msgSIZE)
+				_mrdcurr = 0;
+			///printf("<-- [%d/%d]\n", _mwdcurr, _mrdcurr);
+		}
+	#else
+		if(_m.size() > 0)
+		{
+			*m = _m.back();
+			_m.pop_back();
+			r = true;
+		}
+	#endif
+		_mu.unlock();
+		return r;
+	}
+
+	int buf_size()
+	{
+		int r = 0;
+		_mu.lock();
+	#ifdef OEM_MALLOC
+	#else
+		r = _b.size();
+	#endif
+		_mu.unlock();
+		return r;
+	}
+
+	void push_buf(_bufT b)
+	{
+		bool signal = false;
+		
+		_mu.lock();
+	#ifdef OEM_MALLOC
+		bool ovflow = true;
+		if(bufSIZE > 0)
+		{
+			int i = ((_bwdcurr + 1) % bufSIZE);
+			if(i != _brdcurr)
+			{
+				_b[_bwdcurr] = b;
+				_bwdcurr = i;
+				ovflow = false;
+				///printf("--> B[%d/%d]\n", _bwdcurr, _brdcurr);
+			}
+		}
+		if(ovflow)
+			on_buf_overflow(b);
+	#else
+		if(bufSIZE > 0 && (int)_b.size() > bufSIZE)
+		{
+			on_buf_overflow(_b);
+		}
+		_b.push_front(b);
+	#endif
+		_mu.unlock();
+
+		_mucd.lock();
+		signal = _signal;
+		_mucd.unlock();
+		if(signal)
+			_cond.signal();
+	}
+	
+	bool pop_buf(_bufT * b)
+	{
+		bool r = false;
+		_mu.lock();
+	#ifdef OEM_MALLOC
+		if(bufSIZE > 0 && _brdcurr != _bwdcurr)
+		{
+			r = true;
+			*b = _b[_brdcurr];
+			_b[_brdcurr] = 0;
+			_brdcurr++;
+			if(_brdcurr >= bufSIZE)
+				_brdcurr = 0;
+			///printf("<-- B[%d/%d]\n", _bwdcurr, _brdcurr);
+		}	
+	#else
+		if(_b.size() > 0)
+		{
+			*b = _b.back();
+			_b.pop_back();
+			r = true;
+		}
+	#endif
+		_mu.unlock();
+		return r;
+	}
+	
+	void triger_turn()   { on_turn(NULL); } // manually call on_turn()
+	
+	MSGQUEUE & get_msglist() { return _m; }
+	BUFQUEUE & get_buflist() { return _b; }
+	
+private:
+	int  _condwait;
+	bool _signal;
+	bool _thrunning;
+
+#ifdef OEM_MALLOC
+	int _mrdcurr;
+	int _mwdcurr;
+	MSGQUEUE _m;
+	
+	int _brdcurr;
+	int _bwdcurr;	
+	BUFQUEUE _b;
+#else
+	MSGQUEUE _m;
+	BUFQUEUE _b;
+#endif
+
+	tmc_mutex_type _mu;
+	tmc_mutex_type _mucd;
+	tmc_cond_type  _cond;
+
+	typedef tmc_thread_type<asyn_mainth > thread;
+	thread * _th;
+
+	void _run(int * thstatus, void * p)
+	{
+		int r = 0;
+		while(_thrunning)
+		{
+			r = on_turn(p);
+			if(r < 0)
+				break;
+			if(r == 0)
+			{
+				_mucd.lock();
+				_signal = true;
+				_cond.wait(_mucd, _condwait);
+				_signal = false;
+				_mucd.unlock();
+			}
+		}
+		pthread_exit(NULL);
+	}
+	
+#ifdef OEM_MALLOC	
+	virtual void on_msg_overflow(_msgT m) = 0;
+	virtual void on_buf_overflow(_bufT b) = 0;
+#else
+	virtual void on_msg_overflow(MSGQUEUE & m) = 0;
+	virtual void on_buf_overflow(BUFQUEUE & b) = 0;
+#endif
+	virtual int  on_turn(void *) = 0;
+};
+
+#endif

@@ -1,0 +1,220 @@
+/***************************************************************************
+                           any_buf 3.2 (M):mem alloc safe
+                         -------------------
+    begin                : 2003 -  6 -  8
+    last modify			 : 2011 - 03 - 16
+    copyright            : (C) 2003 - 2008 by ChengYang
+    email                : helloook@hotmail.com
+ ***************************************************************************/
+/*
+ * This material is provided "as is", with absolutely no warranty expressed
+ * or implied. Any use is at your own risk.
+ *
+ * Permission to use or copy this software for any purpose is hereby granted 
+ * without fee, provided the above notices are retained on all copies.
+ * Permission to modify the code and to distribute modified code is granted,
+ * provided the above notices are retained, and a notice that the code was
+ * modified is included with the above copyright notice.
+ *
+ *
+ */
+#ifndef __ANYBUF_H__
+#define __ANYBUF_H__
+
+#include "predef.h"
+
+extern "C" {
+	#include "mem.h"
+}
+
+class any_buf
+{
+public:
+	any_buf(unsigned int owner = 0,
+		    unsigned int sz = 0)
+		: _buf(NULL),
+		  _norel(false),
+		  _sz(0),
+		  _len(0),
+		  _diffsz(0),
+		  _owner(owner),
+		  _unknowl(0),
+		  _unknowm(0),
+		  _unknowp(NULL)
+	{
+		size(sz);
+	}
+	~any_buf()
+	{
+		if(_buf && !_norel)
+			free__(_buf);
+	}
+	
+	static void free_buffer(unsigned char * ptr)
+	{
+		if(ptr)
+			free__(ptr);
+	}
+	
+	void size(unsigned int sz, unsigned int diff_pos = 0)
+	{
+		sz += diff_pos;
+		if(sz > 0)
+		{
+			if(sz > _sz)
+			{
+				_sz = sz;
+				if(_buf)
+					free__(_buf);
+				_buf = (unsigned char *)malloc__(_sz + 4); // for string deal, you can append '\0' at the end of this buffer
+				memset(_buf, 0, _sz + 4);
+			}
+		}
+	}
+	
+	void clear()
+	{
+		reset();
+		_unknowl = 0;
+		_unknowm = 0;
+		_unknowp = NULL;
+	}
+	
+	void reset(unsigned int sz = 0, unsigned int diff_pos = 0)
+	{
+		_len = diff_pos;
+		size(sz, diff_pos);
+	}
+	
+	void attach(unsigned char * buf, unsigned int len, unsigned int diffsize = 0, bool norelease = false)
+	{
+		_buf 	= buf;
+		_len 	= len;
+		_diffsz = diffsize;
+		_sz 	= _len + _diffsz;
+		_norel  = norelease;
+	}
+	
+	void detach()
+	{
+		_buf 	= NULL;
+		_len 	= 0;
+		_diffsz	= 0;
+		_sz 	= 0;
+		_norel  = false;	
+	}
+	
+	void clone(any_buf & dst) const
+	{
+		if(length() > 0)
+			dst.copy(ptr(), length());
+		else
+			dst.reset();
+	}
+	
+	int copy(const char * p,
+			 unsigned int len,
+			 unsigned int pos = 0)
+	{
+		return copy((const unsigned char *)p, len, pos);
+	}
+		
+	int copy(const unsigned char * p,
+			 unsigned int len,
+			 unsigned int pos = 0)
+	{
+		//printf("copy:%d:%d:%d\n", len, pos, _sz);
+		if(!p || len == 0)
+			return 0;
+		if(_buf)
+		{
+			if(len + pos + 1 > _sz)
+			{
+				unsigned int l = _len > pos ? pos : _len;
+				_sz = len + pos;
+				
+				unsigned char * newbuf = (unsigned char *)malloc__(_sz + 4);
+				if(newbuf)
+					//printf("copy1:%d:%d\n", l, _sz);
+					__memcpy(newbuf, _sz + 4, _buf, l);
+					
+				free__(_buf);
+				_buf = newbuf;
+			}
+		}
+		else
+		{
+			_sz  = len + pos;
+			_buf = (unsigned char *)malloc__(_sz + 4);
+			//printf("copy2:%d\n", _sz);
+		}
+
+		if(!_buf)
+			return -1;
+
+		//printf("copy3:%d:%d:%d\n", len, pos, _sz);
+		__memcpy(_buf + pos, _sz - pos, p, len);
+		_len = len + pos;		
+		return _len;
+	}
+	
+	void append_null()
+	{
+		if(_buf)
+			_buf[_len] = 0;
+	}
+	void append_null2()
+	{
+		if(_buf)
+		{
+			_buf[_len + 1] = _buf[_len] = 0;
+		}
+	}
+		
+	void remove(unsigned int len)
+	{
+		if(_buf)
+		{
+			if(len > _len)
+				len = _len;
+			unsigned int left = _len - len;
+			if(left > 0)
+				__memmove(_buf, _sz, _buf + len, left);
+			_len = left;
+		}
+	}
+
+	unsigned char * ptr() const  { return _buf; }
+	unsigned int size() const	 { return _sz;  }
+	unsigned int length() const  { return _len; }
+	void length(unsigned int l)  { _len = l;    }
+	
+	unsigned int diffsz() const  { return _diffsz; }
+	
+	void owner(unsigned int l)   { _owner = l;     }
+	unsigned int owner() const 	 { return _owner;  }
+	
+	void unknowl(unsigned int l) { _unknowl = l;    }
+	unsigned int unknowl() const { return _unknowl; }
+	
+	void unknowm(unsigned int l) { _unknowm = l;    }
+	unsigned int unknowm() const { return _unknowm; }
+		
+	void unknowp(void * p) 		 { _unknowp = p; }
+	void * unknowp() const 		 { return _unknowp; }
+
+private:
+	unsigned char * _buf;
+	bool _norel;
+	unsigned int _sz;
+	unsigned int _len;
+	unsigned int _diffsz;
+	unsigned int _owner;
+	unsigned int _unknowl; // unknow param
+	unsigned int _unknowm; // unknow mask param
+	void * _unknowp;       // unknow ptr
+};
+
+typedef any_buf * PANYBUF;
+
+#endif

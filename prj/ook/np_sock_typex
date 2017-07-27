@@ -1,0 +1,921 @@
+#ifndef NP_SOCK_TYPE
+#define NP_SOCK_TYPE
+
+/*
+	update @ 2010/03/11 fix a bug for multicast under multi interface
+		   @ 2012/03/18 SO_SNDBUF can be 0 for UDP
+ */
+#include "np_sockinfo_type"
+
+#ifdef WIN32
+
+typedef struct _PER_IO_DATA
+{
+	OVERLAPPED ol;
+	
+	WSABUF buffer;
+	
+	int operation;
+	
+	#define IO_OP_READ    			1
+	#define IO_OP_WRITE   			2
+	#define IO_OP_WRITECOMPLETED	3
+
+} PER_IO_DATA, * PPER_IO_DATA;
+
+#endif
+			
+struct np_sock_type
+{
+	static const char * errorstr(int errornum = WSAGetLastError()) 
+	{
+		static char p[32];
+		__snprintf(p, 32, "%d", errornum);
+		return (const char *)p;	
+	}
+
+	static void ifname_from_ip(SOCKET sock, const char * lip, std::string & lif)
+	{
+	#ifdef WIN32
+	#else
+		char buf[1024];
+		struct ifconf  ifc;
+		struct ifreq * ifr;
+		int i, numb;
+		in_addr_t ia = inet_addr(lip);
+		lif = "";
+		
+		// query available interfaces.
+	    ifc.ifc_len = sizeof(buf);
+	    ifc.ifc_buf = buf;
+	    if(ioctl(sock, SIOCGIFCONF, &ifc) == 0)
+	    {
+			// iterate through the list of interfaces.
+		    ifr  = ifc.ifc_req;
+		    numb = ifc.ifc_len / sizeof(struct ifreq);
+		    for(i = 0; i < numb; i++)
+		    {
+		        struct ifreq * item = &ifr[i];
+		        if(((struct sockaddr_in *)&item->ifr_addr)->sin_addr.s_addr == ia) 
+		        {
+		        	lif = item->ifr_name;
+		        	break;
+		        }
+		    }
+		}
+	#endif
+	}
+	
+	static int select(fd_set * rdset, fd_set * wrset, int timeout, int nfds = 0) 
+	{
+		if(nfds < 1)
+			nfds = FD_SETSIZE;
+
+		// The nfds parameter is included only for compatibility with Berkeley sockets and is ignored in WIN32. 
+		// How about Linux
+
+		if(timeout < 0)
+			return ::select(nfds, rdset, wrset, NULL, NULL);
+
+		timeval t;
+		t.tv_sec  = timeout / 1000;
+		t.tv_usec = (timeout % 1000) * 1000;
+		return ::select(nfds, rdset, wrset, NULL, &t);
+	}
+
+	//////////////////////////////////////////////
+	// basic method
+
+	static SOCKET accept(SOCKET sock, bool bIPv6) 
+	{
+		if(bIPv6)
+		{
+		#ifndef NO_IPV6
+			///printf("socket::accept <<<\n");
+			sockaddr_in6 addr;
+			socklen_t size = sizeof(addr);
+			SOCKET nsock = ::accept(sock, (sockaddr *)&addr, &size);
+			///printf(">>> accept\n");
+			return nsock;
+		#endif
+			return INVALID_SOCKET;
+		}
+		else
+		{
+			sockaddr_in addr;
+			socklen_t size = sizeof(addr);
+			return ::accept(sock, (sockaddr *)&addr, &size);
+		}
+	}
+
+	static int send(SOCKET sock,
+					const unsigned char * buf,
+			 		int len) 
+	{
+		return ::send(sock, (char *)buf, len, 0);
+	}
+
+	static int send(SOCKET sock,
+					const unsigned char * buf,
+			 		int len,
+			 		const std::string & rip,
+			 		unsigned short rport,
+			 		bool bIPv6) 
+	{
+		if(bIPv6)
+		{
+		#ifndef NO_IPV6
+			sockaddr_in6 addr;
+			addr.sin6_family = AF_INET6;
+			addr.sin6_port = htons(rport);
+		  #ifdef WIN32
+			// ###
+		  #else
+			inet_pton(AF_INET6, rip.c_str(), &addr.sin6_addr);
+		  #endif
+			return sendto(sock, (char *)buf, len, 0, (sockaddr *)&addr, sizeof(addr));
+		#endif
+		}
+		else
+		{
+			sockaddr_in addr;
+			addr.sin_family = AF_INET;
+			addr.sin_addr.s_addr = inet_addr(rip.c_str());
+			addr.sin_port = htons(rport);
+			return sendto(sock, (char *)buf, len, 0, (sockaddr *)&addr, sizeof(addr));
+		}
+        return -1;
+	}
+
+	static int recv(SOCKET sock,
+					unsigned char * buf,
+			 		int len) 
+	{
+		return (int)::recv(sock, (char *)buf, len, 0);
+	}
+	
+	static int recv(SOCKET sock,
+					unsigned char * buf,
+			 		int len,
+			 		std::string * rip,
+			 		unsigned short * rport,
+			 		bool bIPv6)
+	{
+		int r = -1;
+		if(bIPv6)
+		{
+		#ifndef NO_IPV6
+			sockaddr_in6 addr;
+			socklen_t size = sizeof(addr);
+			r = recvfrom(sock, (char *)buf, len, 0, (sockaddr *)&addr, &size);
+			if(rip)
+			{
+			#ifdef WIN32
+				// ###
+			#else
+				char strptr[136];
+				*rip = inet_ntop(AF_INET6, &addr.sin6_addr, strptr, 256);
+			#endif
+			}
+			if(rport)
+				*rport = ntohs(addr.sin6_port);
+		#endif					
+		}
+		else
+		{
+			sockaddr_in addr;
+			socklen_t size = sizeof(addr);
+			r = (int)recvfrom(sock, (char *)buf, len, 0, (sockaddr *)&addr, &size);
+			if(rip)
+				*rip = inet_ntoa(addr.sin_addr);
+			if(rport)
+				*rport = ntohs(addr.sin_port);
+		}
+		return r;
+	}
+
+	////////////////////////////////////////////////////////////////
+	// init
+
+	static void __init(np_sockinfo_type & sockinfo)
+	{
+		// get local and remote address
+		if(!sockinfo.multicast)
+		{
+			if(sockinfo.bIPv6)
+			{
+			#ifndef NO_IPV6
+				sockaddr_in6 addr;
+				socklen_t size = sizeof(addr);
+				getsockname(sockinfo.sock, (sockaddr *)&addr, &size);
+
+			  #ifdef WIN32
+				// ###
+			  #else
+				char strptr[136];
+				(std::string &)sockinfo.lip = inet_ntop(AF_INET6, &addr.sin6_addr, strptr, 256);
+			  #endif
+				(unsigned short &)sockinfo.lport = ntohs(addr.sin6_port);
+				
+				size  = sizeof(addr);
+				int r = getpeername(sockinfo.sock, (sockaddr *)&addr, &size);
+				if(r == SOCKET_ERROR)
+				{
+					tmc_assert(WSAGetLastError() == NPEXXX(ENOTCONN)) << errorstr();
+					(std::string &)   sockinfo.rip   = "::";
+					(unsigned short &)sockinfo.rport = 0;
+				} 
+				else 
+				{
+				#ifdef WIN32
+					// ###
+				#else
+					(std::string &)   sockinfo.rip   = inet_ntop(AF_INET6, &addr.sin6_addr, strptr, 256);
+				#endif
+					(unsigned short &)sockinfo.rport = ntohs(addr.sin6_port);
+				}
+			#endif
+			}
+			else
+			{
+				sockaddr_in addr;
+				socklen_t size = sizeof(addr);
+				getsockname(sockinfo.sock, (sockaddr *)&addr, &size);
+	
+				(std::string &)   sockinfo.lip   = inet_ntoa(addr.sin_addr);
+				(unsigned short &)sockinfo.lport = ntohs(addr.sin_port);
+	
+				size  = sizeof(addr);
+				int r = getpeername(sockinfo.sock, (sockaddr *)&addr, &size);
+				if(r == SOCKET_ERROR)
+				{
+					tmc_assert(WSAGetLastError() == NPEXXX(ENOTCONN)) << errorstr();
+					(std::string &)   sockinfo.rip   = "0.0.0.0";
+					(unsigned short &)sockinfo.rport = 0;
+				} 
+				else 
+				{
+					(std::string &)   sockinfo.rip   = inet_ntoa(addr.sin_addr);
+					(unsigned short &)sockinfo.rport = ntohs(addr.sin_port);
+				}
+			}
+		}
+	
+		// keepalive
+		if(sockinfo.type == SOCK_STREAM && sockinfo.keepaliveintv > 0) 
+		{
+		#ifdef _WIN32
+			int sokv = 1;
+			socklen_t sokvlen = sizeof(sokv);
+			if(setsockopt(sockinfo.sock, SOL_SOCKET, SO_KEEPALIVE, (char *)&sokv, sokvlen) == 0)
+			{
+				#define __SIO_KEEPALIVE_VALS (IOC_IN | IOC_VENDOR | 4)
+				typedef struct __tcp_keepalive
+				{
+				    u_long onoff;
+				    u_long keepalivetime;
+				    u_long keepaliveinterval;
+				} __TCP_KEEPALIVE;
+
+				__TCP_KEEPALIVE inKeepAlive  = {0};
+				__TCP_KEEPALIVE outKeepAlive = {0};
+                unsigned long ulInLen  = sizeof(__TCP_KEEPALIVE);
+                unsigned long ulOutLen = sizeof(__TCP_KEEPALIVE);
+                unsigned long ulBytesReturn = 0;
+                
+				inKeepAlive.onoff = 1;
+                inKeepAlive.keepaliveinterval = sockinfo.keepaliveintv * 1000;
+                inKeepAlive.keepalivetime = 3;
+				
+				if(WSAIoctl(sockinfo.sock, 
+							__SIO_KEEPALIVE_VALS,
+                            (LPVOID)&inKeepAlive, 
+                            ulInLen,
+                        	(LPVOID)&outKeepAlive, 
+                        	ulOutLen,
+                        	&ulBytesReturn, 
+                        	NULL, 
+                        	NULL) == SOCKET_ERROR)
+				{
+					(int &)sockinfo.keepaliveintv = -1;
+				}
+			}
+			else
+			{
+				(int &)sockinfo.keepaliveintv = -1;
+			}
+		#else
+			int sockv = 1;
+			int tcpkd = sockinfo.keepaliveintv;
+			int tcpki = 3;
+			int tcpkn = 5;
+			socklen_t sockvlen = sizeof(sockv);
+			socklen_t tcpkdlen = sizeof(tcpkd);
+			socklen_t tcpkilen = sizeof(tcpki);
+			socklen_t tcpknlen = sizeof(tcpkn);
+			tmc_assert(setsockopt(sockinfo.sock, SOL_SOCKET,  SO_KEEPALIVE,  &sockv, sockvlen) == 0);
+			tmc_assert(setsockopt(sockinfo.sock, IPPROTO_TCP, TCP_KEEPIDLE,  &tcpkd, tcpkdlen) == 0);
+			tmc_assert(setsockopt(sockinfo.sock, IPPROTO_TCP, TCP_KEEPINTVL, &tcpki, tcpkilen) == 0);
+			tmc_assert(setsockopt(sockinfo.sock, IPPROTO_TCP, TCP_KEEPCNT,   &tcpkn, tcpknlen) == 0);
+		#endif
+		}
+			
+		// set to noblock mode
+		if(sockinfo.noblock)
+		{
+		#ifdef WIN32
+			unsigned long b = 1;
+			tmc_assert(ioctlsocket(sockinfo.sock, FIONBIO, &b) == 0) << errorstr();
+		#else
+			int f = fcntl(sockinfo.sock, F_GETFL);
+		    fcntl(sockinfo.sock, F_SETFL, f | O_NONBLOCK);
+		#endif
+		}
+	}
+
+	static void create(np_sockinfo_type & sockinfo,
+					   int timeout,
+					   int reuseaddr,
+					   int printmask)
+	{
+		int r = -1;
+		SOCKET sock = INVALID_SOCKET;
+
+	#ifdef WIN32
+		struct ip_mreq  mreq;
+	#else
+		struct ip_mreqn mreq;
+	#endif
+		struct ip_mreq_source mreqs; // for multicast SSM mode
+	
+	#ifndef NO_IPV6
+		struct ipv6_mreq mreq6;
+	#endif
+		
+		tmc_assert((sockinfo.type == SOCK_STREAM) || (sockinfo.type == SOCK_DGRAM));
+		
+		if(printmask & 0x01)
+			printf("sock_typex::create::ipv6=%d, listener=%d, multi=%d, reuse=%d\n  lip=[%s], lif=[%s], sip=[%s]\n", sockinfo.bIPv6, sockinfo.listener, sockinfo.multicast, reuseaddr, sockinfo.lip.c_str(), sockinfo.lif.c_str(), sockinfo.sip.c_str());
+		
+		// create socket
+		if(sockinfo.bIPv6)
+		{
+		#ifndef NO_IPV6
+			memset(&mreq6, 0, sizeof(mreq6));
+			tmc_assert((sock = socket(PF_INET6, sockinfo.type, 0)) != INVALID_SOCKET) << errorstr();
+		#endif
+		}
+		else
+		{
+			memset(&mreq, 0, sizeof(mreq));	
+			tmc_assert((sock = socket(AF_INET, sockinfo.type, 0)) != INVALID_SOCKET) << errorstr();
+		}
+		
+		// send buffer size
+		if(sockinfo.sendbufsize > -1)
+		{
+			if(sockinfo.type == SOCK_DGRAM) // for UDP sendbuf can be 0
+				setsockopt(sock, SOL_SOCKET, SO_SNDBUF, (char *)&sockinfo.sendbufsize, (socklen_t)sizeof(int));
+			else if(sockinfo.sendbufsize > 0)
+				setsockopt(sock, SOL_SOCKET, SO_SNDBUF, (char *)&sockinfo.sendbufsize, (socklen_t)sizeof(int));
+		}
+		
+		// recv buffer size
+		if(sockinfo.recvbufsize > 0)
+			setsockopt(sock, SOL_SOCKET, SO_RCVBUF, (char *)&sockinfo.recvbufsize, (socklen_t)sizeof(int));
+	
+		// TTL
+		if(sockinfo.multicast)
+		{
+			reuseaddr = 1;
+			int ttl = 64;
+			if(sockinfo.bIPv6)
+			{
+			#ifndef NO_IPV6
+				r = setsockopt(sock, IPPROTO_IP, IPV6_MULTICAST_HOPS, (char *)&ttl, sizeof(ttl));
+			#endif
+			}
+			else
+			{
+				r = setsockopt(sock, IPPROTO_IP, IP_MULTICAST_TTL, (char *)&ttl, sizeof(ttl));
+			}
+		}
+		else
+		{
+			int ttl = 64;
+			setsockopt(sock, IPPROTO_IP, IP_TTL, (char *)&ttl, sizeof(ttl));
+			
+		#ifdef __APPLE__
+			int value = 1;
+			setsockopt(sock, SOL_SOCKET, SO_NOSIGPIPE, &value, sizeof(value));
+		#endif
+		}
+	
+		// reuse addr
+		if(reuseaddr > 0)
+		{
+        	reuseaddr = 1;
+            r = setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (char *)&reuseaddr, sizeof(unsigned int));
+        }
+		
+		// bind to device
+		if(sockinfo.multicast)
+		{
+			if(printmask & 0x01)
+				printf("sock_typex::multicast::lip=[%s], lif=[%s]\n", sockinfo.lip.c_str(), sockinfo.lif.c_str());
+			
+			// if set interface to INADDR_ANY, multicast data aways send at the default interfaces
+			// if multi interface existing, but can receive data at all these interfaces.
+			
+			if(sockinfo.bIPv6)
+			{
+			#ifndef NO_IPV6
+			  #ifdef WIN32
+				// does NOT supporting yet
+			  #else			
+				inet_pton(AF_INET6, sockinfo.lip.c_str(), &(mreq6.ipv6mr_multiaddr));
+              	if(sockinfo.lif.length() > 0)
+              	{
+              		// using eth0, eth1..., not IP address
+					struct ifreq ifr;    
+    				memset(&ifr, 0, sizeof(ifr));  
+    				strncpy(ifr.ifr_name, sockinfo.lif.c_str(), IFNAMSIZ - 1);
+    				ioctl(sock, SIOCGIFINDEX, &ifr);
+					mreq6.ipv6mr_interface = ifr.ifr_ifindex;
+				}
+              #endif
+			  #if 0
+				{
+					for(int i = 0; i < 16; i++)
+						printf("[%x]", mreq6.ipv6mr_multiaddr.s6_addr[i]);
+					printf("\n");
+				}
+			  #endif
+			#endif				
+			}
+			if(sockinfo.sip.length() > 0)
+			{
+			#ifndef __ANDROID__
+				// SSM mode
+				if(printmask & 0x01)
+					printf("sock_typex::multicast is SSM mode, sip=[%s], lif=[%s]\n", sockinfo.sip.c_str(), sockinfo.lif.c_str());
+				
+	           	mreqs.imr_multiaddr.s_addr  = inet_addr(sockinfo.lip.c_str());
+                mreqs.imr_interface.s_addr  = sockinfo.lif.length() > 0 ? inet_addr(sockinfo.lif.c_str()) : INADDR_ANY;
+                mreqs.imr_sourceaddr.s_addr = inet_addr(sockinfo.sip.c_str());
+            #endif
+			} 			
+			else
+			{
+				// for ASM mode and for IP_MULTICAST_IF
+				mreq.imr_multiaddr.s_addr = inet_addr(sockinfo.lip.c_str());
+			#ifdef WIN32
+                mreq.imr_interface.s_addr = sockinfo.lif.length() > 0 ? inet_addr(sockinfo.lif.c_str()) : INADDR_ANY;;
+			#else
+              	if(sockinfo.lif.length() == 0)
+              	{
+              		mreq.imr_address.s_addr = INADDR_ANY;
+              	}
+              	else
+              	{
+              		if(isdigit(*sockinfo.lif.c_str()))
+              		{
+              			// IP format interface
+	                	mreq.imr_address.s_addr = inet_addr(sockinfo.lif.c_str());
+
+						std::string lif;
+						ifname_from_ip(sock, sockinfo.lif.c_str(), lif);
+			        	if(printmask & 0x08)
+			           		printf("sock_typex::get interface[%s] from ip[%s]\n", lif.c_str(), sockinfo.lif.c_str());
+						(std::string &)sockinfo.lif = lif.length() > 0 ? lif : "";
+	                }
+					if(sockinfo.lif.length() > 0)
+		            {
+	              		// ethx format interface
+	              		struct ifreq ifr;  
+	    				memset(&ifr, 0, sizeof(ifr));
+	    				strncpy(ifr.ifr_name, sockinfo.lif.c_str(), IFNAMSIZ - 1);
+	    				r = ioctl(sock, SIOCGIFINDEX, &ifr);
+	              		if(r == 0)
+	              		{
+	              			mreq.imr_ifindex = ifr.ifr_ifindex;
+	              			if(printmask & 0x01)
+	              				printf("sock_typex::imr_ifindex[%s]=%d\n", sockinfo.lif.c_str(), mreq.imr_ifindex);
+	              		}
+						else
+						{
+							if(printmask & 0x08)
+								printf("sock_typex::ioctl 'SIOCGIFINDEX' fail, err=%d/%s\n", r, strerror(errno));
+						}
+	              	}
+	            }
+            #endif        
+            }		
+		}
+		else if(sockinfo.lif.length() > 0)
+		{
+			if(printmask & 0x01)
+				printf("sock_typex::unicast::lip=[%s], lif=[%s]\n", sockinfo.lip.c_str(), sockinfo.lif.c_str());
+
+		#ifdef WIN32
+			// does NOT supporting yet
+		#else
+		#if 1
+			if(isdigit(*sockinfo.lif.c_str()))
+			{
+				// IP address format interface
+				std::string lif;
+				ifname_from_ip(sock, sockinfo.lif.c_str(), lif);
+	        	if(printmask & 0x08)
+	           		printf("sock_typex::get interface[%s] from ip[%s]\n", lif.c_str(), sockinfo.lif.c_str());				
+				(std::string &)sockinfo.lif = lif.length() > 0 ? lif : "";
+			}
+			if(sockinfo.lif.length() > 0)
+			{
+				// set SO_DONTROUTE option
+			#if 0
+				int dontroute = 1;
+       			r = setsockopt(sock, SOL_SOCKET, SO_DONTROUTE, &dontroute, sizeof(dontroute));
+       			if(printmask & 0x08)
+       			{
+       				if(r < 0)
+       					printf("sock_typex::setsockopt for 'SO_DONTROUTE' fail, err=%d/%s\n", r, strerror(errno));
+       				else
+       					printf("sock_typex::setsockopt for 'SO_DONTROUTE' success\n");
+		       	}
+		   	#endif
+       
+				// ethx format interface
+				struct ifreq lif;
+				memset(&lif, 0, sizeof(lif));
+				strncpy(lif.ifr_name, sockinfo.lif.c_str(), IFNAMSIZ - 1);
+				r = setsockopt(sock, SOL_SOCKET, SO_BINDTODEVICE, (char *)&lif, sizeof(lif));
+				if(printmask & 0x08)
+				{
+					if(r < 0)
+						printf("sock_typex::setsockopt for 'SO_BINDTODEVICE' fail, linf=[%s], err=%d/%s\n", sockinfo.lif.c_str(), r, strerror(errno));
+					else
+						printf("sock_typex::setsockopt for 'SO_BINDTODEVICE' success, linf=[%s]\n", sockinfo.lif.c_str());
+				}
+			}
+		#endif
+		#endif
+		}
+		
+		// bind
+		if(sockinfo.bIPv6)
+		{
+		#ifndef NO_IPV6
+			///printf("socket::IPv6::bind <<<\n");
+			sockaddr_in6 addr;
+			sockinfo.get_sockaddr(addr, true);
+			tmc_assert(bind(sock, (sockaddr *)&addr, sizeof(addr)) == 0) << errorstr();
+			///printf(">>> bind %x\n", addr.sin6_port);
+		#endif
+		}
+		else
+		{
+			///printf("socket::IPv4::bind to [%s] <<<\n", sockinfo.lip.c_str());
+			sockaddr_in addr;
+			sockinfo.get_sockaddr(addr, true);
+			tmc_assert(bind(sock, (sockaddr *)&addr, sizeof(addr)) == 0) << errorstr();
+			///printf(">>>\n");
+		}
+
+		if(sockinfo.listener)
+		{
+			// listener
+			if(sockinfo.type == SOCK_STREAM)
+			{
+				///printf("socket::listen <<<\n");
+				tmc_assert(listen(sock, sockinfo.listenbacklog) == 0) << errorstr();
+				///printf(">>> listen\n");
+			}
+			else if(sockinfo.multicast)
+			{
+				int level   = -1;
+				int optname = 0;
+				const void * optval = NULL;
+				socklen_t optlen = 0;
+				
+				// IP_ADD_MEMBERSHIP or IP_ADD_SOURCE_MEMBERSHIP
+				if(sockinfo.bIPv6)
+				{
+				#ifndef NO_IPV6
+					level   = IPPROTO_IPV6;
+					optname = IPV6_ADD_MEMBERSHIP;
+					optval  = &mreq6;
+					optlen  = sizeof(mreq6);
+				#endif
+				}
+				else if(sockinfo.sip.length() > 0)
+				{
+					level   = IPPROTO_IP;
+					optname = IP_ADD_SOURCE_MEMBERSHIP;
+					optval  = &mreqs;
+					optlen  = sizeof(mreqs);						
+				}
+				else
+				{
+					level   = IPPROTO_IP;
+					optname = IP_ADD_MEMBERSHIP;
+					optval  = &mreq;
+					optlen  = sizeof(mreq);					
+				}
+				if(level > -1)
+				{
+	                r = setsockopt(sock, level, optname, (char *)optval, optlen);
+	                if(printmask & 0x08)
+	                {
+	            		if(r != 0)
+	                		printf("sock_typex::setsockopt '%s' fail, err=%d/%s\n", (optname == IP_ADD_SOURCE_MEMBERSHIP ? "IP_ADD_SOURCE_MEMBERSHIP" : "IP_ADD_MEMBERSHIP"), r, strerror(errno));
+	                	else
+	                		printf("sock_typex::setsockopt '%s' success\n", (optname == IP_ADD_SOURCE_MEMBERSHIP ? "IP_ADD_SOURCE_MEMBERSHIP" : "IP_ADD_MEMBERSHIP"));
+	                }
+	            }
+	                
+                // IP_MULTICAST_IF
+                if(sockinfo.lif.length() > 0)
+                {
+                #ifdef WIN32
+					if(sockinfo.bIPv6)
+					{
+						// does NOT supporting yet
+					}
+					else
+					{
+	              		unsigned long intf = inet_addr(sockinfo.lif.c_str());
+ 				  		r = setsockopt(sock, IPPROTO_IP, IP_MULTICAST_IF, (char *)&intf, sizeof(intf));
+	                	if(printmask & 0x08)
+	                	{
+	                		if(r != 0)
+	                			printf("sock_typex::setsockopt 'IP_MULTICAST_IF' fail, err=%d/%s\n", r, strerror(errno));
+	                		else
+	                			printf("sock_typex::setsockopt 'IP_MULTICAST_IF' success\n");
+	                	} 				  		
+					}
+                #else
+                	level = -1;
+                	unsigned long intf = 0;
+					if(sockinfo.bIPv6)
+					{
+					#ifndef NO_IPV6
+						level   = IPPROTO_IPV6;
+						optname = IPV6_MULTICAST_IF;
+						optval  = &mreq6;
+						optlen  = sizeof(mreq6);
+					#endif
+					}
+					else if(sockinfo.sip.length() > 0)
+					{
+						intf    = inet_addr(sockinfo.lif.c_str());
+						
+						level   = IPPROTO_IP;
+						optname = IP_MULTICAST_IF;
+						optval  = &intf;
+						optlen  = sizeof(intf);						
+					}
+					else
+					{
+						level   = IPPROTO_IP;
+						optname = IP_MULTICAST_IF;
+						optval  = &mreq;
+						optlen  = sizeof(mreq);		
+					}     
+	                if(level > -1)
+	                {
+	                	r = setsockopt(sock, level, optname, (char *)optval, optlen);
+	                	if(printmask & 0x08)
+	                	{
+	                		if(r != 0)
+	                			printf("sock_typex::setsockopt 'IP_MULTICAST_IF' fail, err=%d/%s\n", r, strerror(errno));
+	                		else
+	                			printf("sock_typex::setsockopt 'IP_MULTICAST_IF' success\n");
+	                	}
+	                }
+	            #endif
+				} // if(sockinfo.lif.length() > 0)
+			} // if(sockinfo.multicast)
+		}
+		else 
+		{
+			// client
+			if(sockinfo.multicast)
+			{
+				// sender does NOT need to join multi group
+                if(sockinfo.lif.length() > 0)
+                {
+                #ifdef WIN32
+					if(sockinfo.bIPv6)
+					{
+						// does NOT supporting yet
+					}
+					else
+					{
+ 	              		unsigned long intf = inet_addr(sockinfo.lif.c_str());
+ 				  		setsockopt(sock, IPPROTO_IP, IP_MULTICAST_IF, (char *)&intf, sizeof(intf));
+					}
+                #else
+					int level   = -1;
+					int optname = 0;
+					const void * optval = NULL;
+					socklen_t optlen = 0;
+					if(sockinfo.bIPv6)
+					{
+					#ifndef NO_IPV6
+						level   = IPPROTO_IPV6;
+						optname = IPV6_MULTICAST_IF;
+						optval  = &mreq6;
+						optlen  = sizeof(mreq6);
+					#endif
+					}
+					else
+					{
+						level   = IPPROTO_IP;
+						optname = IP_MULTICAST_IF;
+						optval  = &mreq;
+						optlen  = sizeof(mreq);					
+					}     
+	                if(level > -1)
+	                {
+	                	r = setsockopt(sock, level, optname, (char *)optval, optlen);
+	                	if(printmask & 0x08)
+	                	{
+	                		if(r != 0)
+	                	    	printf("sock_typex::setsockopt 'IP_MULTICAST_IF' fail, err=%d/%s\n", r, strerror(errno));
+	                	    else
+	                	    	printf("sock_typex::setsockopt 'IP_MULTICAST_IF' success\n");
+	                	}
+	                }
+	            #endif
+				} // if(sockinfo.lif.length() > 0)			
+			}
+			else if(sockinfo.type == SOCK_STREAM)
+			{
+				if(printmask & 0x01)
+					printf("sock_typex::create::connect::timeout=%d\n", timeout);
+  					
+				sockaddr_in addr;
+				sockinfo.get_sockaddr(addr, false);
+				if(timeout > 0)
+				{
+					// set non blocking connect mode
+				#ifdef WIN32
+					unsigned long ul = 1;
+					int ret = ioctlsocket(sock, FIONBIO, &ul);
+					if(ret == SOCKET_ERROR)
+					{
+						closesocket(sock);
+						tmc_assert(0) << errorstr();
+					}
+				#else
+					int f = fcntl(sock, F_GETFL);
+				    int r = fcntl(sock, F_SETFL, f | O_NONBLOCK);
+					if(printmask & 0x01)
+						printf("sock_typex::create::fcntl=%d\n", r);
+				#endif
+	
+					// connect by non blocking mode
+					if(printmask & 0x01)
+						printf("sock_typex::create::connect <<<\n");
+					r = connect(sock, (sockaddr *)&addr, sizeof(addr));
+					if(printmask & 0x01)
+						printf(">>> %d\n", r);
+	
+					if(r == -1)
+					{
+				 		timeval t;
+						t.tv_sec  = timeout / 1000;
+						t.tv_usec = (timeout % 1000) * 1000;
+				        
+						fd_set set;
+				        FD_ZERO(&set);
+						FD_SET(sock, &set);
+						
+				        if(printmask & 0x01)
+				            printf("connect::select <<<\n");
+				        
+				        r = ::select((int)sock + 1, NULL, &set, NULL, &t);
+						
+						if(printmask & 0x01)
+			            	printf(">>> %d\n", r);
+				        	
+				        if(r > 0)
+				        {
+				        	int err = -1;
+							int len = sizeof(int);
+						#ifdef WIN32
+							getsockopt(sock, SOL_SOCKET, SO_ERROR, (char *)&err, (socklen_t *)&len);
+						#else
+				            getsockopt(sock, SOL_SOCKET, SO_ERROR, &err, (socklen_t *)&len);
+						#endif				            
+							if(err != 0)
+				            {
+				            	if(printmask & 0x01)
+				            		printf("connect::getsockopt 'SO_ERROR' fail, err=%d\n", err);
+				            	
+								closesocket(sock);
+				            	tmc_assert(0) << errorstr();
+							}
+				        }
+				        else
+				        {
+				        	if(printmask & 0x01)
+				        		printf("connect::select fail, r=%d\n", r);
+				        	
+							closesocket(sock);
+							tmc_assert(0) << errorstr();
+				        }
+	            	}
+	            
+					// recover to blocking mode
+				#ifdef WIN32
+					ul = 0;
+					ret = ioctlsocket(sock, FIONBIO, &ul);
+					if(ret == SOCKET_ERROR)
+					{
+						closesocket(sock);
+						tmc_assert(0) << errorstr();
+					}
+				#else
+	            	r = fcntl(sock, F_SETFL, f & ~O_NONBLOCK);
+	            	
+					if(printmask & 0x01)
+	            		printf("sock_typex::create::fcntl=%d\n", r);
+				#endif
+				
+					if(printmask & 0x01)
+	            		printf("sock_typex::create::connected\n");
+	            }
+	            else
+	            {
+	            	tmc_assert(connect(sock, (sockaddr *) &addr, sizeof(addr)) == 0) << errorstr();
+	            }
+	        }
+		}
+
+		(SOCKET &)sockinfo.sock = sock;
+		np_sock_type::__init(sockinfo);
+	}
+
+	static void create(SOCKET sock, np_sockinfo_type & nsock, np_sockinfo_type & lsock)
+	{
+		nsock = np_sockinfo_type(sock, lsock.type, lsock.flag, lsock.sendbufsize, lsock.recvbufsize, lsock.keepaliveintv, "", 0, "", 0);
+
+		tmc_assert(nsock.sock != INVALID_SOCKET);
+		tmc_assert(nsock.type == SOCK_STREAM);
+		
+		(bool &)nsock.bIPv6 = lsock.bIPv6;
+		
+		if(nsock.sendbufsize > 0)
+			setsockopt(nsock.sock, SOL_SOCKET, SO_SNDBUF, (char *)&nsock.sendbufsize, (socklen_t)sizeof(int));
+		if(nsock.recvbufsize > 0)
+			setsockopt(nsock.sock, SOL_SOCKET, SO_RCVBUF, (char *)&nsock.recvbufsize, (socklen_t)sizeof(int));	
+	
+		np_sock_type::__init(nsock);
+	}
+
+	static void release(np_sockinfo_type & sockinfo) 
+	{ 
+		if(sockinfo.sock != INVALID_SOCKET)
+		{
+			if(sockinfo.multicast)
+			{
+				if(sockinfo.bIPv6)
+				{
+				#ifndef NO_IPV6
+					struct ipv6_mreq mr;
+				  #ifdef WIN32
+					// ###
+				  #else
+					inet_pton(AF_INET6, sockinfo.lip.c_str(), &(mr.ipv6mr_multiaddr));
+	              #endif
+					mr.ipv6mr_interface = sockinfo.lif.length() > 0 ?  atoi(sockinfo.lif.c_str()) : 0;
+		            setsockopt(sockinfo.sock, IPPROTO_IPV6, IPV6_DROP_MEMBERSHIP, (char*)&mr, sizeof(mr));
+		        #endif
+				}
+				else if(sockinfo.sip.length() > 0)
+				{
+				#ifndef __ANDROID__
+					struct ip_mreq_source mr;
+		          	mr.imr_multiaddr.s_addr  = inet_addr(sockinfo.lip.c_str());
+	                mr.imr_interface.s_addr  = sockinfo.lif.length() > 0 ? inet_addr(sockinfo.lif.c_str()) : INADDR_ANY;
+	                mr.imr_sourceaddr.s_addr = inet_addr(sockinfo.sip.c_str());
+		            setsockopt(sockinfo.sock, IPPROTO_IP, IP_DROP_SOURCE_MEMBERSHIP, (char*)&mr, sizeof(mr));
+		        #endif
+				}
+				else
+				{
+					struct ip_mreq mr;
+		          	mr.imr_multiaddr.s_addr = inet_addr(sockinfo.lip.c_str());
+	                mr.imr_interface.s_addr = sockinfo.lif.length() > 0 ? inet_addr(sockinfo.lif.c_str()) : INADDR_ANY;
+		            setsockopt(sockinfo.sock, IPPROTO_IP, IP_DROP_MEMBERSHIP, (char*)&mr, sizeof(mr));
+		        }
+	 		}
+			closesocket(sockinfo.sock);
+			(SOCKET &)sockinfo.sock = INVALID_SOCKET;			
+		}
+	}
+};
+
+#endif

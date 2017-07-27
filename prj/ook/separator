@@ -1,0 +1,157 @@
+/*
+	(M):mem alloc safe
+ */
+ 
+#ifndef __SEPARATOR_H__
+#define __SEPARATOR_H__
+
+#include <string>
+#include <map>
+#include "predef.h"
+
+extern "C" {
+	#include "mem.h"
+}
+
+class separator
+{
+public:
+	separator() : _buf(NULL)
+	{
+	};
+	separator(std::string & s) 
+		: _buf(NULL)
+	{
+		partition(s.c_str(), " ");
+	};
+	separator(const char * s) 
+		: _buf(NULL)
+	{
+		partition(s, " ");
+	};
+	separator(std::string & s,
+			  std::string & sep) 
+		: _buf(NULL)
+	{
+		partition(s.c_str(), sep.c_str());
+	};
+	separator(const char * s,
+			  const char * sep) 
+		: _buf(NULL)
+	{
+		partition(s, sep);
+	};	
+	~separator()
+	{
+		if(_buf)
+			free__(_buf);
+	};
+	
+	void partition(const char * s,
+				   const char * sep)
+	{
+		if(!s || !sep)
+			return;
+
+		unsigned int len = (unsigned int)strlen(s);
+		if(len == 0)
+			return;
+
+		unsigned len_sep = (unsigned int)strlen(sep);
+		if(len_sep == 0)
+			return;
+				
+		char * c = NULL;
+		
+		// clear buffer
+		if(_buf)
+		{
+		/* 	this is used for such usage:
+		
+			separator s(nodeId, "@");
+			if(s[0])
+				s.partition(s[0], ".");
+				
+			delete _buf will clear the s[0] also
+		 */
+			c = (char *)malloc__(len + 4);
+			if(!c)
+				return;
+			
+			__strcpy(c, len + 1, s);
+			c[len] = 0;
+			
+			free__(_buf);
+			_buf = NULL;
+		}
+		
+		_map.clear();
+		
+		// new buffer
+		_buf = (char *)malloc__(len + 4);
+		if(_buf)
+		{
+			__strcpy(_buf, len + 1, (c ? c : s));
+			_buf[len] = 0;
+			
+			// scan
+			int index = 0;
+			_map[index++] = 0;
+			for(unsigned int i = 0; i < len; i++)
+			{
+				if(strncmp(_buf + i, sep, len_sep) == 0)
+				{
+					if(i + len_sep < len)
+						_map[index++] = i + len_sep;
+					_buf[i] = 0;
+					i += len_sep - 1;
+				}
+			}
+		}
+		
+		if(c)
+			free__(c);
+	};
+
+	void clear()     { _map.clear(); }
+	int size() const { return (int)_map.size(); }
+	
+	const char * operator[](const int index)
+	{
+		if(index > -1 && (unsigned int)index < (unsigned int)_map.size())
+			return _buf + _map[index];
+		return NULL;
+	};
+	
+	const char * operator[](const char * str)
+	{
+		if(!str)
+			return NULL;
+		unsigned int len = (unsigned int)strlen(str);
+		if(len == 0)
+			return NULL;
+		for(__map::const_iterator ite = _map.begin(); ite != _map.end(); ite++)
+		{
+			if(strncmp(_buf + ite->second, str, len) == 0)
+			{
+				return _buf + ite->second;
+			}
+		}
+		return NULL;
+	};
+	
+	void abort(const int index)
+	{
+		if(index > (int)_map.size())
+			return;
+		*(_buf + _map[index]) = 0;		
+	}
+	
+private:
+	char * _buf;
+
+	typedef std::map<int, int> __map;
+	__map _map;
+};
+
+#endif

@@ -1,0 +1,49 @@
+#ifndef __IDSELECTOR2__
+#define __IDSELECTOR2__
+
+#include <deque>
+#include <algorithm>
+
+template <typename _SType, unsigned int poolDeep >
+class idselector2
+{
+public:
+	idselector2() 
+		: _deep(poolDeep), 
+		  _size(0) 
+	{
+	}
+
+	void set_deep(int deep) 
+	{ 
+		_deep = deep; 
+	}
+	
+	void clear() 
+	{ 
+		_size = 0;
+		_rcvs.clear(); 
+	}
+
+	bool on_recv(const _SType & src, unsigned short seq) const
+	{
+		idselector_pair id(src, seq);
+		typename __rcvs::iterator ite = std::find(_rcvs.begin(), _rcvs.end(), id);
+		if(ite != _rcvs.end())
+			return false;
+		_size++;
+		if(_size > _deep)
+			_rcvs.pop_front();
+		_rcvs.push_back(id);
+		return true;
+	}
+
+private:
+	unsigned int _deep;
+	mutable unsigned int _size;
+	typedef std::pair<_SType, unsigned short > idselector_pair;
+	typedef std::deque<idselector_pair > __rcvs;
+	mutable __rcvs _rcvs;
+};
+
+#endif

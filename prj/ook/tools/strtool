@@ -1,0 +1,759 @@
+#ifndef __STRTOOLS_H__
+#define __STRTOOLS_H__
+
+#include <ctype.h>
+#include <ook/predef.h>
+#include <ook/separator>
+
+///#include <ook/trace>
+///DECTRACE
+
+inline bool is_digit(const char * s)
+{   
+	int i, l;                     
+	if(!s)
+		return false;
+	l = (int)strlen(s);
+	if(l == 0)
+		return false;
+    for(i = 0; i < l; i++)
+    {
+ 		if(!isdigit(s[i]))
+ 			return false;
+	}
+	return true;
+}
+
+inline bool is_letter_or_digit(const char * s) 
+{   
+	int i, l;                     
+	if(!s)
+		return false;
+	l = (int)strlen(s);
+	if(l == 0)
+		return false;
+    for(i = 0; i < l; i++)
+    {
+    	if(s[i] & 0x80)
+    		return false;
+ 		if(!isalpha(s[i]) && !isdigit(s[i]))
+ 			return false;
+	}
+	return true;
+}
+
+inline bool is_ascii_string(const char * s)
+{
+	int i, l;                     
+	if(!s)
+		return false;
+	l = (int)strlen(s);
+	if(l == 0)
+		return false;
+    for(i = 0; i < l; i++)
+    {
+    	if(s[i] & 0x80)
+    		return false;
+	}
+	return true;	
+}
+
+inline bool is_for_file_path(const char * s) 
+{   
+	int i, l;                     
+	if(!s)
+		return false;
+	l = (int)strlen(s);
+	if(l == 0)
+		return false;
+    for(i = 0; i < l; i++)
+    {
+    	if(s[i] & 0x80)
+    		return false;
+ 		if(!isalpha(s[i]) && !isdigit(s[i]) && (s[i] != '-') && (s[i] !='_'))
+ 			return false;
+	}
+	return true;
+}
+
+// to lower case
+inline void str_tolower(char * p)
+{
+	if(!p)
+		return;
+	int len = (int)strlen(p);
+	for(int j = 0; j < len; j++)
+	{
+		if(isalpha(*(p + j)))
+			*(p + j) = tolower(*(p + j));
+	}
+}
+
+// to upper case
+inline void str_toupper(char * p)
+{
+	if(!p)
+		return;
+	int len = (int)strlen(p);
+	for(int j = 0; j < len; j++)
+	{
+		if(isalpha(*(p + j)))
+			*(p + j) = toupper(*(p + j));
+	}
+}
+
+// compare IP formated string
+inline bool compare_IPformat_string(const std::string & s1, const std::string & s2)
+{
+	separator sep1, sep2;
+	
+	sep1.partition(s1.c_str(), ".");
+	sep2.partition(s2.c_str(), ".");
+	
+	int size1 = sep1.size();
+	int size2 = sep2.size();
+	
+	if(size1 > size2)
+		return true;
+	if(size2 > size1)
+		return false;
+		
+	for(int i = 0; i < size1; i++)
+	{
+		const char * p1 = sep1[i];
+		const char * p2 = sep2[i];
+		
+		if(!p1 || !p2)
+			continue;
+		
+		int i1 = atoi(p1);
+		int i2 = atoi(p2);
+		//FTRACE(3, i1 << " " << i2)
+		
+		if(i1 == i2)
+			continue;
+			
+		if(i1 > i2)
+			return true;
+		else
+			return false;
+	}
+
+	return false;
+}
+
+// trim the spaces in string
+// method & 0x01: trim space at header
+// method & 0x02: trim space at last
+// method & 0x04: trim space at middle
+// method & 0x10: trim \r\n or \n at header
+// method & 0x20: trim \r\n or \n at last
+// method & 0x40: trim \t at header or last
+// method & 0x80: trim \" at header or last
+inline void trim_space(char ** str, int method = 7)
+{
+	char * p = *str;
+	if(!p)
+		return;
+		
+	//TRACE(4, "trim_space::input[" << p << "]")
+	
+	// trim \r\n or \n at header
+	if(method & 0x10)
+	{
+		while(*p)
+		{
+			//TRACE(3, (int)*p)
+			if(*p == '\r')
+			{
+				//TRACE(3, "a1")
+				p++;
+			}
+			else if(*p == '\n')
+			{
+				//TRACE(3, "a1")
+				p++;
+			}
+			else
+			{
+				//TRACE(3, "ab")
+				break;
+			}
+		}
+		if(*p == 0)
+		{
+			//TRACE(3, "abort")
+			*str = NULL;
+			return;
+		}
+		
+		//TRACE(4, "trim_space::htrim[" << p << "]")
+	}
+	
+	// trim \r\n or \n at last
+	if(method & 0x20)
+	{
+		int len = (int)strlen(p) - 1;
+		while(len >= 0)
+		{
+			//TRACE(3, (int)p[len])
+			if(p[len] == '\r')
+			{
+				//TRACE(3, "b1")
+				p[len--] = 0;
+			}
+			if(p[len] == '\n')
+			{
+				//TRACE(3, "b1")
+				p[len--] = 0;
+			}
+			else
+			{
+				//TRACE(3, "bb")
+				break;
+			}
+		}
+		if(strlen(p) == 0)
+		{
+			//TRACE(3, "abort")
+			*str = NULL;
+			return;
+		}
+	}
+	
+	if(method & 0x40) // trim \t
+	{
+		while(*p)
+		{
+			if(*p != '\t')
+				break;
+			p++;
+		}
+		if(*p == 0)
+		{
+			*str = NULL;
+			return;
+		}
+				
+		int len = (int)strlen(p) - 1;
+		while(len >= 0)
+		{
+			if(p[len] != '\t')
+				break;
+			p[len--] = 0;
+		}
+		if(strlen(p) == 0)
+		{
+			*str = NULL;
+			return;
+		}		
+	}
+
+	if(method & 0x80) // trim \t
+	{
+		while(*p)
+		{
+			if(*p != '\"')
+				break;
+			p++;
+		}
+		if(*p == 0)
+		{
+			*str = NULL;
+			return;
+		}
+				
+		int len = (int)strlen(p) - 1;
+		while(len >= 0)
+		{
+			if(p[len] != '\"')
+				break;
+			p[len--] = 0;
+		}
+		if(strlen(p) == 0)
+		{
+			*str = NULL;
+			return;
+		}		
+	}
+		
+	// trim the space at head
+	if(method & 0x01)
+	{
+		while(*p)
+		{
+			//TRACE(3, (int)*p)
+			if(*p == ' ')
+			{
+				//TRACE(3, "a1")
+				p++;
+			}
+			else if((*p == (char)0xa1) && (*(p + 1) == (char)0xa1)) // SBC space
+			{
+				//TRACE(3, "a2")
+				p += 2;
+			}
+			else
+			{
+				//TRACE(3, "ab")
+				break;
+			}
+		}
+		if(*p == 0)
+		{
+			//TRACE(3, "abort")
+			*str = NULL;
+			return;
+		}
+		
+		//TRACE(4, "trim_space::htrim[" << p << "]")
+	}
+	
+	// trim the space at last
+	if(method & 0x02)
+	{
+		int len = (int)strlen(p) - 1;
+		while(len >= 0)
+		{
+			//TRACE(3, (int)p[len])
+			if(p[len] == ' ')
+			{
+				//TRACE(3, "b1")
+				p[len--] = 0;
+			}
+			else if((p[len] == (char)0xa1) && (p[len - 1] == (char)0xa1))
+			{
+				//TRACE(3, "b2")
+				p[len--] = 0;
+				p[len--] = 0;
+			}
+			else
+			{
+				//TRACE(3, "bb")
+				break;
+			}
+		}
+		if(strlen(p) == 0)
+		{
+			//TRACE(3, "abort")
+			*str = NULL;
+			return;
+		}
+		//TRACE(4, "trim_space::btrim[" << p << "]")
+	}
+
+	// trim the space midle	
+	if(method & 0x04)
+	{
+		std::string s;
+		bool is_sbc = false;
+		bool is_space = false;
+
+		int len = (int)strlen(p);
+		for(int j = 0; j < len; j++)
+		{
+			//TRACE(3, (int)(*(p + j)))
+		
+			if(*(p + j) == ' ') // is char ' '
+			{
+				if(is_space)
+				{
+					//TRACE(3, "-m1")
+					is_sbc = false;
+					continue;
+				}
+				
+				is_space = true;
+						
+				if(is_sbc) // the last word is SBC case, such as chinese or SBC english letter
+				{		
+					//TRACE(3, "-m2")
+					is_sbc = false;
+					continue;
+				}
+
+				// the last word is DBC case, such as a, b, c, 1, 2....
+				s += ' ';
+			}
+			else if((*(p + j) == (char)0xa1) && (*(p + j + 1) == (char)0xa1)) // is SBC char '  '
+			{
+				j++;
+				if(is_space)
+				{
+					//TRACE(3, "-M1")
+					is_sbc = true;					
+					continue;
+				}
+				
+				is_space = true;
+								
+				if(is_sbc)
+				{
+					//TRACE(3, "-M2")
+					continue;
+				}
+				
+				is_sbc = true;
+			}
+			else // is not space char
+			{
+				is_space = false;
+				
+				if((int)(*(p + j)) > 0)
+				{
+					//TRACE(3, "DBC case")
+					s += *(p + j);
+					is_sbc = false;
+				}
+				else
+				{
+					//TRACE(3, "SBC case")
+					s += *(p + j);
+					s += *(p + j + 1);
+					j++;
+					is_sbc = true;
+				}
+			}
+		}
+		
+		__strcpy(p, ((int)strlen(p) + 1), s.c_str());
+		//TRACE(4, "trim_space::mtrim[" << p << "]")
+	}
+	
+	*str = p;
+	//TRACE(3, "trim_space:[" << *str << "]")
+}
+
+inline void trim_mark(char ** str, int method = 7)
+{
+	trim_space(str);
+	
+	char * p = *str;
+	
+	if(!p || strlen(p) == 0)
+		return;
+						
+	while(1)
+	{
+		bool loop = false;
+		
+		unsigned int len = (unsigned int)strlen(p);
+		if(len > 1)
+		{
+			if((*(p + len - 1) == ',') ||
+			   (*(p + len - 1) == '.') ||
+			   (*(p + len - 1) == '?') ||
+			   (*(p + len - 1) == '\\') ||
+			   (*(p + len - 1) == '/') ||
+			   (*(p + len - 1) == ';') ||
+			   (*(p + len - 1) == ':') ||
+			   (*(p + len - 1) == '\"') ||
+			   (*(p + len - 1) == '\'') ||
+			   (*(p + len - 1) == '[') ||
+			   (*(p + len - 1) == ']') ||
+			   (*(p + len - 1) == '{') ||
+			   (*(p + len - 1) == '}') ||
+			   (*(p + len - 1) == '<') ||
+			   (*(p + len - 1) == '>') ||			   
+			   (*(p + len - 1) == '|') ||
+			   (*(p + len - 1) == '+') ||
+			   (*(p + len - 1) == '=') ||
+			   (*(p + len - 1) == '-') ||
+			   (*(p + len - 1) == '_') ||
+			   (*(p + len - 1) == ' '))
+			{
+				loop = true;
+			   	*(p + len - 1) = 0;
+			}
+		}
+		
+		if(len > 2)
+		{
+			if(((*(p + len - 2) == (char)0xa3) && (*(p + len - 1) == (char)0xac)) || //£¬
+			   ((*(p + len - 2) == (char)0xa1) && (*(p + len - 1) == (char)0xa3)) || //¡£
+			   ((*(p + len - 2) == (char)0xa3) && (*(p + len - 1) == (char)0xbf)) || //£¿
+			   ((*(p + len - 2) == (char)0xa1) && (*(p + len - 1) == (char)0xa2)) || //¡¢
+			   ((*(p + len - 2) == (char)0xa3) && (*(p + len - 1) == (char)0xbb)) || //£»
+			   ((*(p + len - 2) == (char)0xa3) && (*(p + len - 1) == (char)0xba)) || //£º
+			   ((*(p + len - 2) == (char)0xa1) && (*(p + len - 1) == (char)0xb0)) || //¡±
+			   ((*(p + len - 2) == (char)0xa1) && (*(p + len - 1) == (char)0xb1)) || //¡°
+			   ((*(p + len - 2) == (char)0xa1) && (*(p + len - 1) == (char)0xae)) || //¡¯
+			   ((*(p + len - 2) == (char)0xa1) && (*(p + len - 1) == (char)0xaf)) || //¡®
+			   ((*(p + len - 2) == (char)0xa1) && (*(p + len - 1) == (char)0xb6)) || //¡¶
+			   ((*(p + len - 2) == (char)0xa1) && (*(p + len - 1) == (char)0xb7)) || //¡·
+			   ((*(p + len - 2) == (char)0xa1) && (*(p + len - 1) == (char)0xa1)))   //"¡¡"
+			{
+				loop = true;
+			   	*(p + len - 2) = 0;
+			}
+		}
+		
+		if(!loop)
+			break;
+	}	
+}
+
+#ifdef WIN32
+
+inline bool is_formula(const char * c, std::string & s, bool force2float)
+{
+	unsigned int i;
+	unsigned int len = (unsigned int)strlen(c);
+	
+	for(i = 0; i < len; i++)
+	{
+		if((int)*(c + i) < 0)
+		{
+			return false;
+		}
+		else if(isdigit(*(c + i)))
+		{
+			s += *(c + i);
+		}
+		else if(*(c + i) == '/')
+		{
+			if(force2float)
+				s += "*1.0";
+			
+			s += *(c + i);
+		}
+		else if((*(c + i) == '*') && (*(c + i + 1) == '*'))
+		{
+			s += *(c + i);
+			i++;
+			s += *(c + i);
+		}			
+		else if((*(c + i) == ' ') ||
+				(*(c + i) == '+') ||
+				(*(c + i) == '-') ||
+				(*(c + i) == '*') ||
+				(*(c + i) == '%') ||
+				(*(c + i) == '(') ||
+				(*(c + i) == ')') ||
+				(*(c + i) == '.') ||
+				(*(c + i) == '='))
+		{
+			s += *(c + i);
+		}
+		else
+		{
+			return false;
+		}
+	}
+	
+	// trim the ' ' or '=' in the end
+	while(1)
+	{
+		const char * p = s.c_str();
+		if((*(p + s.length() - 1) == ' ') ||
+		   (*(p + s.length() - 1) == '='))
+		   s.resize(s.length() -1);
+		else
+			break;
+	}
+	
+	if(s.length() == 0)
+		return false;
+	
+	if(force2float)
+	{
+/*
+		a ** b 		--> a ** b ** 1.0
+		a ** (...) 	-->	a ** (...) ** 1.0
+ */			
+		std::string ss = s;
+		len = (unsigned int)ss.length();
+		c = ss.c_str();
+		s = "";
+		
+		int ss_index = 0;
+		int arc[128];
+			
+		for(i = 0; i < len; i++)
+		{
+			if(isdigit(*(c + i)))
+			{
+				s += *(c + i);
+			}
+			else if(*(c + i) == '.')
+			{
+				s += *(c + i);
+			}		
+			else if((*(c + i) == '*') && (*(c + i + 1) == '*'))
+			{
+				s += *(c + i);
+				i++;
+				s += *(c + i);
+				
+				ss_index++;
+				if(ss_index > 128)
+					return false;
+
+				arc[ss_index - 1] = 0;				
+			}			
+			else if(*(c + i) == '(')
+			{
+				s += *(c + i);
+				
+				if(ss_index > 0)
+					arc[ss_index - 1]++;
+			}
+			else if(*(c + i) == ')')
+			{
+				if(ss_index > 0)
+				{
+					if(arc[ss_index - 1] == 0)
+					{
+						s += "**1.0";
+						ss_index--;
+					}
+				}
+								
+				s += *(c + i);
+				
+				if(ss_index > 0)
+				{
+					if(arc[ss_index - 1] > 0)
+					{
+						arc[ss_index - 1]--;
+						if(arc[ss_index - 1] == 0)
+						{
+							s += "**1.0";
+							ss_index--;
+						}
+					}
+				}
+			}
+			else if((*(c + i) == ' ') ||
+					(*(c + i) == '+') ||
+					(*(c + i) == '-') ||
+					(*(c + i) == '*') ||
+					(*(c + i) == '%') ||
+					(*(c + i) == '/') ||
+					(*(c + i) == '='))
+			{
+				if(ss_index > 0)
+				{
+					if(arc[ss_index - 1] == 0)
+					{
+						s += "**1.0";
+						ss_index--;
+					}
+				}
+								
+				s += *(c + i);
+			}
+		}
+		
+		if(ss_index > 0)
+		{
+			if(arc[ss_index - 1] == 0)
+				s += "**1.0";
+		}		
+	}
+		
+	return true;
+}
+
+#endif
+
+////////////////////////////////////////////////
+// replace chars within a string
+///###
+inline void dbc_replace(char ** str,
+ 					 	const char * replaced_symbols,
+ 					 	const char * replacing_symbols)
+{
+	char * p = *str;
+	if(!p)
+		return;
+
+	if(!replaced_symbols || !replacing_symbols)
+		return;
+
+	int len_replaced  = (int)strlen(replaced_symbols);
+	int len_replacing = (int)strlen(replacing_symbols);
+
+	if(len_replacing < len_replaced)
+		return;
+		
+	int len = (int)strlen(p);
+	for(int i = 0; i < len; i++)
+	{
+		///TRACE(3, "p=" << *(p + i))
+		for(int j = 0; j < len_replaced; j++)
+		{	
+			if(*(p + i) == *(replaced_symbols + j))
+			{
+				///TRACE(3, "replace " << *(replaced_symbols + j) << " with " << *(replacing_symbols + j))
+				*(p + i) = *(replacing_symbols + j);
+				break;
+			}
+		}
+	}
+}
+
+////////////////////////////////////////////////
+// change sbc case to dbc case
+
+inline void sbc2dbc(std::string & s,
+ 					const char * c,
+ 					const char * sbc_symbols,
+ 					const char * dbc_symbols)
+{
+	if(!c || !sbc_symbols || !dbc_symbols)
+		return;
+	
+	int len_sbc = (int)strlen(sbc_symbols);
+	int len_dbc = (int)strlen(dbc_symbols);
+
+	if((len_dbc << 1) < len_sbc)
+		return;
+		
+	s = "";
+	int len = (int)strlen(c);
+	
+	for(int i = 0; i < len; i++)
+	{
+		bool replace = false;
+		
+		for(int j = 0; j < len_sbc; j += 2)
+		{	
+			if(strncmp(c + i, sbc_symbols + j, 2) == 0)
+			{
+				s += *(dbc_symbols + (j >> 1));
+				i++;
+				replace = true;				
+				break;
+			}
+		}
+		
+		if(!replace)
+			s += *(c + i);
+	}
+}
+
+inline void sbc2dbc_default(std::string & s,
+ 							const char * c)
+{
+#ifndef __ANDROID__
+	sbc2dbc(s, c, "£¨£©£«£­£ª£¯£±£²£³£´£µ£¶£·£¸£¹£°", "()+-*/1234567890");
+#endif
+}
+
+inline void string_replace(std::string & str, 
+						   const std::string & strsrc, 
+						   const std::string & strdst) 
+{
+    std::string::size_type pos = 0;
+    std::string::size_type srclen = strsrc.size();
+    std::string::size_type dstlen = strdst.size();
+    while((pos = str.find(strsrc, pos)) != std::string::npos)
+	{
+        str.erase(pos, srclen);
+        str.insert(pos, strdst);
+        pos += dstlen;
+    }
+}
+
+#endif

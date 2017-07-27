@@ -1,0 +1,357 @@
+/***************************************************************************
+                           thd_trace 1.00 (thread safe TRACE)
+                         -------------------
+    begin                : 2012 -  9 - 15
+    last modify			 : 2012 -  9 - 15
+    copyright            : (C) 2012 by ChengYang
+    email                : helloook@hotmail.com
+ ***************************************************************************/
+/*
+ * This material is provided "as is", with absolutely no warranty expressed
+ * or implied. Any use is at your own risk.
+ *
+ * Permission to use or copy this software for any purpose is hereby granted 
+ * without fee, provided the above notices are retained on all copies.
+ * Permission to modify the code and to distribute modified code is granted,
+ * provided the above notices are retained, and a notice that the code was
+ * modified is included with the above copyright notice.
+ *
+ *
+ */
+#ifndef __THD_TRACE_H__
+#define __THD_TRACE_H__
+
+#include <sstream>
+#include <iostream>
+#include <deque>
+
+#include <ook/thread>
+#include <ook/sys/call>
+#include <ook/trace>
+#include <ook/macro.h>
+
+#define NEW_TRACELOCK { if(!_com_hg_trace_lock_) _com_hg_trace_lock_ = new tmc_mutex_type; }
+#define CLS_TRACELOCK { if(_com_hg_trace_lock_) { delete _com_hg_trace_lock_; _com_hg_trace_lock_ = NULL; } }
+
+namespace std {
+
+/////////////////////////////////////////////////////////////////////
+// basic_threadbuf<CharT, TraitsT, Alloc>
+
+template <typename CharT, typename TraitsT = std::char_traits<CharT >, typename Alloc = std::allocator<CharT > >
+class basic_threadbuf : public basic_stringbuf<CharT, TraitsT, Alloc >
+{
+public:
+	basic_threadbuf()
+	{
+		_fp = NULL;
+		_th = NULL;
+		_maxtsize  = 1024;
+		_maxfsize  = 1024 * 1024 * 10; // 10M
+		_save2file = false;
+		_openfile  = true;
+		_thrunning = false;
+		_signal    = false;
+		_closed    = false;
+	}
+    virtual ~basic_threadbuf()
+    {
+        //sync();
+        safe_close();
+    }
+
+	void safe_start(const char * path, 
+				    const char * prefix,
+				    const char * postfix,
+				    unsigned int maxtextsize = 0,
+				    unsigned int maxfilesize = 0)
+	{
+		if(!_th)
+		{
+			if(path)
+				_path    = path;
+			if(prefix)
+				_prefix  = prefix;
+			if(postfix)
+				_postfix = postfix;
+			
+			if(maxtextsize > 0)
+				_maxtsize = maxtextsize;
+			if(maxfilesize > 0)
+				_maxfsize = maxfilesize;
+			
+			_save2file = _path.length() > 0;
+			_closed    = false;
+			_thrunning = true;
+			try {
+				_th = new thread(&basic_threadbuf<CharT, TraitsT > ::_run, *this);
+			}
+			catch(...)
+			{
+			}			
+		}
+	}
+	
+	void safe_close()
+	{
+		_closed = true;
+		if(_th)
+		{
+			int n = 8;
+			while(n > 0)
+			{
+				_mu.lock();
+				int left = (int)_txt.size();
+				_mu.unlock();
+				if(left == 0)
+					break;
+				n--;
+				chsc_sleep(50);
+			}
+			_thrunning = false;
+			delete _th;
+			_th = NULL;
+		}
+		if(_fp)
+		{
+			fclose(_fp);
+			_fp = NULL;
+		}
+		_mu.lock();
+		for(__txt::iterator ite = _txt.begin(); ite != _txt.end(); ite++)
+			free(*ite);
+		_txt.clear();
+		_mu.unlock();
+	}
+	
+protected:
+    int sync()
+    {
+    	///printf("sync()\n");
+    #ifdef WIN32
+	  ///#ifdef WINCE
+		output_debug_string(str().c_str());
+	  ///#else
+    	///_Mystr s = str();
+    	///output_debug_string(s.c_str());
+	  ///#endif
+    #else
+    	typename basic_stringbuf<CharT, TraitsT, Alloc >::__string_type s = basic_stringbuf<CharT, TraitsT, Alloc >::str();
+    	output_debug_string(s.c_str());
+    #endif
+        str(std::basic_string<CharT >()); // Clear the string buffer
+        return 0;
+    }
+
+    void output_debug_string(const CharT * text);
+    
+private:
+	FILE * _fp;
+	
+	typedef std::deque<char * > __txt;
+	__txt _txt;
+	
+	unsigned int _maxtsize;
+	unsigned int _maxfsize;
+	
+	bool _save2file;
+	bool _openfile;	
+	bool _thrunning;
+	bool _signal;
+	bool _closed;
+	
+	std::string _path;
+	std::string _prefix;
+	std::string _postfix;
+	
+	tmc_mutex_type _mu;
+	tmc_mutex_type _mucd;
+	tmc_cond_type  _cond;
+		
+	typedef tmc_thread_type<basic_threadbuf<CharT, TraitsT > > thread;
+	thread * _th;
+	
+	void _run(int * thstatus, void * p)
+	{
+		unsigned int count = 0;
+		char * txt = NULL;
+		while(_thrunning)
+		{
+			if(txt)
+			{
+				free(txt);
+				txt = NULL;
+			}
+
+			_mu.lock();
+			///printf("rd=%u\n", _txt.size());
+			if(_txt.size() > 0)
+			{
+				txt = _txt.back();
+				_txt.pop_back();
+			}
+			_mu.unlock();
+			
+			if(!txt)
+			{
+				_mucd.lock();
+				_signal = true;
+				_cond.wait(_mucd, 50);
+				_signal = false;
+				_mucd.unlock();
+				continue;
+			}
+			
+			if(!_save2file)
+			{
+				printf("%s", txt);
+				continue;
+			}
+			
+			if(_openfile)
+			{
+				_openfile = false;
+				
+				char tmstr[32];
+				{
+					time_t t = time(NULL);
+					t = (t / 600) * 600; // mode with 10 minutes
+					tm m = *localtime(&t);
+					strftime(tmstr, 64, "%Y%m%d_%H%M00", &m);
+				}
+	
+				std::string f = _path;
+				APPENDSEPARTOR(f)
+				f += _prefix;
+				f += tmstr;
+				f += _postfix;
+
+				if(_fp)
+					fclose(_fp);
+				_fp = fopen(f.c_str(), "a");
+			}
+			
+			if(_fp)
+			{
+				fwrite(txt, 1, strlen(txt), _fp);
+				fflush(_fp);
+				
+				count++;
+				if((count % 512) == 0)
+				{	
+					unsigned int fs = (unsigned int)ftell(_fp);
+					if(fs > _maxfsize)
+					{
+						fclose(_fp);
+						_fp = NULL;
+						_openfile = true;
+					}
+				}
+			}
+		}
+
+		if(txt)
+			free(txt);
+		pthread_exit(NULL);
+	}
+};
+
+template<>
+void basic_threadbuf<char >::output_debug_string(const char * text)
+{
+	if(_closed)
+		return;
+	if(!text)
+		return;
+	
+	int l = strlen(text);
+	if(l == 0)
+		return;
+	if(l > 8192) // too large
+		return;
+	
+	char * txt = (char *)malloc(l + 4);
+	if(!txt)
+		return;
+	
+	memcpy(txt, text, l);
+	txt[l] = 0;
+	
+	_mu.lock();
+	_txt.push_front(txt);
+	txt = NULL;
+	if((unsigned int)_txt.size() > _maxtsize)
+	{
+		txt = _txt.back();
+		_txt.pop_back();
+	}
+	///printf("wd=%u\n", _txt.size());
+	_mu.unlock();
+
+	if(txt)
+	{
+		///printf("thd_trace::overflow\n");
+		free(txt);
+	}
+	
+	_mucd.lock();
+	bool signal = _signal;
+	_mucd.unlock();
+	
+	if(signal)
+		_cond.signal();
+}
+
+template<>
+void basic_threadbuf<wchar_t >::output_debug_string(const wchar_t * text)
+{
+	//printf("%s", text);
+}
+
+/////////////////////////////////////////////////////////////////////
+//
+
+template<typename CharT, typename TraitsT = std::char_traits<CharT > >
+class basic_thread_ostream : public basic_ostream<CharT, TraitsT >
+{
+public:
+    basic_thread_ostream() : std::basic_ostream<CharT, TraitsT >(NULL)
+	{
+		_buffer = new basic_threadbuf<CharT, TraitsT >;
+		rdbuf(_buffer);
+	}
+	virtual ~basic_thread_ostream()
+	{
+	#ifdef WIN32
+	  #ifdef WIN32
+	    delete rdbuf();
+	  #else
+		typename basic_ios<CharT, TraitsT >::_Mysb * sb = rdbuf();
+		delete sb;
+	  #endif
+	#else
+		basic_streambuf<CharT, TraitsT> * sb = basic_ostream<CharT, TraitsT >::rdbuf();
+		delete sb;
+	#endif
+	}
+	
+	void safe_start(const char * path, 
+				    const char * prefix, 
+					const char * postfix,
+					unsigned int maxtextsize = 0,
+					unsigned int maxfilesize = 0) 
+	{ 
+		_buffer->safe_start(path, prefix, postfix, maxtextsize, maxfilesize); 
+	}
+	void safe_close() { _buffer->safe_close(); }
+	
+private:
+	basic_threadbuf<CharT, TraitsT > * _buffer;
+};
+
+}
+
+typedef std::basic_thread_ostream<char >    thd_trace;
+typedef std::basic_thread_ostream<wchar_t > thd_wtrace;
+
+#endif

@@ -1,0 +1,246 @@
+#ifndef NP_SOCKINFO_TYPE
+#define NP_SOCKINFO_TYPE
+
+#define MIN_MULTICAST_ADDRESS 0xe0000000
+#define MAX_MULTICAST_ADDRESS 0xefffffff
+
+#include <string>
+
+inline bool is_multicast_address(const char * ip)
+{
+	unsigned int u = ntohl(inet_addr(ip));			
+	if(u > MIN_MULTICAST_ADDRESS && u < MAX_MULTICAST_ADDRESS)
+		return true;
+	return false;
+}
+
+inline bool is_multicast_addressV6(const char * ip)
+{
+	// 1111,1111 000x,xxxx 112bits, ff18::101:6
+	if(strncmp(ip, "FF", 2) == 0 || strncmp(ip, "ff", 2) == 0)
+		return true;
+	return false;
+}
+				
+struct np_sockinfo_type {
+
+	const SOCKET sock;
+	
+	const int type;
+	const int flag;
+	const int sendbufsize;
+	const int recvbufsize;
+	const int keepaliveintv;
+	const int listenbacklog;
+	
+	const std::string    lif; // local interface to binding
+	const std::string    lip;
+	const std::string    rip;
+	const std::string    sip; // for multicast SSM mode, save the multicast source IP
+	const unsigned short lport;
+	const unsigned short rport;
+
+	const bool listener;
+	const bool multicast;
+	const bool bIPv6;
+	const bool noblock;
+	
+	const void * contxt;
+	const void * extrap;
+	
+	np_sockinfo_type() 
+		: sock(INVALID_SOCKET),
+		  type(0), 
+		  flag(0),
+		  sendbufsize(-1),
+		  recvbufsize(-1),
+		  keepaliveintv(-1),
+		  listenbacklog(8),
+		  lip("0.0.0.0"),
+		  rip("0.0.0.0"),
+		  lport(0), 
+		  rport(0),
+		  listener(false),
+		  multicast(false),
+		  bIPv6(false),
+		  noblock(true),
+		  contxt(NULL),
+		  extrap(NULL)
+	{
+	}
+
+	np_sockinfo_type(const np_sockinfo_type & sockinfo)
+		: sock(sockinfo.sock),
+		  type(sockinfo.type),
+		  flag(sockinfo.flag),
+		  sendbufsize(sockinfo.sendbufsize),
+		  recvbufsize(sockinfo.recvbufsize),
+		  keepaliveintv(sockinfo.keepaliveintv),
+		  listenbacklog(sockinfo.listenbacklog),
+		  lip(sockinfo.lip),
+		  rip(sockinfo.rip),
+		  lport(sockinfo.lport),
+		  rport(sockinfo.rport),
+		  listener(sockinfo.listener),
+		  multicast(sockinfo.multicast),
+		  bIPv6(sockinfo.bIPv6),
+		  noblock(sockinfo.noblock),
+		  contxt(NULL),
+		  extrap(NULL)  
+	{
+	}
+	
+	np_sockinfo_type(SOCKET sock_,
+					 int type_,
+					 int flag_,
+					 int sendbufsize_,
+					 int recvbufsize_,
+					 int keepaliveintv_,
+					 const std::string & lip_,
+					 unsigned short lport_,
+					 const std::string & rip_,
+					 unsigned short rport_)
+		: sock(sock_),
+		  type(type_),
+		  flag(flag_),
+		  sendbufsize(sendbufsize_),
+		  recvbufsize(recvbufsize_),
+		  keepaliveintv(keepaliveintv_),
+		  listenbacklog(8),
+		  lip(lip_),
+		  rip(rip_),
+		  lport(lport_),
+		  rport(rport_),
+		  listener(rport == 0 && rip == "0.0.0.0"),
+		  multicast(false),
+		  bIPv6(false),
+		  noblock(true),
+		  contxt(NULL),
+		  extrap(NULL)
+	{
+		const char * tok = strstr(lip.c_str(), ":");
+		if(tok)
+			(bool &)bIPv6 = true;
+		if(type == SOCK_DGRAM)
+		{
+			(bool &)multicast = bIPv6 ? is_multicast_addressV6(lip.c_str()) : is_multicast_address(lip.c_str());
+			if(multicast)
+				(bool &)listener = lport > 0;
+		}
+	}
+	
+	operator SOCKET() const  { return sock;	}
+	
+	bool istcp() const 		 { return (type == SOCK_STREAM); }
+	bool isudp() const 		 { return (type == SOCK_DGRAM);	}
+	bool islistener()  const { return listener;	}
+	bool ismulticast() const { return multicast; }
+	bool isIPv6()      const { return bIPv6; }
+	
+	void get_sockaddr(sockaddr_in & addr, bool bloc)
+	{
+		memset((void *)&addr, 0, sizeof(addr));
+		addr.sin_family = AF_INET;
+		addr.sin_addr.s_addr = inet_addr((bloc ? lip.c_str() : rip.c_str()));
+	#ifdef WIN32 // under linux must bind with multi address, otherwise will receive stream on different multi address but same port
+		if(multicast)
+			addr.sin_addr.s_addr = INADDR_ANY;
+	#endif
+		addr.sin_port = htons((bloc ? lport : rport));
+	}
+	
+#ifndef NO_IPV6
+	void get_sockaddr(sockaddr_in6 & addr, bool bloc)
+	{
+		memset((void *)&addr, 0, sizeof(addr));
+		addr.sin6_family = AF_INET6;
+		if(bloc)
+		{
+		#ifdef WIN32
+			addr.sin6_addr = in6addr_any;
+		#else
+			if(lip == "::")
+				addr.sin6_addr = in6addr_any;
+			else
+				inet_pton(AF_INET6, lip.c_str(), &addr.sin6_addr);
+		#endif
+		}
+		else
+		{
+		#ifdef WIN32
+			// ###
+		#else
+			inet_pton(AF_INET6, rip.c_str(), &addr.sin6_addr);
+		#endif			
+		}
+		addr.sin6_port = htons((bloc ? lport : rport));
+	}
+#endif
+	
+	bool operator ==(const np_sockinfo_type & sockinfo) const {
+		return sock == sockinfo.sock;
+	}
+
+	bool operator !=(const np_sockinfo_type & sockinfo) const {
+		return sock != sockinfo.sock;
+	}
+
+	bool operator <(const np_sockinfo_type & sockinfo) const {
+		return sock < sockinfo.sock;
+	}
+
+	bool operator <=(const np_sockinfo_type & sockinfo) const {
+		return sock <= sockinfo.sock;
+	}
+
+	bool operator >(const np_sockinfo_type & sockinfo) const {
+		return sock > sockinfo.sock;
+	}
+
+	bool operator >=(const np_sockinfo_type & sockinfo) const {
+		return sock >= sockinfo.sock;
+	}
+
+	np_sockinfo_type & operator =(const np_sockinfo_type & sockinfo) {
+		(SOCKET &)sock 			= sockinfo.sock;
+		(int &)type 			= sockinfo.type;
+		(int &)sendbufsize      = sockinfo.sendbufsize;
+		(int &)recvbufsize      = sockinfo.recvbufsize;
+		(int &)keepaliveintv    = sockinfo.keepaliveintv;
+		(bool &)listener 		= sockinfo.listener;
+		(bool &)multicast 		= sockinfo.multicast;
+		(bool &)bIPv6           = sockinfo.bIPv6;
+		(std::string &)lip 		= sockinfo.lip;
+		(unsigned short &)lport = sockinfo.lport;
+		(std::string &)rip 		= sockinfo.rip;
+		(unsigned short &)rport = sockinfo.rport;
+		return *this;
+	}
+};
+
+template <class charT, class traits >
+std::basic_ostream<charT, traits > & operator <<(std::basic_ostream<charT, traits > & os, const np_sockinfo_type & sockinfo) {
+
+	if(sockinfo == INVALID_SOCKET) {
+
+		os << "INVALID_SOCKET";
+
+	} else {
+
+		os << sockinfo.sock << ":";
+
+		if(sockinfo.istcp()) {
+			os << "SOCK_STREAM";
+		} else if(sockinfo.isudp()) {
+			os << "SOCK_DGRAM";
+		} else {
+			os << sockinfo.type;
+		}
+		if(sockinfo.multicast)
+			os << "(multicast)";
+		os << "::loc=" << sockinfo.lip << ":" << sockinfo.lport << ", rmt=" << sockinfo.rip << ":" << sockinfo.rport;
+	}
+	return os;
+}
+
+#endif

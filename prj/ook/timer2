@@ -1,0 +1,374 @@
+/***************************************************************************
+                           timer 3.00
+                         -------------------
+    begin                : 2003 -  3 - 1
+    last modify			 : 2007 - 10 - 25
+    copyright            : (C) 2003 - 2007 by ChengYang
+    email                : hellocy@263.net
+ ***************************************************************************/
+/*
+ * This material is provided "as is", with absolutely no warranty expressed
+ * or implied. Any use is at your own risk.
+ *
+ * Permission to use or copy this software for any purpose is hereby granted 
+ * without fee, provided the above notices are retained on all copies.
+ * Permission to modify the code and to distribute modified code is granted,
+ * provided the above notices are retained, and a notice that the code was
+ * modified is included with the above copyright notice.
+ *
+ */
+#ifndef __TMC_TIMER2_H__
+#define __TMC_TIMER2_H__
+
+#include <map>
+
+#include "_timer"
+#include "c++/if_unknow"
+
+TMC_TIMER_DEC;
+
+#undef TMCTIMER2_TRACE
+///#define TMCTIMER2_TRACE
+
+#ifdef TMCTIMER2_TRACE
+#include "trace"
+DECTRACE
+#endif
+
+class iftimer2 : public virtual if_unknow
+{
+public:
+	virtual void on_time2(unsigned int msg_ref, int msg_type, void * msg_param = NULL) = 0;
+};
+
+class tmc_timer2 : public iftimer
+{
+public:
+	enum tmc_timer_type
+	{
+		e_timertype_circuit,
+		e_timertype_queue
+	};
+	
+	tmc_timer2() 
+		: _ref(0),
+		  _signal(false),
+		  _th(NULL)
+	{
+	#ifdef TMCTIMER2_TRACE
+		BTRACE(0, "new tmc_timer2 {")		
+	#endif
+
+		_th = new thread(&tmc_timer2::_run, *this);
+		
+		TMC_TIMER_SET(this)
+		
+	#ifdef TMCTIMER2_TRACE		
+		ETRACE(0, "}")
+	#endif		
+	}
+	virtual ~tmc_timer2() 
+	{
+	#ifdef TMCTIMER2_TRACE
+		BTRACE(0, "del tmc_timer2 {")		
+	#endif
+
+		TMC_TIMER_OFF(this)
+		
+	#ifdef TMCTIMER2_TRACE
+		FTRACE(0, ".")
+	#endif
+
+		delete _th;
+
+		for(__map::const_iterator ite = _map.begin(); ite != _map.end(); ite++)
+		{
+			iftimer2 * ift = ite->second.need_release ? ite->second.ift : NULL;
+			if(ift)
+				ift->release();
+		}
+
+	#ifdef TMCTIMER2_TRACE		
+		ETRACE(0, "}")
+	#endif		
+	}
+
+	unsigned int assign_ref()
+	{
+		unsigned int ref = ++_ref;
+		if(ref == 0)
+			ref = _ref = 1;
+		return ref;
+	}
+	
+	unsigned int reg_in(iftimer2 * ift, 
+						bool add_ref,
+						unsigned int interval, 
+						int msg_type = 0, 
+						void * msg_param = NULL,
+						tmc_timer_type tm_type = e_timertype_circuit)
+	{
+		msg_s s;
+		s.timer_type   = tm_type;
+		s.need_release = add_ref;
+		s.ref          = assign_ref();
+		s.ift          = ift;
+		s.msg_type     = msg_type;
+		s.msg_param    = msg_param;
+		s.interval     = interval;
+		s.time         = 0;
+		
+		if(ift && add_ref)
+		{
+		#ifdef TMCTIMER2_TRACE
+			unsigned int life = ift->add_ref();
+			TRACE(3, "timer2::reg_in::ref=" << s.ref << ", life=" << life)
+		#else
+			ift->add_ref();
+		#endif
+		}
+		
+		_mu.lock();
+		_v.push_back(s);
+		_mu.unlock();
+		
+		return s.ref;
+	}
+
+	void reg_out(unsigned int ref)
+	{
+		msg_s s;
+		s.ref       = ref;
+		s.ift       = NULL;
+		s.msg_type  = 0;
+		s.msg_param = 0;
+		s.interval  = 0;
+		s.time      = 0;
+				
+		_mu.lock();
+		_v.push_back(s);
+		_mu.unlock();
+	}
+	
+	void reg_out(iftimer2 * ift)
+	{
+		msg_s s;
+		s.ref       = 0;
+		s.ift       = ift;
+		s.msg_type  = 0;
+		s.msg_param = 0;
+		s.interval  = 0;
+		s.time      = 0;
+				
+		_mu.lock();
+		///FTRACE(3, "reg_out=" << (unsigned int)s.ift)
+		_v.push_back(s);
+		_mu.unlock();
+	}
+
+	void reset(unsigned int ref, unsigned int interval)
+	{
+		msg_s s;
+		s.ref       = ref;
+		s.ift       = NULL;
+		s.msg_type  = 0;
+		s.msg_param = 0;
+		s.interval  = interval;
+		s.time      = 0;
+				
+		_mu.lock();
+		_v.push_back(s);
+		_mu.unlock();
+	}
+
+	void on_time(int msg_type = 0, void * msg_param = NULL)	
+	{ 
+		if(_signal)
+			_cond.signal(); 
+	}	
+	
+private:
+	unsigned int _ref; // msg reference
+	bool _signal;
+	
+	typedef struct
+	{
+		unsigned int ref;
+		tmc_timer_type timer_type;
+		bool need_release;
+		iftimer2 * ift;
+		int msg_type;
+		void * msg_param;
+
+		unsigned int interval;
+		unsigned int time;
+	} msg_s; // message struct
+
+	typedef std::vector<msg_s > __v;
+	__v _v;
+		
+	typedef std::map<unsigned int, msg_s > __map; // map<msg_ref, msg_s >
+	__map _map;
+
+	tmc_mutex_type _mu;
+	tmc_mutex_type _mucond;
+	tmc_cond_type  _cond;
+	
+	typedef tmc_thread_type<tmc_timer2 > thread;
+	thread * _th;
+	
+	void _run(int * thstatus, void *)
+	{
+		unsigned int interval;
+		unsigned int tick1, tick2;
+		int ticks;
+		__map::iterator ite, itebak;
+					
+		unsigned int diff = TMC_TIMER_INTERVAL / 5;
+		diff = diff > 2 ? diff : 2;
+		
+		///FTRACE(3, "timer2::thread run...")
+		
+		if(thstatus)
+			*thstatus |= PTHREAD_CANCEL_MASK;
+		
+		tick1 = chsc_gettick_h();
+		while(1)
+		{
+			// reg_in / reg_out
+			_mu.lock();
+			if(_v.size() > 0)
+			{
+				for(__v::const_iterator vIte = _v.begin(); vIte != _v.end(); vIte++)
+				{
+					const msg_s & s = *vIte;
+	
+					if(s.interval == 0) // reg-out
+					{
+						if(s.ref > 0)
+						{
+						#ifdef TMCTIMER2_TRACE
+							TRACE(3, "timer2::del1::ref=" << s.ref)
+						#endif
+	
+							ite = _map.find(s.ref);
+							if(ite != _map.end())
+							{
+								iftimer2 * ift = ite->second.need_release ? ite->second.ift : NULL;
+								_map.erase(ite);
+								if(ift)
+								{
+								#ifdef TMCTIMER2_TRACE
+									unsigned int life = ift->release();
+									TRACE(3, "timer2::del1::life=" << life)
+								#else
+									ift->release();
+								#endif
+								}
+							}
+						}
+						else if(s.ift)
+						{
+						#ifdef TMCTIMER2_TRACE
+							TRACE(3, "timer2::del2::ift0=" << (unsigned int)s.ift)
+						#endif
+											
+							ite = _map.begin();
+							while(ite != _map.end())
+							{
+							#ifdef TMCTIMER2_TRACE
+								TRACE(3, "timer2::del2::ift=" << (unsigned int)ite->second.ift)
+							#endif						
+								if((void *)ite->second.ift == (void *)s.ift)
+								{
+								#ifdef TMCTIMER2_TRACE
+									TRACE(3, "timer2::del2::ref=" << ite->second.ref)
+								#endif
+									
+									iftimer2 * ift = ite->second.need_release ? ite->second.ift : NULL;
+									
+									itebak = ite;
+									ite++;
+									_map.erase(itebak);
+									
+									if(ift)
+									{
+									#ifdef TMCTIMER2_TRACE
+										unsigned int life = ift->release();
+										TRACE(3, "timer2::del2::life=" << life)
+									#else
+										ift->release();
+									#endif
+									}
+									continue;
+								}
+								ite++;
+							}
+						}
+					}
+					else // reg-in / reset
+					{
+						if(s.ift)
+						{
+							_map[s.ref] = s;
+						}
+						else if(s.ref > 0)
+						{
+							ite = _map.find(s.ref);
+							if(ite != _map.end())
+							{
+								ite->second.interval = s.interval;
+								ite->second.time = 0;
+							}
+						}
+					}
+				}
+				_v.clear();
+			}
+			_mu.unlock();
+			
+			// callback
+			tick2 = chsc_gettick_h();
+			ticks = (int)(tick2 > tick1 ? tick2 - tick1 : 1);
+			tick1 = tick2;
+			
+			ite = _map.begin();
+			while(ite != _map.end())
+			{
+				msg_s & s = ite->second;
+				if(s.interval > 0)
+				{
+					interval = s.time + ticks;
+					if(interval + diff >= s.interval)
+					{
+						s.time = 0;
+						if(s.ift)
+							s.ift->on_time2(ite->first, s.msg_type, s.msg_param);
+						if(s.timer_type == e_timertype_queue)
+						{
+							itebak = ite;
+							ite++;
+							_map.erase(itebak);
+							continue;
+						}
+					}
+					else
+					{
+						s.time = interval;
+					}
+				}
+				ite++;
+			}
+
+			///printf("[w]");
+			_mucond.lock();
+			_signal = true;
+			_cond.wait(_mucond);
+			_signal = false;
+			_mucond.unlock();
+			///printf("[W]");
+		}
+	}		
+};
+
+#endif

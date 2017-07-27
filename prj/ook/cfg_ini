@@ -1,0 +1,153 @@
+#ifndef __CFG_INI_H__
+#define __CFG_INI_H__
+
+#include <ook/cfg>
+
+//#include <ook/trace>
+//DECTRACE
+
+/*
+	[system]
+	netprofile = 01150100
+
+	[]
+	
+ */
+class cfg_ini
+{
+public:
+	cfg_ini(const char * ini_file = NULL)
+	{
+		re_load(ini_file);
+	}
+	~cfg_ini()
+	{
+		for(__maps::iterator ite = _maps.begin(); ite != _maps.end(); ite++)
+		{
+			cfg_unit * p = ite->second;
+			if(p)
+				delete p;
+		}		
+	}
+	
+	int size() const { return _maps.size(); }
+	
+	void re_load(const char * ini_file)
+	{
+		if(!ini_file || (strlen(ini_file) == 0))
+			return;
+
+		FILE * fp = fopen(ini_file, "r");
+		if(!fp)
+			return;
+
+		cfg_unit * unit = NULL;
+		
+		char c[256];
+		char * p = NULL;
+		char * ltok, * rtok;
+	
+		while(!feof(fp))
+		{
+			if(!fgets(c, 255, fp)) 
+				continue;
+				
+			if(strlen(c) < 2)
+				continue;
+			
+			if(c[0] == '#') // '#' means unused
+				continue;
+	
+			p = strtok(c, "\n"); // trim \n
+			if(!p)
+				continue;
+	
+			if((p[0] == '[') && (p[strlen(p) - 1] == ']'))
+			{
+				p[strlen(p) - 1] = 0;
+				//TRACE(3, "new ini group: " << p + 1)
+				unit = new cfg_unit(p + 1);
+				_maps[p + 1] = unit;
+			}
+			else
+			{
+				if(!unit)
+					continue;
+					
+				if(cfg_syntax_analyse(p, &ltok, &rtok))
+				{
+					//TRACE(3, ltok << "=" << rtok)
+					(*unit)[ltok] = rtok;
+				}
+			}
+		}
+		
+		fclose(fp);		
+	}
+	
+	void write2file(const char * ini_file)
+	{
+		if(!ini_file || (strlen(ini_file) == 0))
+			return;
+
+		FILE * fp = fopen(ini_file, "w");
+		if(!fp)
+			return;
+			
+		for(__maps::const_iterator ite = _maps.begin(); ite != _maps.end(); ite++)
+		{
+			cfg_unit * unit = ite->second;
+			if(unit)
+			{
+				std::string s = "[";
+				s += ite->first;
+				s += "]\n";
+				fwrite(s.c_str(), 1, s.length(), fp);
+				unit->write2file(fp);
+			}
+		}
+		
+		fclose(fp);		
+	}
+	
+	const std::string & read_varible(const char * session, const char * key)
+	{
+		if(session && key)
+		{
+			//TRACE(3, "read_varible: " << session << "/" << key)
+			__maps::const_iterator ite = _maps.find(session);
+			if(ite != _maps.end())
+			{
+				cfg_unit * unit = ite->second;
+				if(unit)
+					return (*unit)[std::string(key)];
+			}
+		}
+		return _blank;
+	}
+	
+	cfg_unit * section(const char * section_name, bool create_new = false)
+	{
+		if(!section_name)
+			return NULL;
+		__maps::const_iterator ite = _maps.find(section_name);
+		if(ite == _maps.end())
+		{
+			if(!create_new)
+				return NULL;
+				
+			cfg_unit * unit = new cfg_unit(section_name);
+			_maps[section_name] = unit;
+			return unit;
+		}
+		return ite->second;
+	}
+	
+private:
+	typedef std::map<std::string, cfg_unit * > __maps; // <section, cfg_unit * >
+	__maps _maps;
+	
+	std::string _blank;	
+};
+
+#endif

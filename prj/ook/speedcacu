@@ -1,0 +1,64 @@
+#ifndef __OOK_SPEEDCACU_H__
+#define __OOK_SPEEDCACU_H__
+
+#define MAXDIFFSPEED 0x7ffffff
+
+struct speedcacu_s
+{
+	unsigned int payload;
+	unsigned int lsttime;	
+	unsigned int speed;
+	unsigned int lstspeed;
+	unsigned int alpha;
+	unsigned int diffspeed; // diffspeed[i] = a * diffspeed[i] + (1 - a) * speed[i]
+};
+
+inline void init_speedcacu(speedcacu_s & s, unsigned int alpha, unsigned int diffspeed0 = 0, unsigned int lsttime0 = 0)
+{
+	s.payload   = 0;
+	s.lsttime   = lsttime0;
+	s.speed     = 0;
+	s.lstspeed  = 0;
+	s.alpha     = alpha;
+	s.diffspeed = diffspeed0;
+}
+
+inline unsigned int make_diffspeed(unsigned int diffspeed, unsigned int alpha, unsigned int speed, unsigned int lstspeed)
+{
+/*
+		Q = 8
+		diffspeed[i] = 0.75 * diffspeed[i - 1] + 0.25 * speed[i]
+					 = (192 * speed[i] + 64 * speed[i]) >> 8
+ */
+	if((diffspeed == 0) || (diffspeed == MAXDIFFSPEED))
+		return speed;
+	return ((alpha * diffspeed + (256 - alpha) * speed) >> 8);
+}
+
+inline unsigned int make_speedcacu(speedcacu_s & s, unsigned int payload, unsigned int systime, int rshift = 3)
+{
+	unsigned int tm, ret;
+	if(s.lsttime == 0)
+	{
+		s.lsttime = systime;
+		return 0;
+	}
+	s.payload += payload;
+	tm = systime - s.lsttime;
+	if(tm == 0)
+		return 0;
+	ret = 1;
+	if(rshift > 0)
+		ret = (tm >> (10 + rshift)); // change to second
+	if(ret > 0)
+	{
+		s.lstspeed  = s.speed;
+		s.speed     = s.payload * 1024 / tm;
+		s.diffspeed = make_diffspeed(s.diffspeed, s.alpha, s.speed, s.lstspeed);
+		s.lsttime   = systime;
+		s.payload   = 0;
+	}
+	return ret;
+}
+
+#endif

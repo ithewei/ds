@@ -1,0 +1,281 @@
+/*
+	if_unknow interface by ook
+	last modify @ 2011/06/15
+ */
+#ifndef __IF_UNKNOW__
+#define __IF_UNKNOW__
+
+#include <stdlib.h>
+
+#if 0
+	#ifndef HRESULT
+	typedef long HRESULT;
+	#endif
+	
+	#ifndef REFIID
+	typedef unsigned int REFIID;
+	#endif
+	
+	#ifndef SUCCEEDED
+	#define SUCCEEDED(hr)	((HRESULT)(hr) >= 0)
+	#endif
+	
+	#ifndef FAILED
+	#define FAILED(hr)		((HRESULT)(hr) < 0)
+	#endif
+#endif
+
+#define IFUNKNOW_CLSID "{3D9E75CC-EF97-409D-98E5-8CF8B7ED9DD4}"
+
+#ifdef WIN32 // WIN32 Platform
+
+	#include <windows.h>
+
+	#define IFUNKNOW_DEC long __ifunknowref;
+	#define IFUNKNOW_INI __ifunknowref = 1;
+	#define IfUnknow_InterlockedIncrement(v) InterlockedIncrement(v)
+	#define IfUnknow_InterlockedDecrement(v) InterlockedDecrement(v)
+
+#elif __APPLE__
+
+	#include <ext/atomicity.h>
+	
+	#define _NORETURN_ATOMIC
+	#define IFUNKNOW_DEC _Atomic_word __ifunknowref;
+	#define IFUNKNOW_INI __ifunknowref = 1;
+	#define IfUnknow_InterlockedIncrement(v) __gnu_cxx::__atomic_add(v, 1)
+	#define IfUnknow_InterlockedDecrement(v) __gnu_cxx::__atomic_add(v, -1)
+	
+#elif ARM_EM86XX_ATOMIC // ARM EX86xx Platform
+	
+	///#warning "#define ARM_EM86XX_ATOMIC in if_unknow"
+	
+	#ifndef __KERNEL__
+	#define __KERNEL__
+	#endif
+	#include <asm/atomic.h>
+	
+	#define IFUNKNOW_DEC atomic_t __ifunknowref;
+	#define IFUNKNOW_INI __ifunknowref.counter = 1;
+	#define IfUnknow_InterlockedIncrement(v) atomic_inc(v)
+	#define IfUnknow_InterlockedDecrement(v) atomic_dec(v)
+	
+	#define IFUNKNOW_ADDREF \
+		virtual unsigned int add_ref() { IfUnknow_InterlockedIncrement(&__ifunknowref); return (unsigned int)__ifunknowref.counter; }
+	
+	#define IFUNKNOW_DECREF \
+		virtual unsigned int dec_ref() { IfUnknow_InterlockedDecrement(&__ifunknowref); return (unsigned int)__ifunknowref.counter; }
+	
+	#define IFUNKNOW_RELEASE \
+		virtual unsigned int release() \
+		{ \
+			IfUnknow_InterlockedDecrement(&__ifunknowref); \
+			unsigned int ret = (unsigned int)__ifunknowref.counter; \
+			if(ret == 0) { delete this; return 0; } \
+			return ret; \
+		}
+
+#elif MPIS_LINUX_UCLIBC_INCLUDED
+
+	///#warning "#define MPIS_LINUX_UCLIBC_INCLUDED in if_unknow"
+	
+	#include <atomic.h>
+	
+	#define _NORETURN_ATOMIC
+	#define IFUNKNOW_DEC atomic32_t __ifunknowref;
+	#define IFUNKNOW_INI __ifunknowref = 1;
+	#define IfUnknow_InterlockedIncrement(v) atomic_increment(v)
+	#define IfUnknow_InterlockedDecrement(v) atomic_decrement(v)
+
+#elif UCLIBC_PLATFORM // uc-libc
+
+	///#warning "#define UCLIBC_PLATFORM in if_unknow"
+	
+	#include <bits/atomicity.h>
+	
+	#define _NORETURN_ATOMIC
+	#define IFUNKNOW_DEC int __ifunknowref;
+	#define IFUNKNOW_INI __ifunknowref = 1;
+	#define IfUnknow_InterlockedIncrement(v) atomic_increment(v)
+	#define IfUnknow_InterlockedDecrement(v) atomic_decrement(v)
+
+#elif _GNUCXX_S5_ATOMIC
+	
+	///#warning "#define _GNUCXX_S5_ATOMIC in if_unknow"
+	
+	#include <ext/atomicity.h>
+	
+	#define IFUNKNOW_DEC _Atomic_word __ifunknowref;
+	#define IFUNKNOW_INI __ifunknowref = 1;
+	#define IfUnknow_InterlockedIncrement(v) __gnu_cxx::__exchange_and_add(v, 1)
+	#define IfUnknow_InterlockedDecrement(v) __gnu_cxx::__exchange_and_add(v, -1)
+
+#elif _GNUCXX_ATOMIC // General GNUCXX Platform, such as G++ 4
+	
+	///#warning "#define _GNUCXX_ATOMIC in if_unknow"
+	
+  #ifdef __ANDROID__
+	#include <ext/atomicity.h>
+  #else
+	#include <bits/atomicity.h>
+  #endif
+
+	#define _NORETURN_ATOMIC
+	#define IFUNKNOW_DEC _Atomic_word __ifunknowref;
+	#define IFUNKNOW_INI __ifunknowref = 1;
+	#define IfUnknow_InterlockedIncrement(v) __gnu_cxx::__atomic_add(v, 1)
+	#define IfUnknow_InterlockedDecrement(v) __gnu_cxx::__atomic_add(v, -1)
+	
+#elif defined(_GNUCXX_V3_ATOMIC) || defined(ARM_LINUX_UCLIBC_INCLUDED) // for G++ 3
+
+	///#warning "#define _GNUCXX_V3_ATOMIC in if_unknow"
+	
+	#include <bits/atomicity.h>
+	
+	#define _NORETURN_ATOMIC
+	#define IFUNKNOW_DEC _Atomic_word __ifunknowref;
+	#define IFUNKNOW_INI __ifunknowref = 1;
+	#define IfUnknow_InterlockedIncrement(v) __atomic_add(v, 1)
+	#define IfUnknow_InterlockedDecrement(v) __atomic_add(v, -1)
+
+#elif defined(_GLIBCXX_ATOMIC) || defined(_GNUCXX_SGM8654_ATOMIC) // General GLIBC Platform
+
+	///#warning "#define _GLIBCXX_ATOMIC in if_unknow"
+	
+	#include <ext/atomicity.h>
+	
+	#define _NORETURN_ATOMIC
+	#define IFUNKNOW_DEC _Atomic_word __ifunknowref;
+	#define IFUNKNOW_INI __ifunknowref = 1;
+	#define IfUnknow_InterlockedIncrement(v) __gnu_cxx::__exchange_and_add_dispatch(v, 1)
+	#define IfUnknow_InterlockedDecrement(v) __gnu_cxx::__exchange_and_add_dispatch(v, -1)
+
+#else // Linux Platform
+	
+	///#warning "#define NOTHING in if_unknow"
+	
+	#ifdef CONFIG_SMP 
+	#define LOCK_PREFIX "lock ; " 
+	#else 
+	#define LOCK_PREFIX "" 
+	#endif 
+	
+	typedef struct { volatile int counter; } atomic_t;
+	
+	__inline__ bool operator==(atomic_t t, int i) { return (t.counter == i); }
+	__inline__ bool operator<(atomic_t t, int i) { return (t.counter < i); }
+	
+	static __inline__ int atomic_add_return(int i, atomic_t *v)
+	{
+		int __i;
+	#ifdef CONFIG_M386
+		unsigned long flags;
+		if(unlikely(boot_cpu_data.x86==3))
+			goto no_xadd;
+	#endif
+		/* Modern 486+ processor */
+		__i = i;
+		
+		__asm__ __volatile__(
+			LOCK_PREFIX "xaddl %0, %1;"
+			:"=r"(i)
+			:"m"(v->counter), "0"(i));
+	
+		return i + __i;
+	
+	#ifdef CONFIG_M386
+	no_xadd: /* Legacy 386 processor */
+		local_irq_save(flags);
+		__i = atomic_read(v);
+		atomic_set(v, i + __i);
+		local_irq_restore(flags);
+		return i + __i;
+	#endif
+	}
+	
+	#define IFUNKNOW_DEC atomic_t __ifunknowref;
+	#define IFUNKNOW_INI __ifunknowref.counter = 1;
+	#define atomic_inc_return(v) (atomic_add_return(1, v))
+	#define atomic_dec_return(v) (atomic_add_return(-1, v))
+	#define IfUnknow_InterlockedIncrement(v) atomic_inc_return(v)
+	#define IfUnknow_InterlockedDecrement(v) atomic_dec_return(v)
+
+#endif
+
+class if_unknow
+{
+public:
+	virtual ~if_unknow() {}
+	virtual unsigned int add_ref() = 0;	
+	virtual unsigned int release() = 0;	
+	virtual int query_interface(const char * riid, void ** ppv) = 0;
+};
+
+
+#ifdef _NORETURN_ATOMIC
+
+	#ifndef IFUNKNOW_ADDREF
+	#define IFUNKNOW_ADDREF \
+		virtual unsigned int add_ref() { IfUnknow_InterlockedIncrement(&__ifunknowref); return (unsigned int)__ifunknowref; }
+	#endif
+	
+	#ifndef IFUNKNOW_DECREF
+	#define IFUNKNOW_DECREF \
+		virtual unsigned int dec_ref() { IfUnknow_InterlockedDecrement(&__ifunknowref); return (unsigned int)__ifunknowref; }
+	#endif
+	
+	#ifndef IFUNKNOW_RELEASE
+	#define IFUNKNOW_RELEASE \
+		virtual unsigned int release() \
+		{ \
+			IfUnknow_InterlockedDecrement(&__ifunknowref); \
+			unsigned int ret = (unsigned int)__ifunknowref; \
+			if(ret == 0) { delete this; return 0; } \
+			return ret; \
+		}
+	#endif
+
+#else // _NORETURN_ATOMIC
+
+	#ifndef IFUNKNOW_ADDREF
+	#define IFUNKNOW_ADDREF \
+		virtual unsigned int add_ref() { return (unsigned int)IfUnknow_InterlockedIncrement(&__ifunknowref); }
+	#endif
+	
+	#ifndef IFUNKNOW_DECREF
+	#define IFUNKNOW_DECREF \
+		virtual unsigned int dec_ref() { return IfUnknow_InterlockedDecrement(&__ifunknowref); }
+	#endif
+	
+	#ifndef IFUNKNOW_RELEASE
+	#define IFUNKNOW_RELEASE \
+		virtual unsigned int release() \
+		{ \
+			unsigned int ret = (unsigned int)IfUnknow_InterlockedDecrement(&__ifunknowref); \
+			if(ret == 0) { delete this; return 0; } \
+			return ret; \
+		}
+	#endif
+
+#endif // _NORETURN_ATOMIC
+
+
+#define IFUNKNOW_QUERYINTERFACE \
+	virtual int query_interface(const char * riid, void ** ppv) \
+	{ \
+		if(!riid || !ppv) return -1; \
+		*ppv = (void *)this; \
+		add_ref(); \
+		return 1; \
+	}
+
+#define IFUNKNOW_IMP \
+	IFUNKNOW_ADDREF \
+	IFUNKNOW_RELEASE \
+	IFUNKNOW_QUERYINTERFACE
+
+#define IFUNKNOW_IMPS \
+	IFUNKNOW_ADDREF \
+	IFUNKNOW_RELEASE
+	
+#endif

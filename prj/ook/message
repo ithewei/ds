@@ -1,0 +1,161 @@
+/***************************************************************************
+                           ifmessage 1.00
+                         -------------------
+    begin                : 2005 -  6 - 27
+    last modify			 : 2007 - 10 - 25
+    copyright            : (C) 2005 - 2007 by ChengYang
+    email                : hellocy@263.net
+ ***************************************************************************/
+/*
+ * This material is provided "as is", with absolutely no warranty expressed
+ * or implied. Any use is at your own risk.
+ *
+ * Permission to use or copy this software for any purpose is hereby granted 
+ * without fee, provided the above notices are retained on all copies.
+ * Permission to modify the code and to distribute modified code is granted,
+ * provided the above notices are retained, and a notice that the code was
+ * modified is included with the above copyright notice.
+ *
+ */
+#ifndef __IFMESSAGE__
+#define __IFMESSAGE__
+
+#include "timer2"
+
+#undef IFMESSAGE_TRACE
+///#define IFMESSAGE_TRACE
+
+#ifdef IFMESSAGE_TRACE
+#include "trace"
+DECTRACE
+#endif
+
+class ifmessage : public iftimer2
+{
+public:
+	ifmessage() : _timer(NULL) {}
+	virtual ~ifmessage() { cls_timer();	}
+
+	// set timer	
+	void set_timer(tmc_timer2 * tm) 
+	{ 
+		pthread_mutex_lock(_mu);
+		_timer = tm;
+		pthread_mutex_unlock(_mu);
+	}
+	
+	void cls_timer()
+	{
+	#ifdef IFMESSAGE_TRACE	
+		BTRACE(3, "ifmessage::cls timer {")	
+	#endif
+
+		pthread_mutex_lock(_mu);
+		if(_timer)
+		{
+			///FTRACE(3, "REG-OUT=" << (unsigned int)this)
+			_timer->reg_out(this);
+			_timer = NULL;
+		}
+		pthread_mutex_unlock(_mu);
+
+	#ifdef IFMESSAGE_TRACE	
+		ETRACE(3, "}")	
+	#endif		
+	}
+	
+	void new_message(int msg_type,
+				   	 unsigned int interval,
+				   	 void * msg_param = NULL,
+				   	 bool add_ref = true)
+	{
+		pthread_mutex_lock(_mu);
+		if(_timer)
+		{
+			__map::const_iterator ite = _map.find(msg_type);
+			if(ite == _map.end())
+			{
+			#ifdef IFMESSAGE_TRACE
+				TRACE(3, "ifmessage::new_message::msg=" << msg_type << ", interval=" << interval)
+			#endif
+				_map[msg_type] = _timer->reg_in(this, add_ref, interval, msg_type, msg_param);
+			}
+		}
+		pthread_mutex_unlock(_mu);
+	}
+	
+	void rst_message(int msg_type,
+					 unsigned int interval)
+	{
+		unsigned int ref = 0;
+		pthread_mutex_lock(_mu);
+		if(_timer)
+		{		
+			__map::const_iterator ite = _map.find(msg_type);
+			if(ite != _map.end())
+			{
+				ref = ite->second;
+			#ifdef IFMESSAGE_TRACE
+				TRACE(3, "ifmessage::rst_message::msg=" << msg_type << ", interval=" << interval)
+			#endif
+			}
+		}
+		pthread_mutex_unlock(_mu);
+
+		if(ref > 0)
+			_timer->reset(ref, interval);
+	}
+	
+	void del_message(int msg_type)
+	{
+		unsigned int ref = 0;
+		pthread_mutex_lock(_mu);
+		if(_timer)
+		{			
+			__map::iterator ite = _map.find(msg_type);
+			if(ite != _map.end())
+			{
+				ref = ite->second;
+				_map.erase(ite);
+			#ifdef IFMESSAGE_TRACE
+				TRACE(3, "ifmessage::del_message::msg=" << msg_type << ", ref=" << ref)
+			#endif
+			}
+		}
+		pthread_mutex_unlock(_mu);
+
+		if(ref > 0)
+			_timer->reg_out(ref);
+	}
+
+	void que_message(int msg_type,
+				   	 unsigned int interval,
+				   	 void * msg_param = NULL)
+	{
+		_timer->reg_in(this, false, interval, msg_type, msg_param, tmc_timer2::e_timertype_queue);
+	#ifdef IFMESSAGE_TRACE	
+		TRACE(3, "ifmessage::que_message: " << msg_type << " " << interval)
+	#endif
+	}
+
+	// virtual function inherited from iftimer2
+	void on_time2(unsigned int msg_ref,
+				  int msg_type,
+				  void * msg_param = NULL)
+	{
+		on_message(msg_type, msg_param);
+	}
+	
+private:	
+	tmc_timer2 * _timer;
+
+	tmc_mutex_type _mu;
+	
+	typedef std::map<int, unsigned int > __map;	// map<msg_type, msg_ref >
+	__map _map;
+		
+	virtual void on_message(int msg_type,
+							void * msg_param) = 0;
+};
+
+#endif

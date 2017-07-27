@@ -1,0 +1,83 @@
+#ifndef __ID_FILTER__
+#define __ID_FILTER__
+
+#ifdef IDFILTER_DEBUG_
+#include "print_buf"
+#endif
+
+// ( filterSize <= modeSize >> 2 )
+
+template <unsigned int filterSize, unsigned int modeSize = 8192 >
+class id_filter
+{
+public:
+	id_filter()
+	{
+		unsigned int i;
+		_queue.first = _queue.cursor = 0;
+		for(i = 0; i < filterSize; i++)
+			_queue.id[i] = -1;
+	
+		for(i = 0; i < modeSize; i++)
+			_id[i] = 0;		
+	}
+	
+	bool on_recv(unsigned short id, unsigned short seq)
+	{
+		unsigned short first = _queue.first;
+		unsigned short cursor = _queue.cursor;
+
+		unsigned short m = id % modeSize;
+		unsigned int s = seq < 32 ? (1 << seq) : 0; // is seq > 31 always return true
+		
+		unsigned int v = _id[m];
+		if(v > 0)
+		{
+			if(v & s)
+				return false;
+			
+			_id[m] |= s;
+			return true;
+		}
+
+		// overflow
+		if(cursor == first)
+		{
+			_id[_queue.id[first] % modeSize] = 0;
+			first++;
+			if(first == filterSize)
+				first = 0;
+		}
+		///printf("[%u %u]", first, cursor);
+		
+		// save id
+		_id[m] |= s;
+		_queue.id[cursor] = id;
+				
+		// curr to next
+		cursor++;
+		if(cursor == filterSize)
+			cursor = 0;
+
+		// save queue
+		_queue.first = first;
+		_queue.cursor = cursor;
+		return true;
+	}
+	
+#ifdef IDFILTER_DEBUG_
+	void print() { pint(_id, modeSize);	}
+#endif
+	
+private:
+	unsigned int _id[modeSize];
+			
+	struct queue_s
+	{
+		int id[filterSize + 8];
+		unsigned short first;
+		unsigned short cursor;
+	} _queue;	
+};
+
+#endif

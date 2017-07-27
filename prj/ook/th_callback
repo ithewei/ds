@@ -1,0 +1,74 @@
+#ifndef __THREAD_CALLBACK__
+#define __THREAD_CALLBACK__
+
+#include <ook/thread>
+#include <ook/sys/call>
+
+typedef bool (*TH_CALLBACK)(unsigned int counter, void * contxt);
+
+class th_callback
+{
+public:
+	th_callback(TH_CALLBACK cb,
+				void * cbtxt,
+				unsigned int interval)
+		: _cb(cb),
+		  _cbtxt(cbtxt),
+		  _th(NULL)
+	{
+		_thrunning = true;
+		_th = new thread(&th_callback::_run, *this);		
+	}
+	virtual ~th_callback()
+	{
+		stop_callback();
+	}
+
+	void stop_callback()
+	{
+		if(_th)
+		{
+			_thrunning = false;
+			delete _th;
+			_th = NULL;
+		}
+	}
+	
+private:
+	bool _thrunning;
+	unsigned int _interval;
+
+	TH_CALLBACK _cb;
+	void * _cbtxt;
+	
+	typedef tmc_thread_type<th_callback > thread;
+	thread * _th;
+
+	void _run(int * thstatus, void * p)
+	{
+		unsigned int count    = 0;
+		unsigned int interval = 0;
+		unsigned int cbindex  = 0;
+
+		while(_thrunning)
+		{
+			chsc_sleep(100);
+			count++;
+			if((count % 10) != 0)
+				continue;
+				
+			interval++;
+			if((interval % _interval) != 0)
+				continue;
+				
+			if(_cb)
+			{
+				if(!_cb(cbindex++, _cbtxt))
+					break;
+			}
+		}
+		pthread_exit(NULL);
+	}
+};
+
+#endif

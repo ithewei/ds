@@ -1,0 +1,226 @@
+#ifndef __OOK_FILE_SINK__
+#define __OOK_FILE_SINK__
+
+/*
+	file_sink class (M):mem alloc safe
+	by ook @ 2010/02/16
+	version: 2.0
+ */
+#include <string>
+#include <ook/ifrender>
+#include <ook/buf>
+#include <ook/sys/call>
+//#include <ook/trace>
+//DECTRACE
+
+class file_sink : public ifrender
+{
+public:
+	file_sink(unsigned int blocksize = 0)
+		: _fp(NULL)
+	{
+		IFUNKNOW_INI
+		
+		//BTRACE(3, "new file_sink {")
+		
+		_bwrinited   = false;
+		_bautoflush  = false;
+		_bdatawrited = false;
+		_tmconsumed  = -1;
+		_payload     = 0;
+		_printmask   = 0;
+		_buffer.size(blocksize);
+		
+		//ETRACE(3, "}")
+	}
+	virtual ~file_sink() 
+	{
+		//BTRACE(3, "del file_sink {")
+		
+		close();
+		
+		//ETRACE(3, "}")
+	}
+
+	IFUNKNOW_IMP
+
+	void set_filepath(const char * file_path)
+	{
+		if(file_path)
+			_filepath = file_path;
+	}
+	void set_autoflush(bool b)         { _bautoflush = b;          }
+	void set_printmask(unsigned int m) { _printmask  = m;          }
+	bool has_datawrited()       const  { return _bdatawrited;      }
+	const char * get_filepath() const  { return _filepath.c_str(); }
+	unsigned int get_payload()  const  { return _payload;          }
+	int time_consumed()         const  { return _tmconsumed;       }
+	
+	void close(bool time_consumed = false)
+	{
+		if(_fp)
+		{
+			if(_buffer.length() > 0)
+			{
+				unsigned int t0 = 0, t1 = 0;
+				if(time_consumed)
+				{
+					_tmconsumed = 0;
+					t0 = (unsigned int)chsc_gettick();
+				}
+				
+				_payload += _buffer.length();
+				fwrite(_buffer.ptr(), 1, _buffer.length(), _fp);
+				_buffer.reset();
+
+				if(time_consumed)
+				{
+					t1 = (unsigned int)chsc_gettick();
+					_tmconsumed = (int)(t1 - t0);
+				}				
+			}
+			
+			fclose(_fp);
+			_fp = NULL;
+		}
+	}
+	
+	void flush(bool time_consumed = false)
+	{
+		_tmconsumed = -1;
+		if(_fp)
+		{
+			unsigned int t0 = 0, t1 = 0;
+			if(time_consumed)
+			{
+				_tmconsumed = 0;
+				t0 = (unsigned int)chsc_gettick();
+			}
+			
+			if(_buffer.length() > 0)
+			{
+				_payload += _buffer.length();
+				fwrite(_buffer.ptr(), 1, _buffer.length(), _fp);
+				_buffer.reset();				
+			}
+			fflush(_fp);
+
+			if(time_consumed)
+			{
+				t1 = (unsigned int)chsc_gettick();
+				_tmconsumed = (int)(t1 - t0);
+			}
+		}		
+	}
+	
+	int render_input(int opt, int wparam, int lparam, void * ptr)
+	{
+		///printf("[I]");
+		///printf("mysink::render_input::opt=%d, len=%d\n", opt, lparam);
+		///TRACE(3, "mysink::render_input::opt=" << opt << ", len=" << lparam)
+		int r = ifrender::e_ifrenderret_ok;
+		
+		_bdatawrited = false;
+		_tmconsumed  = -1;
+		
+		if(opt == ifrender::e_ifrenderopt_over)
+		{
+			close();
+			return r;
+		}
+
+		if(opt != ifrender::e_ifrenderopt_stream)
+			return r;
+
+		if(!_bwrinited)
+		{
+			_bwrinited = true;
+			if(_fp)
+			{
+				fclose(_fp);
+				_fp = NULL;
+			}
+			if(_filepath.length() > 0)
+				_fp = fopen(_filepath.c_str(), "wb");
+		}
+		if(!_fp)
+			return ifrender::e_ifrenderret_err;
+		
+		if(ptr)
+		{
+			if(_buffer.size() > _buffer.length())
+			{
+				const unsigned char * p = (const unsigned char *)ptr;
+				while(lparam > 0)
+				{
+					int l = (int)(_buffer.size() - _buffer.length());
+					int u = l < lparam ? l : lparam;
+					_buffer.copy(p, u, _buffer.length());
+					lparam -= u;
+					p      += u;
+					if(_buffer.length() >= _buffer.size())
+					{
+						_bdatawrited = true;
+						_payload += _buffer.length();
+						
+						unsigned int t0 = 0, t1 = 0;
+						if(wparam & 0x01)
+						{
+							_tmconsumed = 0;
+							t0 = (unsigned int)chsc_gettick();
+						}
+						
+						int w = (int)fwrite(_buffer.ptr(), 1, _buffer.length(), _fp);
+						if(w ==  (int)_buffer.length())
+						{
+							if(_bautoflush)
+								fflush(_fp);
+						}
+						else
+						{
+							r = ifrender::e_ifrenderret_err;
+						}
+												
+						_buffer.reset();
+						
+						if(wparam & 0x01)
+						{
+							t1 = (unsigned int)chsc_gettick();
+							_tmconsumed = (int)(t1 - t0);
+							///printf("file_sink::time_consumed=%d\n", _tmconsumed);
+						}
+					}
+					
+					if(r != ifrender::e_ifrenderret_ok)
+						return r;
+				} // while(lparam > 0)
+			}
+			else
+			{
+				_payload += lparam;
+				int w = (int)fwrite((unsigned char *)ptr, 1, lparam, _fp);
+				if(w != lparam)
+					r = ifrender::e_ifrenderret_err;
+			}
+		}
+		return r;
+	}
+
+private:
+	IFUNKNOW_DEC
+	
+	FILE * _fp;
+	any_buf _buffer;
+	std::string _filepath;
+	
+	bool _bwrinited;
+	bool _bautoflush;
+	bool _bdatawrited;
+		
+	int _tmconsumed;
+	
+	unsigned int _payload;
+	unsigned int _printmask;
+};
+
+#endif

@@ -1,0 +1,150 @@
+#ifndef __OOK_STANDARDGUID__
+#define __OOK_STANDARDGUID__
+
+#include <stdlib.h>
+#include <stdio.h>
+#include <ook/predef.h>
+#include <ook/serial.h>
+#include <ook/sys/call>
+
+class standard_guid
+{
+public:
+	static int guid_size() 		{ return (int)16; }
+	static int guidstr_size() 	{ return (int)36; }
+	
+	standard_guid(const char * str = NULL)
+	{
+		memset(_guid, 0, 16);
+		memset(_guidstr, 0, 37);
+		generate(str);
+	}
+	
+	const unsigned char * get_guid() const 	{ return _guid; }
+	const char * get_guidstr() const 		{ return _guidstr; }
+	
+	void generate()
+	{
+	#if 0
+		*(unsigned int *)_guid = (unsigned int)chsc_gettick();
+		*(unsigned short *)(_guid + 4) = rand();
+		*(unsigned short *)(_guid + 6) = rand();
+
+		*(unsigned int *)(_guid + 8) = (unsigned int)chsc_gettick();
+		*(unsigned short *)(_guid + 12) = rand();
+		*(unsigned short *)(_guid + 14) = rand();
+	#else
+		pack_uint32(_guid,     (unsigned int)chsc_gettick());
+		pack_uint16(_guid + 4, (unsigned short)rand());
+		pack_uint16(_guid + 6, (unsigned short)rand());
+		
+		pack_uint32(_guid +  8, (unsigned int)chsc_gettick());
+		pack_uint16(_guid + 12, (unsigned short)rand());
+		pack_uint16(_guid + 14, (unsigned short)rand());
+	#endif
+		format(_guidstr, 37);		
+	}
+	
+	void generate(const char * str)
+	{
+		if(str && strlen(str) == 36) // for example 75B22633-668E-11CF-A6D9-00AA0062CE6C
+		{
+			int i;
+			char bak, tmpbuf[37];
+			__strcpy(tmpbuf, 37, str);
+			
+			// 75B22633
+			char * p = tmpbuf;
+			for(i = 0; i < 8; i += 2, p += 2)
+			{
+				bak = *(p + 2);
+				*(p + 2) = 0;
+				_guid[3 - (i >> 1)] = (unsigned char)strtoul(p, NULL, 16);
+				*(p + 2) = bak;
+			}
+			
+			// 668E
+			p = tmpbuf + 9;
+			for(i = 0; i < 4; i += 2, p += 2)
+			{
+				bak = *(p + 2);
+				*(p + 2) = 0;
+				_guid[5 - (i >> 1)] = (unsigned char)strtoul(p, NULL, 16);
+				*(p + 2) = bak;
+			}
+			
+			// 11CF
+			p = tmpbuf + 14;
+			for(i = 0; i < 4; i += 2, p += 2)
+			{
+				bak = *(p + 2);
+				*(p + 2) = 0;
+				_guid[7 - (i >> 1)] = (unsigned char)strtoul(p, NULL, 16);
+				*(p + 2) = bak;
+			}
+			
+			// A6D9
+			p = tmpbuf + 19;
+			for(i = 0; i < 4; i += 2, p += 2)
+			{
+				bak = *(p + 2);
+				*(p + 2) = 0;
+				_guid[8 + (i >> 1)] = (unsigned char)strtoul(p, NULL, 16);
+				*(p + 2) = bak;
+			}
+			
+			// 00AA0062CE6C
+			p = tmpbuf + 24;
+			for(i = 0; i < 12; i += 2, p += 2)
+			{
+				bak = *(p + 2);
+				*(p + 2) = 0;
+				_guid[10 + (i >> 1)] = (unsigned char)strtoul(p, NULL, 16);
+				*(p + 2) = bak;
+			}								
+		}
+	}
+	
+	void set(const unsigned char * buf)
+	{
+		memcpy(_guid, buf, guid_size());
+		format(_guidstr, 37);
+	}
+	
+	void format(char * str, int size) const
+	{
+		__snprintf(str, size, 
+				  "%02X%02X%02X%02X-%02X%02X-%02X%02X-%02X%02X-%02X%02X%02X%02X%02X%02X", 
+				  _guid[3], _guid[2], _guid[1], _guid[0], 
+				  _guid[5], _guid[4],
+				  _guid[7], _guid[6],
+				  _guid[8], _guid[9],
+				  _guid[10], _guid[11], _guid[12], _guid[13], _guid[14], _guid[15]);
+	}
+	
+	bool operator==(const char * pGUID) const
+	{
+		if(pGUID && (strlen(pGUID) > 0))
+		{
+			if(strcmp(_guidstr, pGUID) == 0)
+				return true;
+		}
+		return false;
+	}
+	
+	bool operator!=(const char * pGUID) const
+	{
+		if(pGUID && (strlen(pGUID) > 0))
+		{
+			if(strcmp(_guidstr, pGUID) == 0)
+				return false;
+		}
+		return true;
+	}
+		
+private:
+	unsigned char _guid[16];
+	char _guidstr[37];
+};
+
+#endif

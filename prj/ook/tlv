@@ -1,0 +1,99 @@
+#ifndef __OOK_ANY_TLV__
+#define __OOK_ANY_TLV__
+
+#include <vector>
+
+class any_tlv
+{
+public:
+	virtual ~any_tlv()
+	{
+		for(std::vector<any_tlv * >::iterator ite = _container.begin(); ite != _container.end(); ite++)
+			delete *ite;
+	}
+	
+	int push(any_tlv * tlv)
+	{
+		if(!tlv)
+			return -1;
+		_container.push_back(tlv);
+		return (int)_container.size();
+	}
+	
+	int buffer_size() const
+	{
+		int r = 0;
+		r += t_length();
+		r += l_length();
+		r += v_length();
+		for(std::vector<any_tlv * >::const_iterator ite = _container.begin(); ite != _container.end(); ite++)
+			r += (*ite)->buffer_size();
+		return r;
+	}
+	
+	int encode(unsigned char * buf, int size)
+	{
+		int len = 0;
+
+		// type field
+		int r = t_encode(buf, size);
+		if(r < 0)
+			return r;
+		if(r > size)
+			return -1;
+		len  += r;
+		buf  += r;
+		size -= r;
+
+		// length field
+		int ll = l_length();
+		if(size < ll)
+			return -2;
+		unsigned char * ptrL = buf;
+		int lenL = 0;
+		len  += ll;
+		buf  += ll;
+		size -= ll;
+		
+		// value field
+		r = v_encode(buf, size);
+		if(r < 0)
+			return r;
+		if(r > size)
+			return -1;
+		len  += r;
+		buf  += r;
+		size -= r;
+		lenL += r;
+		
+		// childen				
+		for(std::vector<any_tlv * >::const_iterator ite = _container.begin(); ite != _container.end(); ite++)
+		{
+			r = (*ite)->encode(buf, size);
+			if(r < 0)
+				return -1;
+			len  += r;
+			buf  += r;
+			size -= r;
+			lenL += r;
+		}
+		
+		// fill length field
+		if(l_encode(ptrL, ll, lenL) < 0)
+			return -3;
+		return len;
+	}
+	
+	virtual int t_length() const = 0; // type   field length
+	virtual int l_length() const = 0; // length field length
+	virtual int v_length() const = 0; // value  field length
+	
+	virtual int t_encode(unsigned char * buf, int size) = 0; 			// encode type   field
+	virtual int l_encode(unsigned char * buf, int size, int len) = 0; 	// encode length field
+	virtual int v_encode(unsigned char * buf, int size) = 0;			// encode value  field
+	
+private:
+	std::vector<any_tlv * > _container;
+};
+
+#endif

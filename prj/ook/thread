@@ -1,0 +1,535 @@
+#ifndef __TMC_THREAD_H__
+#define __TMC_THREAD_H__
+
+#include "predef.h"
+
+///#define NOIOSTREAM
+
+#include <exception>
+#include <string>
+#ifndef NOIOSTREAM
+#include <iostream>
+#endif
+
+#ifdef WIN32
+
+#ifndef FD_SETSIZE
+#define FD_SETSIZE 1024
+#endif
+
+// ###
+#if defined(WINCE) || (_MSC_VER < 1200)
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#endif
+
+#include <winsock2.h>
+
+#if FD_SETSIZE < 1024
+#ifdef _MSC_VER
+#pragma message("WARNING: 'FD_SETSIZE' < 1024")
+#endif
+#endif
+ 
+#include <windows.h>
+#include <pthread.h>
+
+#ifdef WINCE
+/* copy from ptw32_timespec.c
+ * -------------------------------------------------------------------
+ * converts FILETIME (as set by GetSystemTimeAsFileTime), where the time is
+ * expressed in 100 nanoseconds from Jan 1, 1601,
+ * into struct timespec
+ * where the time is expressed in seconds and nanoseconds from Jan 1, 1970.
+ * -------------------------------------------------------------------
+ */
+#define __PTW32_TIMESPEC_TO_FILETIME_OFFSET ( ((LONGLONG) 27111902 << 32) + (LONGLONG) 3577643008 )
+static void __ptw32_filetime_to_timespec(const FILETIME * ft, struct timespec *ts)
+{
+	ts->tv_sec  = (int) ((*(LONGLONG *) ft - __PTW32_TIMESPEC_TO_FILETIME_OFFSET) / 10000000);
+  	ts->tv_nsec = (int) ((*(LONGLONG *) ft - __PTW32_TIMESPEC_TO_FILETIME_OFFSET - ((LONGLONG) ts->tv_sec * (LONGLONG) 10000000)) * 100);
+}
+#else
+#include <sys/timeb.h>
+#endif
+
+/*
+	EINVAL  = 22;
+	EFAULT  = 14;
+	EPERM   = 1;
+	EDEADLK = 36;
+ */
+
+#else
+
+#include <sys/time.h>
+#include <sys/sysinfo.h>
+#include <pthread.h>
+
+#define _ftime ftime
+#define _timeb struct timeb
+#define THREAD_PRIORITY_NORMAL 			 0
+#define THREAD_PRIORITY_ABOVE_NORMAL	30
+#define THREAD_PRIORITY_HIGHEST			60
+#define THREAD_PRIORITY_TIME_CRITICAL 	90
+
+#endif // #ifdef WIN32
+
+#ifndef THREAD_DEFAULT_STACKSIZE
+#define THREAD_DEFAULT_STACKSIZE		0x100000 // 1M
+#endif
+extern int thread_defaultstacksize_;
+
+#ifndef PTHREAD_MUTEX_ERRORCHECK
+#define PTHREAD_MUTEX_ERRORCHECK PTHREAD_MUTEX_ERRORCHECK_NP
+#endif
+#ifndef PTHREAD_MUTEX_RECURSIVE
+#define PTHREAD_MUTEX_RECURSIVE PTHREAD_MUTEX_RECURSIVE_NP
+#endif
+
+#define PTHREAD_INIT 	tmc_pthread_init();
+#define PTHREAD_RELEASE	tmc_pthread_release();
+
+//////////////////////////////////////////////
+// tmc_pthread_init
+
+inline void tmc_pthread_init() {
+#ifdef WIN32
+	pthread_init();
+#endif
+}
+
+inline void tmc_pthread_release() {
+#ifdef WIN32
+	///pthread_release();
+#endif	
+}
+
+//////////////////////////////////////////////
+// tmc_exception_type
+
+struct tmc_exception_type : std::exception {
+
+	std::string s_;
+
+	tmc_exception_type(const std::string & s = ""): s_(s) {
+	}
+
+	virtual ~tmc_exception_type() throw() {
+	}
+
+	virtual const char * what() const throw() {
+		return s_.c_str();
+	}
+};
+
+#ifndef NOIOSTREAM
+template <class charT, class traits >
+std::basic_ostream<charT, traits > & operator <<(std::basic_ostream<charT, traits > & os, const std::exception & ex) {
+
+	os << ex.what();
+	return os;
+}
+#endif
+
+//////////////////////////////////////////////
+// tmc_mutex_type
+
+struct tmc_mutex_type {
+	
+	pthread_mutex_t mutex_;
+	int ref_;
+	int ref2_;
+	
+	tmc_mutex_type() {
+		ref_ = ref2_ = 0;
+		pthread_mutexattr_t mutexattr;	
+		pthread_mutexattr_init(&mutexattr);
+		pthread_mutexattr_settype(&mutexattr, PTHREAD_MUTEX_ERRORCHECK);
+		pthread_mutex_init(&mutex_, &mutexattr);
+		pthread_mutexattr_destroy(&mutexattr);
+	}
+
+	~tmc_mutex_type() { 
+		pthread_mutex_destroy(&mutex_);	
+	}
+
+	void reset() {
+		pthread_mutex_destroy(&mutex_);
+		pthread_mutexattr_t mutexattr;	
+		pthread_mutexattr_init(&mutexattr);
+		pthread_mutexattr_settype(&mutexattr, PTHREAD_MUTEX_ERRORCHECK);
+		pthread_mutex_init(&mutex_, &mutexattr);
+		pthread_mutexattr_destroy(&mutexattr);
+	}
+
+	operator pthread_mutex_t * () { return &mutex_; }
+
+	int ref()  const { return ref_;  }
+	int ref2() const { return ref2_; }
+	
+	int lock(int ref)  
+	{ 
+		ref2_ = ref_;
+		ref_  = ref;
+		return pthread_mutex_lock(&mutex_); 
+	}
+	int unlock(int ref) 
+	{ 
+		ref_ = ref;
+		return pthread_mutex_unlock(&mutex_); 
+	}	
+	int lock()  
+	{ 
+		return pthread_mutex_lock(&mutex_); 
+	}	
+	int unlock() 
+	{ 
+		return pthread_mutex_unlock(&mutex_); 
+	}
+};
+
+//////////////////////////////////////////////
+// tmc_remutex_type
+
+struct tmc_remutex_type {
+	
+	pthread_mutex_t mutex_;
+
+	tmc_remutex_type() {
+		pthread_mutexattr_t mutexattr;
+		pthread_mutexattr_init(&mutexattr);
+		pthread_mutexattr_settype(&mutexattr, PTHREAD_MUTEX_RECURSIVE);
+		pthread_mutex_init(&mutex_, &mutexattr);
+		pthread_mutexattr_destroy(&mutexattr);
+	}
+
+	~tmc_remutex_type() {
+		pthread_mutex_destroy(&mutex_);
+	}
+
+	void reset() {
+		pthread_mutex_destroy(&mutex_);
+	
+		pthread_mutexattr_t mutexattr;
+		pthread_mutexattr_init(&mutexattr);
+		pthread_mutexattr_settype(&mutexattr, PTHREAD_MUTEX_RECURSIVE);
+		pthread_mutex_init(&mutex_, &mutexattr);
+		pthread_mutexattr_destroy(&mutexattr);
+	}
+
+	operator pthread_mutex_t * () { return &mutex_; }	
+	
+	int lock() { return pthread_mutex_lock(&mutex_); }
+	int unlock() { return pthread_mutex_unlock(&mutex_); }
+};
+
+//////////////////////////////////////////////
+// tmc_rwlock_type
+
+struct tmc_rwlock_type {
+
+	pthread_rwlock_t rwlock_;
+
+	tmc_rwlock_type() {
+		pthread_rwlock_init(&rwlock_, NULL);
+	}
+
+	~tmc_rwlock_type() {
+		pthread_rwlock_destroy(&rwlock_);
+	}
+
+	void rdlock() {
+		pthread_rwlock_rdlock(&rwlock_);
+	}
+
+	void wrlock() {
+		pthread_rwlock_wrlock(&rwlock_);
+	}
+
+	void unlock() {
+		pthread_rwlock_unlock(&rwlock_);
+	}
+};
+
+//////////////////////////////////////////////
+// tmc_rwlockrd_type
+
+struct tmc_rwlockrd_type : virtual tmc_rwlock_type {
+
+	void lock() {
+		rdlock();
+	}
+};
+
+//////////////////////////////////////////////
+// tmc_rwlockwr_type
+
+struct tmc_rwlockwr_type : virtual tmc_rwlock_type {
+
+	void lock() {
+		wrlock();
+	}
+};
+
+//////////////////////////////////////////////
+// tmc_rwlock_ext_type
+
+struct tmc_rwlock_ext_type : virtual tmc_rwlock_type, tmc_rwlockrd_type, tmc_rwlockwr_type {
+};
+
+//////////////////////////////////////////////
+// tmc_autolock_type
+
+template <class lock_type >
+struct tmc_autolock_type {
+
+	lock_type & lock_;
+
+	tmc_autolock_type(lock_type & lock): lock_(lock) {
+		lock_.lock();
+	}
+
+	~tmc_autolock_type() {
+		lock_.unlock();
+	}
+
+};
+
+//////////////////////////////////////////////
+// tmc_cond_type
+ 
+inline void get_abstime(timespec & abstime, unsigned int timeout) // in milliseconds, 1000 == 1 second
+{
+	timeval t;
+	t.tv_sec  = timeout / 1000;
+	t.tv_usec = timeout % 1000;	// using as milliseconds
+#ifdef WINCE
+  	FILETIME ft;
+  	SYSTEMTIME st;
+  	GetSystemTime(&st);
+  	SystemTimeToFileTime(&st, &ft);
+
+  	timespec n;
+  	__ptw32_filetime_to_timespec(&ft, &n); // { s, ns }
+
+	abstime.tv_sec  = n.tv_sec + t.tv_sec + (n.tv_nsec * 1000000 + t.tv_usec) / 1000;
+	abstime.tv_nsec = (n.tv_nsec / 1000 + t.tv_usec * 1000) % 1000000 * 1000;
+#elif WIN32
+	_timeb n;
+	__ftime(&n); // { s, ms }
+	abstime.tv_sec  = (long)(n.time + t.tv_sec + (n.millitm + t.tv_usec) / 1000);
+	abstime.tv_nsec = ((n.millitm * 1000 + t.tv_usec * 1000) % 1000000 * 1000);
+#else	
+	struct timeval n;
+	gettimeofday(&n, NULL); // { s, us}
+	abstime.tv_sec  = n.tv_sec + t.tv_sec + (n.tv_usec / 1000 + t.tv_usec) / 1000;
+	abstime.tv_nsec = (n.tv_usec + t.tv_usec * 1000) % 1000000 * 1000;
+#endif
+}
+ 
+struct tmc_cond_type {
+
+	pthread_cond_t cond_;
+
+	int wait(tmc_mutex_type & mutex) {
+		return pthread_cond_wait(&cond_, &mutex.mutex_);
+	}
+
+	int wait(tmc_mutex_type & mutex, unsigned int timeout) {
+		if(timeout > 0)
+		{
+			timespec abstime = { 0, 0 };
+			get_abstime(abstime, timeout);
+			return pthread_cond_timedwait(&cond_, &mutex.mutex_, &abstime);
+		}
+		else
+		{
+			return pthread_cond_wait(&cond_, &mutex.mutex_);
+		}
+	}
+	
+	int wait(tmc_remutex_type & remutex) {
+		return pthread_cond_wait(&cond_, &remutex.mutex_);
+	}
+
+	int wait(tmc_remutex_type & remutex, unsigned int timeout) {
+		if(timeout > 0)
+		{
+			timespec abstime = { 0, 0 };
+			get_abstime(abstime, timeout);
+			return pthread_cond_timedwait(&cond_, &remutex.mutex_, &abstime);
+		}
+		else
+		{
+			return pthread_cond_wait(&cond_, &remutex.mutex_);
+		}
+	}
+	
+	int signal() {
+		return pthread_cond_signal(&cond_);
+	}
+
+	tmc_cond_type() {
+		pthread_cond_init(&cond_, NULL);
+	}
+
+	~tmc_cond_type() {
+		pthread_cond_destroy(&cond_);
+	}
+};
+
+///////////////////////////////////////////
+// tmc_thread_type
+
+// all papers say better not to use pthread_cancel()
+///#define USING_PTHREAD_CANCEL
+
+#define PTHREAD_EXIT_MASK		0x01
+#define PTHREAD_CANCEL_MASK		0x02
+#define PTHREAD_SELRELEASE_MASK	0x08
+
+#ifdef USING_PTHREAD_CANCEL
+#define PTHREAD_TESTEXIT(s) pthread_testcancel();
+#else
+#define PTHREAD_TESTEXIT(s) if(s && (*s & PTHREAD_EXIT_MASK)) { pthread_exit(NULL); }
+#endif
+							
+template <class t_type>
+struct tmc_thread_type 
+{
+	static void * func_(void * arg) 
+	{
+	#ifdef USING_PTHREAD_CANCEL
+		pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
+		pthread_setcanceltype(PTHREAD_CANCEL_DEFERRED, NULL);
+	#endif
+
+		((tmc_thread_type *)arg)->go_();
+		return NULL;
+	}
+
+	typedef void (t_type::*run_type)(int *, void *);
+
+	run_type run_;
+	t_type & t_;
+	void * arg_;
+	int thstatus_;
+	unsigned int printmask_;
+	
+	void go_() 
+	{
+		// linux gcc high version do not allow try() here for pthread destroy, otherwise will cause program abort.
+		///try {
+			(t_.*run_)(&thstatus_, arg_);
+		///} catch(...) {
+			//tmc_filter tmc_catch;
+		///}
+	}
+
+	pthread_t th_;
+	
+	tmc_thread_type(run_type run, 
+					t_type & t, 
+					void * arg    = NULL, 
+					int priority  = THREAD_PRIORITY_NORMAL, 
+					int status    = 0, 
+					int stacksize = -1,
+					int affinity  = -1)
+		: run_(run), 
+		  t_(t), 
+		  arg_(arg), 
+		  thstatus_(status),
+		  printmask_(0)
+	{
+		pthread_attr_t attr;
+		pthread_attr_init(&attr);
+
+		// stacksize
+		if(stacksize < 0)
+			stacksize = thread_defaultstacksize_;
+		if(stacksize >= (1024 * 16))
+			pthread_attr_setstacksize(&attr, (size_t)stacksize);
+
+		// cpu affinity
+		if(affinity > 0)
+		{
+		#ifdef WIN32
+		#elif !defined(NOPTHREAD_AFFINITY)
+			int i, m = 1;
+			int s = get_nprocs_conf();
+			cpu_set_t mask;
+			CPU_ZERO(&mask);
+			for(i = 0; i < s; i++)
+			{
+				if((affinity & m) > 0)
+					CPU_SET(i, &mask);
+				m <<= 1;
+			}	
+			pthread_attr_setaffinity_np(&attr, sizeof(cpu_set_t), &mask); 
+		#endif
+		}
+
+		// priority
+		struct sched_param param;
+		param.sched_priority = priority;
+		pthread_attr_setschedparam(&attr, &param);
+
+		// create thread
+		int r = pthread_create(&th_, &attr, func_, this);
+		pthread_attr_destroy(&attr);
+
+		if(r != 0)
+		{
+			char tmp[128];
+			__snprintf(tmp, 128, "tmc_thread_type::pthread_create() fail, err=%d\n", r);
+			throw tmc_exception_type(tmp);
+		}
+	}
+
+	~tmc_thread_type()
+	{
+		if(printmask_ & 0x08)
+			printf("del tmc_thread_type {\n");
+		
+		if((thstatus_ & PTHREAD_SELRELEASE_MASK) == 0)
+		{
+			thstatus_ |= PTHREAD_EXIT_MASK;
+		
+		#ifndef NOPTHREAD_CANCEL
+		  #ifdef USING_PTHREAD_CANCEL
+			pthread_cancel(th_);
+		  #else
+			if(thstatus_ & PTHREAD_CANCEL_MASK)
+			{
+				if(printmask_ & 0x08)
+					printf("pthread_cancel {\n");				
+				
+				pthread_cancel(th_);
+				
+				if(printmask_ & 0x08)
+					printf("} cancel\n");
+			}	
+		  #endif
+		#endif // NOPTHREAD_CANCEL
+		
+			if(printmask_ & 0x08)
+				printf("pthread_join {\n");
+			
+			pthread_join(th_, NULL);
+			
+			if(printmask_ & 0x08)
+				printf("} join\n");		
+		}
+		
+		if(printmask_ & 0x08)
+			printf("} del\n");
+	}
+
+#ifndef USING_PTHREAD_CANCEL
+	int exit_status() const { return thstatus_; }
+#endif
+};
+
+#endif

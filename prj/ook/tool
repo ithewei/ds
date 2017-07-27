@@ -1,0 +1,475 @@
+/***************************************************************************
+                           tool 3.2 (M):mem alloc safe
+                         -------------------
+    begin                : 2003 -  6 -  8
+    last modify			 : 2011 -  3 - 16
+    copyright            : (C) 2003 - 2005 by ChengYang
+    email                : hellocy@263.net
+ ***************************************************************************/
+/*
+ * This material is provided "as is", with absolutely no warranty expressed
+ * or implied. Any use is at your own risk.
+ *
+ * Permission to use or copy this software for any purpose is hereby granted 
+ * without fee, provided the above notices are retained on all copies.
+ * Permission to modify the code and to distribute modified code is granted,
+ * provided the above notices are retained, and a notice that the code was
+ * modified is included with the above copyright notice.
+ *
+ *
+ */
+#ifndef __OOK_TOOL__
+#define __OOK_TOOL__
+
+#include "predef.h"
+
+extern "C" {
+	#include "mem.h"
+}
+
+#ifdef WIN32
+	#include <winsock2.h>
+	#include <windows.h>
+  #ifdef WINCE
+    #include <ook/win32/wince/time_ce.h>
+  #endif
+#else
+	#include <sys/time.h>
+#endif
+
+#include <stdint.h>
+#include <stdio.h>
+#include <time.h>
+#include <string>
+
+inline unsigned int atou_32(const char * str)
+{
+	return (unsigned int)strtoul(str, NULL, 10);
+}
+
+inline uint64_t atou_64(const char * str)
+{
+#ifdef WIN32
+	return _atoi64(str);
+#else
+	return strtol(str, NULL, 10);
+#endif
+}
+
+inline bool is_abspath(const char * f)
+{
+	if(f && strlen(f) > 1)
+	{
+	#ifdef WIN32
+		if(f[1] == ':' || (f[0] == '\\' && f[1] == '\\'))
+	#else
+		if(f[0] == '/' || (f[0] == '.'  && f[1] == '/')) // abs path
+	#endif		
+			return true;
+	}
+	return false;
+}
+
+inline int utc_analyse(const char * strUTC, 
+					   const char * strFmt,
+					   struct tm * m)
+{
+	int r, year, month, day, hour, minute, second;
+	
+	r = sscanf(strUTC, strFmt, &year, &month, &day, &hour, &minute, &second);
+	if(r != 6)
+		return -1;
+		
+	if(year < 1900)
+		year = 1900;
+
+	if(month < 1)
+		month = 1;
+	else if(month > 12)
+		month = 12;
+
+	if(day < 1)
+		day = 1;
+	else if(day > 31)
+		day = 31;
+	
+	if(hour < 0)
+		hour = 0;
+	else if(hour > 23)
+		hour = 23;
+	
+	if(minute < 0)
+		minute = 0;
+	else if(minute > 59)
+		minute = 59;
+	
+	if(second < 0)
+		second = 0;
+	else if(second > 59)
+		second = 59;
+	
+	m->tm_year = year  - 1900;
+	m->tm_mon  = month - 1;
+	m->tm_mday = day;
+	m->tm_hour = hour;
+	m->tm_min  = minute;
+	m->tm_sec  = second;
+	return 0;
+}
+
+inline time_t local_time(const char * strUTC, 
+					     const char * strFmt)
+{
+	int r, year, month, day, hour, minute, second;
+	char tm_zone[16];
+	
+	r = sscanf(strUTC, strFmt, &year, &month, &day, &hour, &minute, &second, tm_zone);
+	if(r < 6)
+		return -1;
+		
+	if(year < 1900)
+		year = 1900;
+
+	if(month < 1)
+		month = 1;
+	else if(month > 12)
+		month = 12;
+
+	if(day < 1)
+		day = 1;
+	else if(day > 31)
+		day = 31;
+	
+	if(hour < 0)
+		hour = 0;
+	else if(hour > 23)
+		hour = 23;
+	
+	if(minute < 0)
+		minute = 0;
+	else if(minute > 59)
+		minute = 59;
+	
+	if(second < 0)
+		second = 0;
+	else if(second > 59)
+		second = 59;
+
+	struct tm m;
+	memset(&m, 0, sizeof(tm));
+	
+	m.tm_year = year  - 1900;
+	m.tm_mon  = month - 1;
+	m.tm_mday = day;
+	m.tm_hour = hour;
+	m.tm_min  = minute;
+	m.tm_sec  = second;
+	
+	time_t t = mktime(&m);
+
+	if(r > 6)
+	{
+	#ifndef WIN32
+		if(strcmp(tm_zone, "GMT") == 0)
+		{
+			time_t lt = time(NULL);
+			struct tm lm;
+			localtime_r(&lt, &lm);
+			t += lm.tm_gmtoff;
+		}
+	#endif
+	}
+	return t;
+}
+
+inline time_t utc_time() // GMT time
+{
+#ifdef WIN32
+	return 0;
+#else
+	time_t lt = time(NULL);
+	struct tm gm;
+	gmtime_r(&lt, &gm);
+	///printf("%d %s\n", gm.tm_gmtoff, gm.tm_zone); // 0 GMT
+	return mktime(&gm);
+#endif
+}
+
+/* itos */
+/* int to string */
+
+inline std::string i2st(int val, int format = 10)
+{
+	char p[64];
+	switch(format)
+	{
+	case 16:
+		__snprintf(p, 64, "%x", val);
+		break;
+	default:
+		__snprintf(p, 64, "%d", val);
+		break;
+	}
+	return p;
+}
+
+inline std::string u2st(unsigned int val, int format = 10)
+{
+	char p[64];
+	switch(format)
+	{
+	case 16:
+		__snprintf(p, 64, "%x", val);
+		break;
+	default:	
+		__snprintf(p, 64, "%u", val);
+		break;
+	}
+	return p;
+}
+
+inline const char * timestr(int format = 0) 
+{
+	static char s[64];
+	s[0] = 0;
+#ifdef WINCE
+	time_t_ce t = time_ce(NULL);
+	tm * pm = localtime_ce(&t);
+	if(format == 8)
+		strftime_ce(s, 64, "%H:%M:%S", pm);
+	else
+		strftime_ce(s, 64, "%Y-%m-%d %H:%M:%S", pm);
+#else
+	tm m;
+	time_t t = time(NULL);
+	#ifdef WIN32
+	  #if _MSC_VER > 1200
+		localtime_s(&m, &t);
+	  #else
+		m = *localtime(&t);
+	  #endif
+	#else
+		localtime_r(&t, &m);
+	#endif
+	if(format == 8)
+		strftime(s, 64, "%H:%M:%S", &m);
+	else	
+		strftime(s, 64, "%Y-%m-%d %H:%M:%S", &m);
+#endif
+	int i;
+	switch(format)
+	{
+	case 1:
+		for(i = 0; i < (int)strlen(s); i++)
+		{
+			if(s[i] == ' ')
+				s[i] = '_';
+			else if(s[i] == '-')
+				s[i] = '_';
+			else if(s[i] == ':')
+				s[i] = '_';
+		}
+		break;
+	case 2:
+		for(i = 0; i < (int)strlen(s); i++)
+		{
+			if(s[i] == ' ')
+				s[i] = '_';
+		}
+		break;		
+	default:
+		break;
+	}
+	return s;
+}
+
+inline const char * strfromtime(time_t t)
+{
+	static char s[64];
+	s[0] = 0;
+#ifdef WINCE
+	tm * pm = localtime_ce(&t);
+	strftime_ce(s, 64, "%Y-%m-%d %H:%M:%S", pm);
+#else
+	tm m;
+	#ifdef WIN32
+	  #if _MSC_VER > 1200
+		localtime_s(&m, &t);
+	  #else
+		m = *localtime(&t);
+	  #endif
+	#else
+		localtime_r(&t, &m);
+	#endif
+	strftime(s, 64, "%Y-%m-%d %H:%M:%S", &m);
+#endif
+	return s;
+}
+
+/*
+	2009-11-09 22:26:17
+ */
+inline time_t timefromstr(const char * str)
+{
+	struct tm t;
+	memset(&t, 0, sizeof(struct tm));
+	char * tmpbuf = (char *)malloc__(strlen(str) + 1);
+	if(!tmpbuf)
+		return (time_t)0;
+	strcpy(tmpbuf, str);
+	int i = 0;
+	char * p, * tok = tmpbuf;
+	while(1)
+	{
+		p = (char *)strstr(tok, "-");
+		if(!p)
+		{
+			p = (char *)strstr(tok, " ");
+			if(!p)
+				p = (char *)strstr(tok, ":");
+		}
+		if(p)
+			*p = 0;
+		///printf("%d=[%s]\n", i, tok);
+		switch(i)
+		{
+		case 0:
+			t.tm_year = atoi(tok) - 1900;
+			break;
+		case 1:
+			t.tm_mon  = atoi(tok) - 1;
+			break;
+		case 2:
+			t.tm_mday = atoi(tok);
+			break;
+		case 3:
+			t.tm_hour = atoi(tok);
+			break;
+		case 4:
+			t.tm_min  = atoi(tok);
+			break;
+		case 5:
+			t.tm_sec  = atoi(tok);
+			break;
+		}
+		i++;
+		if(!p)
+			break;
+		tok = p + 1;
+	}
+	free__(tmpbuf);
+	return mktime(&t);
+}
+
+#ifdef WIN32
+#if 1
+#include <ook/win32/gettimeofday.h>
+#else
+inline int gettimeofday(struct timeval * tv,
+				 		struct timezone * tz)
+{
+	FILETIME file_time;
+
+#ifndef WINCE
+    GetSystemTimeAsFileTime (&file_time);
+#else
+	SYSTEMTIME sys_time;
+	GetLocalTime(&sys_time);
+	SystemTimeToFileTime(&sys_time, &file_time);
+#endif
+
+    ULARGE_INTEGER _100ns = { file_time.dwLowDateTime, file_time.dwHighDateTime };
+    _100ns.QuadPart -= 0x19db1ded53e8000;
+
+    tv->tv_sec  = (long)(_100ns.QuadPart / (10000 * 1000));
+    tv->tv_usec = (long)((_100ns.LowPart % (DWORD) (10000 * 1000)) / 10);
+
+    return 0;
+}
+#endif
+#endif
+
+inline int rand_string(unsigned char * buf,
+					   int num)
+{
+	if(num < (int)sizeof(int))
+		return -1;
+
+	static bool srandom_called = false;
+
+#ifdef WIN32
+
+    struct timeval tv;
+    gettimeofday(&tv, 0);
+
+    if(!srandom_called)
+    {
+        srandom_called = true;
+        srand((unsigned int)(tv.tv_usec ^ tv.tv_sec));
+    }
+
+	int count;
+	for(count = 0; count < (num - 3); count += 4)
+	{
+		int r = rand() + tv.tv_usec;
+	    memcpy(buf + count, &r, 4);
+	}
+   
+	// now copy the remainder
+	int remainder = num % 4;
+	if(remainder)
+	{
+		int r = rand();
+		memcpy(buf + count, &r, remainder);
+	}
+
+#else
+
+   int count=0;
+   for(count=0; count < (num - 3); count += 4)
+   {
+      if(!srandom_called)
+      {
+         struct timeval tv;
+         gettimeofday(&tv, 0);
+
+         srandom_called = true;         
+         srandom((unsigned int)(tv.tv_usec ^ tv.tv_sec));
+      }
+
+      int rand = (int)random();
+      memcpy(buf + count, &rand, 4);
+   }
+   
+   // now copy the remainder
+   int remainder = num % 4;
+   if(remainder)
+   {
+      int rand = (int)random();
+      memcpy(buf + count, &rand, remainder);
+   }
+   
+#endif
+    return num;
+}
+
+inline void convertbin2hex(std::string & s,
+				 		   const unsigned char * buf,
+				 		   int len)
+{
+	char out[8];
+	unsigned char c;
+	int i, hi, lw;
+	s = "";
+    for(i = 0; i < len; i++)
+    {
+        c = buf[i];
+        hi = (c & 0xf0) / 16;
+        lw = (c & 0xf);
+        out[0] = '\0';
+        __snprintf(out, 8, "%1.1x%1.1x", hi, lw);
+        s += out;
+    }
+}
+#endif
+

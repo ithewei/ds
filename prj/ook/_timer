@@ -1,0 +1,220 @@
+/***************************************************************************
+                           tmc_basic_timer 3.01
+                         -------------------
+    begin                : 2003 - 04 - 08
+    last modify			 : 2011 - 02 - 12
+    copyright            : (C) 2003 - 2007 by ChengYang
+    email                : hellocy@263.net
+ ***************************************************************************/
+/*
+ * This material is provided "as is", with absolutely no warranty expressed
+ * or implied. Any use is at your own risk.
+ *
+ * Permission to use or copy this software for any purpose is hereby granted 
+ * without fee, provided the above notices are retained on all copies.
+ * Permission to modify the code and to distribute modified code is granted,
+ * provided the above notices are retained, and a notice that the code was
+ * modified is included with the above copyright notice.
+ *
+ */
+#ifndef ___tmc_basic_timer_h__
+#define ___tmc_basic_timer_h__
+
+#include <vector>
+#include <list>
+
+#include "thread"
+#include "c++/imp_unknow"
+#include "sys/call"
+
+#undef TRACE_INCLUDE
+
+#ifdef TRACE_INCLUDE
+#include "trace"
+DECTRACE
+#endif
+
+extern int TMC_TIMER_INTERVAL;
+
+extern unsigned int basic_systick_;
+#define BASIC_SYSTICK_DEC unsigned int basic_systick_ = 0;
+#define BASEC_SYSTICK_VAL basic_systick_
+
+#define TMC_TIMER_DEF 		tmc_basic_timer * __tmc_timer__ = NULL; int TMC_TIMER_INTERVAL = 50;
+#define TMC_TIMER_DEF_(a) 	tmc_basic_timer * __tmc_timer__ = NULL; int TMC_TIMER_INTERVAL = a;
+
+#define TMC_TIMER_CREATE 	if(!__tmc_timer__) \
+					  			__tmc_timer__ = new tmc_basic_timer(); \
+					   		else \
+					  			__tmc_timer__->add_ref();
+					  
+#define TMC_TIMER_RELEASE 	if(__tmc_timer__) \
+						  	{ \
+						 		if(__tmc_timer__->release() == 0) \
+						 			__tmc_timer__ = NULL; \
+						  	}
+
+#define TMC_TIMER_DEC 	 extern tmc_basic_timer * __tmc_timer__;
+#define TMC_TIMER_SET(a) if(__tmc_timer__) __tmc_timer__->reg_in(a);
+#define TMC_TIMER_OFF(a) if(__tmc_timer__) __tmc_timer__->reg_out(a);
+
+class iftimer
+{
+public:
+	virtual ~iftimer() {}
+	virtual void on_time(int msg_type = 0, void * msg_param = NULL) = 0;
+};
+
+class tmc_basic_timer : public imp_unknow
+{
+public:
+	tmc_basic_timer() 
+		: _released(false),
+		  _interval(TMC_TIMER_INTERVAL),
+		  _th(NULL)
+	{
+	#ifdef TRACE_INCLUDE
+		BTRACE(0, "new tmc_basic_timer {");
+	#endif
+
+		_th = new thread(&tmc_basic_timer::_run, *this);
+
+	#ifdef TRACE_INCLUDE		
+		ETRACE(0, "}")
+	#endif
+	}
+	~tmc_basic_timer() 
+	{
+	#ifdef TRACE_INCLUDE
+		BTRACE(0, "del tmc_basic_timer {")
+	#endif
+
+		_released = true;
+		delete _th;
+		
+	#ifdef TRACE_INCLUDE	
+		ETRACE(0, "}")
+	#endif		
+	}
+	
+	void reg_in(iftimer * ift)
+	{
+		op_s s;
+		s.ift   = ift;
+		s.param = 1;
+
+		_mu.lock();
+		_v.push_back(s);
+		_mu.unlock();
+	}
+
+	void reg_out(iftimer * ift)
+	{
+		op_s s;
+		s.ift   = ift;
+		s.param = 0;
+
+		_mu.lock();
+		_v.push_back(s);
+		_mu.unlock();
+	}
+
+private:
+	bool _released;
+	unsigned int _interval;
+
+	typedef struct
+	{
+		iftimer * ift;
+		int param;
+	} op_s;
+	
+	typedef std::vector<op_s > __v;
+	__v _v;
+	
+	typedef std::list<iftimer * > __ifts;
+	__ifts _ifts;
+			
+	tmc_mutex_type _mu;
+	
+	typedef tmc_thread_type<tmc_basic_timer > thread;
+	thread * _th;
+	
+	void _run(int * thstatus, void *)
+	{
+		///unsigned int tick0, tick;
+		///int ticks, interval, diff = 0;
+
+		///FTRACE(3, "basic_timer::thread run...")
+
+	#if 0
+		chsc_sleep(_interval);
+	  #ifndef WIN32
+		// interval	modify
+		for(int i = 0 ; i < 20; i++)
+		{
+			tick = chsc_gettick_h();		
+			chsc_sleep(_interval);
+			ticks = (int)(chsc_gettick_h() - tick);
+			diff += ticks - TMC_TIMER_INTERVAL;			
+		}
+		diff = diff / 20;
+		
+		interval = _interval - diff;
+		if(interval <= 0)
+			interval = _interval;
+		_interval = (unsigned int)interval;
+	  #endif
+	#endif	
+		
+		///tick0 = chsc_gettick();
+			
+		while(!_released)
+		{
+			basic_systick_ = (unsigned int)chsc_gettick();
+			chsc_sleep(_interval);
+
+			// interval modify
+		#if 0
+			tick = chsc_gettick();
+			ticks = (int)(tick - tick0);
+			tick0 = tick;
+						
+			diff = TMC_TIMER_INTERVAL - ticks;
+			interval = _interval + diff;
+			if(interval < 10)
+				interval = 10;
+			_interval = (unsigned int)interval;
+		#endif
+			
+			// reg_in / reg_out
+			_mu.lock();
+			if(_v.size() > 0)
+			{
+				for(__v::const_iterator vIte = _v.begin(); vIte != _v.end(); vIte++)
+				{
+					const op_s & s = *vIte;
+					if(s.param == 0)
+						_ifts.remove(s.ift);
+					else
+						_ifts.push_back(s.ift);
+				}
+				_v.clear();
+			}
+			_mu.unlock();
+
+			// callback
+			for(__ifts::const_iterator ite = _ifts.begin(); ite != _ifts.end(); ite++)
+			{
+				iftimer * t = *ite;
+				if(t)
+					t->on_time();				
+			}
+		}
+		
+		///FTRACE(3, "basic_timer::thread exit")
+		pthread_exit(NULL);
+	}
+};
+
+#endif

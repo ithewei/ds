@@ -1,0 +1,334 @@
+/*
+	db_table
+	
+ */
+
+/*
+	OOKTABLE_GUID	16
+	
+	index			4
+	key_size		4
+	key				varible
+	value_size		4
+	value			varible
+	
+	...
+
+ */
+#ifndef __OOK_DB_TABLE__
+#define __OOK_DB_TABLE__
+
+#include <stdio.h>
+#include <string>
+#include <map>
+
+///#define TABLEDEBUG_
+
+static unsigned char OOKTABLE_GUID[16]  = { 
+	0x9b, 0x3d, 0x89, 0x80, 0x8d, 0x0a, 0x4c, 0xe6, 0x85, 0xd4, 0x4a, 0x53, 0xc5, 0xc7, 0x88, 0x7a 
+};
+
+template <typename _K, typename _V, int maxEntry >
+class db_table
+{
+public:
+	db_table()
+	{
+	}
+	~db_table()
+	{
+	}
+	
+	void clear() 		{ _map.clear(); }
+	int size() const 	{ return (int)_map.size(); }
+		
+	// insert/erase
+	bool insert(const _K & k, const _V & v)
+	{
+		bool ret = false;
+		typename __map::iterator ite = _map.find(k);
+		if(ite != _map.end())
+		{
+			ite->second = v;
+		}
+		else
+		{
+			ret = true;
+			_map[k] = v;
+		}
+		return ret;
+	}
+	_V * find(const _K & k)
+	{
+		typename __map::iterator ite = _map.find(k);
+		if(ite != _map.end())
+			return &(ite->second);
+		return NULL;		
+	}
+	bool erase(const _K & k)
+	{
+		bool ret = false;
+		typename __map::iterator ite = _map.find(k);
+		if(ite != _map.end())
+		{
+			ret = true;
+			_map.erase(ite);
+		}
+		return ret;
+	}
+	
+	// begin/next
+	void begin()
+	{
+		_ite = _map.begin();
+	}
+	bool next(_K ** pk, _V ** pv)
+	{
+		if(_ite == _map.end())
+			return false;
+		if(pk)
+			*pk = (_K *)&(_ite->first);
+		if(pv)
+			*pv = &(_ite->second);
+		_ite++;
+		return true;
+	}
+	
+	// file operation
+	void create(const char * fpath)
+	{
+		if(fpath)
+		{
+			_fpath = fpath;
+			read();
+		}
+	}
+	
+	int read(const char * fpath = NULL)
+	{
+		int len = 0;
+		unsigned int size = 0;
+		unsigned char tmpbuf[16];		
+		unsigned char * cp = NULL;
+		FILE * fp = NULL;
+	#if defined(WIN32) && (_MSC_VER > 1200)
+		fopen_s(&fp, fpath ? fpath : _fpath.c_str(), "rb");
+	#else
+		fp = fopen(fpath ? fpath : _fpath.c_str(), "rb");
+	#endif
+		if(!fp)
+		{
+		#ifdef TABLEDEBUG_
+			printf("dbtable::read::open file<%s> fail\n", fpath ? fpath : _fpath);
+		#endif
+			return -1;
+		}
+		
+		len = (int)fread(tmpbuf, 1, 16, fp);
+		if(len < 16)
+		{
+			fclose(fp);
+			return -1;
+		}
+		
+		// GUID
+		for(int i = 0; i < 16; i++)
+		{
+			if(tmpbuf[i] != OOKTABLE_GUID[i])
+			{
+				fclose(fp);
+				return -1;
+			}
+		}
+		
+		int count = 0;
+		_map.clear();
+		while(1)
+		{
+			// index
+			len = (int)fread(tmpbuf, 1, 4, fp);
+			if(len < 4)
+				break;
+		#ifdef TABLEDEBUG_
+			unsigned int index = unpack_uint32(tmpbuf);
+			printf("\ndbtable::read::entry[%u]\n", index);
+		#endif
+		
+			bool newentry = true;
+			_K k;
+			_V v;
+						
+			// key
+			len = (int)fread(tmpbuf, 1, 4, fp);
+			if(len < 4)
+				break;
+			size = unpack_uint32(tmpbuf);
+		#ifdef TABLEDEBUG_
+			printf("dbtable::read::key_size=%u\n", size);
+		#endif
+			if(size > 0)
+			{
+				if(size > 1024)
+				{
+				#ifdef TABLEDEBUG_
+					printf("dbtable::read::key_size too much, size=%u\n", size);
+				#endif				
+					break;
+				}
+				cp = new unsigned char[size + 4];
+				len = (int)fread(cp, 1, size, fp);
+				if(len < (int)size)
+				{
+					delete [] cp;
+					break;
+				}
+				if(v.decode_head(&k, cp, (int)size) < 0)
+				{
+					newentry = false;
+				#ifdef TABLEDEBUG_
+					printf("dbtable::read::decode head fail\n");
+				#endif
+				}					
+				///printf("dbtable::read::key=[%s]\n", k.c_str());
+				delete [] cp;
+			}
+						
+			// value
+			len = (int)fread(tmpbuf, 1, 4, fp);
+			if(len < 4)
+				break;			
+			size = unpack_uint32(tmpbuf);
+		#ifdef TABLEDEBUG_
+			printf("dbtable::read::val_size=%u\n", size);
+		#endif
+			if(size > 0)
+			{
+				if(size > (1024 * 64))
+				{
+				#ifdef TABLEDEBUG_
+					printf("dbtable::read::val_size too much, size=%u\n", size);
+				#endif				
+					break;
+				}				
+				cp = new unsigned char[size];
+				len = (int)fread(cp, 1, size, fp);
+				if(len < (int)size)
+				{
+					delete [] cp;
+					break;
+				}
+				if(v.decode_body(cp, (int)size) < 0)
+				{
+					newentry = false;
+				#ifdef TABLEDEBUG_
+					printf("dbtable::read::decode body fail\n");
+				#endif
+				}					
+				delete [] cp;
+			}
+			
+			if(newentry)
+			{
+				typename __map::const_iterator ite = _map.find(k);
+				if(ite == _map.end())
+				{
+					_map[k] = v;
+				#ifdef TABLEDEBUG_
+					printf("dbtable::read::save entry, key=[%s]\n", k.c_str());
+				#endif
+				}					
+			}
+			
+			count++;
+			if(count > maxEntry)
+				break;
+		}
+		
+		fclose(fp);
+		return 0;
+	}
+	
+	int save(const char * fpath = NULL)
+	{
+		int size = 0;
+		unsigned int index = 0;
+		unsigned char tmpbuf[4];
+		unsigned char * cp = NULL;
+		void * vp = NULL;
+		FILE * fp = NULL;
+	#if defined(WIN32) && (_MSC_VER > 1200)
+		fopen_s(&fp, fpath ? fpath : _fpath.c_str(), "wb");
+	#else
+		fp = fopen(fpath ? fpath : _fpath.c_str(), "wb");
+	#endif
+		if(!fp)
+		{
+		#ifdef TABLEDEBUG_
+			printf("dbtable::save::open file<%s> fail\n", fpath ? fpath : _fpath);
+		#endif
+			return -1;
+		}
+		fwrite(OOKTABLE_GUID, 16, 1, fp);
+		
+		int count = 0;
+		for(typename __map::const_iterator ite = _map.begin(); ite != _map.end(); ite++)
+		{
+			pack_uint32(tmpbuf, index);
+			index++;
+			fwrite(tmpbuf, 4, 1, fp);
+
+			const _K & k = ite->first;
+			const _V & v = ite->second;
+			
+			vp = NULL;
+			size = v.encode_head(k, &vp);
+			if(vp)
+			{
+				pack_uint32(tmpbuf, (unsigned int)size);
+				fwrite(tmpbuf, 4, 1, fp);
+				
+				cp = (unsigned char *)vp;
+				fwrite(cp, size, 1, fp);
+				delete [] cp;
+			}
+			else
+			{
+				pack_uint32(tmpbuf, 0);
+				fwrite(tmpbuf, 4, 1, fp);
+			}
+			
+			vp = NULL;
+			size = v.encode_body(&vp);
+			if(vp)
+			{
+				pack_uint32(tmpbuf, (unsigned int)size);
+				fwrite(tmpbuf, 4, 1, fp);
+				
+				cp = (unsigned char *)vp;
+				fwrite(cp, size, 1, fp);
+				delete [] cp;
+			}
+			else
+			{
+				pack_uint32(tmpbuf, 0);
+				fwrite(tmpbuf, 4, 1, fp);
+			}
+			
+			count++;
+			if(count > maxEntry)
+				break;					
+		}
+		
+		fclose(fp);
+		return 0;
+	}
+	
+private:
+	std::string _fpath;
+		
+	typedef std::map<_K, _V > __map;
+	__map _map;
+	typename __map::iterator _ite;
+};
+
+#endif

@@ -1,0 +1,105 @@
+#ifndef __OOK_IFRENDER__
+#define __OOK_IFRENDER__
+
+#include <list>
+#include "c++/if_unknow"
+
+struct audiorender_stream_info
+{
+	int channels;
+	unsigned int sample_rate;
+	unsigned int bits_persample;
+	int param;
+	void * ptr;
+};
+
+class ifrender : public virtual if_unknow
+{
+public:
+	enum ifrender_opt
+	{
+		e_ifrenderopt_stream,
+		e_ifrenderopt_pause,
+		e_ifrenderopt_over,
+		e_ifrenderopt_mime,
+		e_ifrenderopt_blocked,
+	};
+	
+	enum ifrender_return
+	{
+		e_ifrenderret_err = -1,
+		e_ifrenderret_ok,
+		e_ifrenderret_block
+	};
+	
+	enum ifrender_mime
+	{
+		e_ifrendermime_unknow,
+		e_ifrendermime_audio,
+		e_ifrendermime_video,
+	};
+	
+	ifrender()
+		: _renderstate(-1),
+		  _rendercount(0)
+	{
+	}
+	virtual ~ifrender()	
+	{ 
+		clear_render(); 
+	}
+	
+	int render_state() const 			{ return _renderstate; }
+	void render_state(int s) 			{ _renderstate = s; }
+
+	int render_count() const 			{ return _rendercount; }
+	void render_count(unsigned int c)	{ _rendercount = c; }
+
+	int render_size() const 	{ return (int)_renders.size(); }
+
+	void append_render(ifrender * r)
+	{
+		if(r)
+		{
+			r->add_ref();
+			_renders.push_back(r);
+		}
+	}
+
+	void clear_render()
+	{
+		for(std::list<ifrender * >::const_iterator ite = _renders.begin(); ite != _renders.end(); ite++)
+			(*ite)->release();
+		_renders.clear();
+	}
+	
+	void enum_render(ifrender ** r)
+	{
+		if(!r)
+		{
+			_ite = _renders.begin();
+			return;
+		}
+		if(_ite != _renders.end())
+		{
+			*r = *_ite;
+			(*r)->add_ref();
+			_ite++;
+		}
+		else
+		{
+			*r = NULL;
+		}
+	}
+	
+	virtual int render_input(int opt, int wparam, int lparam, void * ptr) = 0;
+
+private:
+	int _renderstate;
+	unsigned int _rendercount;
+	
+	std::list<ifrender * > _renders;
+	std::list<ifrender * >::const_iterator _ite;
+};
+
+#endif
