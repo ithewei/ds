@@ -2,6 +2,17 @@
 #define DS_GLOBAL_H
 
 #include <QtCore/qglobal.h>
+#include <QApplication>
+#include <QDesktopWidget>
+
+#include <QWidget>
+#include <QLabel>
+#include <QPushButton>
+
+#include <QBoxLayout>
+
+#include <QMouseEvent>
+#include <QKeyEvent>
 
 #if defined(DS_LIBRARY)
 #  define DSSHARED_EXPORT Q_DECL_EXPORT
@@ -12,6 +23,7 @@
 #include <string>
 #include <deque>
 #include <map>
+#include <vector>
 
 #include <ook/trace>
 #include <ook/fourcc.h>
@@ -31,5 +43,8 @@
 extern "C" {
     #include <ook/codecs/avdef.h>
 }
+
+#include "hdsctx.h"
+#include "hrcloader.h"
 
 #endif // DS_GLOBAL_H

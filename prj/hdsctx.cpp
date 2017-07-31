@@ -1,5 +1,4 @@
 #include "hdsctx.h"
-#include <QApplication>
 
 HDsContext* g_dsCtx = NULL;
 
@@ -14,10 +13,19 @@ void* HDsContext::thread_gui(void* param){
     int argc = 0;
     QApplication app(argc, NULL);
 
+    QFont font = QApplication::font();
+    font.setPointSize(18);
+    QApplication::setFont(font);
+
+    HRcLoader::instance()->loadIcon();
+    HRcLoader::instance()->loadTexture();
+
     HMainWidget* mainwdg = new HMainWidget(pObj);
     mainwdg->show();
 
     app.exec();
+
+    HRcLoader::exitInstance();
 
 #ifdef linux
     pthread_exit(NULL);
@@ -31,7 +39,6 @@ HDsContext::HDsContext()
     ref     = 1;
     init    = 0;
     action  = 1;
-    pause   = 0;
     for(int i = 0; i < DIRECTOR_MAX_SERVS; i++)
     {
         a_input[i] = 0;
@@ -404,9 +411,7 @@ int HDsContext::parse_cock_xml(const char* xml){
                 break;
             const std::string & n = e->get_attribute("n");
             const std::string & v = e->get_attribute("v");
-            if(n == "u")
-                m_tOriginCocks[m_cntCock].svrid = atoi(v.c_str());
-            else if(n == "w")
+            if(n == "w")
                 m_tOriginCocks[m_cntCock].w = atoi(v.c_str());
             else if(n == "h")
                 m_tOriginCocks[m_cntCock].h = atoi(v.c_str());
@@ -425,51 +430,12 @@ int HDsContext::parse_cock_xml(const char* xml){
             break;
     }
 
-    // scale
-    double scale_x = m_iCockW / (double)m_iOriginCockW;
-    double scale_y = m_iCockH / (double)m_iOriginCockH;
-    for (int i = 0; i < m_cntCock; ++i){
-        m_tOriginCocks[i].x *= scale_x;
-        m_tOriginCocks[i].y *= scale_y;
-        m_tOriginCocks[i].w *= scale_x;
-        m_tOriginCocks[i].h *= scale_y;
-    }
-
     return 0;
 }
 
 void HDsContext::initImg(std::string& path){
     qDebug("");
     img_path = path;
-
-    std::string strImg;
-    strImg = path;
-    strImg += "video.tga";
-    loadTGA(strImg.c_str(), &tex_video);
-
-    strImg = path;
-    strImg += "novideo.tga";
-    loadTGA(strImg.c_str(), &tex_novideo);
-
-    strImg = path;
-    strImg += "pick.tga";
-    loadTGA(strImg.c_str(), &tex_pick);
-
-    strImg = path;
-    strImg += "prohibit.tga";
-    loadTGA(strImg.c_str(), &tex_prohibit);
-
-    strImg = path;
-    strImg += "sound.tga";
-    loadTGA(strImg.c_str(), &tex_sound);
-
-    strImg = path;
-    strImg += "spacer.tga";
-    loadTGA(strImg.c_str(), &tex_spacer);
-
-    strImg = path;
-    strImg += "refresh.tga";
-    loadTGA(strImg.c_str(), &tex_refresh);
 }
 
 void HDsContext::initFont(std::string& path, int h){
@@ -485,9 +451,6 @@ void HDsContext::initFont(std::string& path, int h){
 int HDsContext::push_video(int svrid, const av_picture* pic){
     if (action < 1)
         return -1;
-
-    if (svrid == 1 && pause > 0)
-        return -2;
 
     int w = pic->width;
     int h = pic->height;
@@ -575,9 +538,6 @@ int HDsContext::push_video(int svrid, const av_picture* pic){
 int HDsContext::push_audio(int svrid, const av_pcmbuff* pcm){
     if (action < 1)
         return -1;
-
-    if (svrid == 1 && pause > 0)
-        return -2;
 
     // just cock window play audio
     if (svrid == 1){

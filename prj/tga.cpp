@@ -34,7 +34,7 @@ bool loadTGA(const char* fname, Texture* tex){
 
 		int bytes = th.bpp/8;
 		if (bytes == 3){
-			tex->type = GL_BGRA;
+            tex->type = GL_BGR;
 		}else if(bytes == 4){
 			tex->type = GL_BGRA;
 		}else{

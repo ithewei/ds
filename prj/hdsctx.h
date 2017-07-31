@@ -1,13 +1,6 @@
 #ifndef HDSCONTEXT_H
 #define HDSCONTEXT_H
 
-#include <QObject>
-#include <QRect>
-#include "ds_global.h"
-#include "hmainwidget.h"
-#include "tga.h"
-#include "haudioplay.h"
-
 #define MAXNUM_LAYOUT   8
 #define MAXNUM_COCK     8
 
@@ -38,6 +31,12 @@
 
 #define DS_EVENT_PICK               0x01
 #define DS_EVENT_STOP               0x02
+
+#include <QObject>
+#include <QRect>
+#include "ds_global.h"
+#include "hmainwidget.h"
+#include "haudioplay.h"
 
 struct DsEvent{
     int type;
@@ -71,7 +70,6 @@ struct DSItemInfo{
     int w;
     int h;
 
-    int svrid;
     bool bVideo;
     bool bAudio;
 
@@ -80,7 +78,6 @@ struct DSItemInfo{
         y = 0;
         w = 0;
         h = 0;
-        svrid = 0;
         bVideo = false;
         bAudio = false;
     }
@@ -111,9 +108,6 @@ public:
         qDebug("");
         this->action = action;
         emit actionChanged(action);
-    }
-    void setPause(int b){
-        pause = b;
     }
     void setInfo(std::string info){
         qDebug("");
@@ -150,7 +144,6 @@ public:
     int ref;
     int init;
     int action; // window show or hide
-    int pause; // cock window pause
 
     unsigned int a_input[DIRECTOR_MAX_SERVS];
     unsigned int v_input[DIRECTOR_MAX_SERVS];
@@ -186,13 +179,6 @@ public:
     int m_iOriginCockH;
 
     Texture tex_yuv[DIRECTOR_MAX_SERVS];
-    Texture tex_video;
-    Texture tex_novideo;
-    Texture tex_pick;
-    Texture tex_prohibit;
-    Texture tex_sound;
-    Texture tex_spacer;
-    Texture tex_refresh;
 
     HAudioPlay* m_audioPlay;
 };

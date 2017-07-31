@@ -1,6 +1,5 @@
 #include "ds_global.h"
 #include "hglwidget.h"
-#include "hdsctx.h"
 
 bool HGLWidget::s_bInitGLEW = false;
 GLuint HGLWidget::prog_yuv;
@@ -12,23 +11,73 @@ HGLWidget::HGLWidget(QWidget *parent)
     : QOpenGLWidget(parent)
 {
     m_status = STOP;
+    m_bMousePressed = false;
+    m_tmMousePressed = 0;
+
+    initUI();
+    initConnect();
 }
 
 HGLWidget::~HGLWidget(){
 
 }
 
-void HGLWidget::addIcon(int type, int x_center, int y_center){
-    m_mutex.lock();
-    if (m_mapIcons.find(type) == m_mapIcons.end()){
-        DrawInfo di;
-        di.left = x_center - ICON_WIDTH / 2;
-        di.top = y_center - ICON_HEIGHT / 2;
-        di.right = di.left + ICON_WIDTH;
-        di.bottom = di.top + ICON_HEIGHT;
-        m_mapIcons[type] = di;
+void HGLWidget::initUI(){
+    m_titleWdg = new HTitlebarWidget(this);
+    m_titleWdg->hide();
+
+    m_toolWdg = new HToolbarWidget(this);
+    m_toolWdg->hide();
+}
+
+void HGLWidget::initConnect(){
+    QObject::connect( m_titleWdg, SIGNAL(fullScreen()), this, SIGNAL(fullScreen()) );
+    QObject::connect( m_titleWdg, SIGNAL(exitFullScreen()), this, SIGNAL(exitFullScreen()) );
+}
+
+void HGLWidget::showTitlebar(bool bShow){
+    if (bShow){
+        m_titleWdg->setGeometry(2, 2, width()-4, TITLE_BAR_HEIGHT);
+        m_titleWdg->show();
+    }else{
+        m_titleWdg->hide();
     }
-    m_mutex.unlock();
+}
+
+void HGLWidget::showToolbar(bool bShow){
+    if (bShow){
+        m_toolWdg->setGeometry(2, height()-TOOL_BAR_HEIGHT-2, width()-4, TITLE_BAR_HEIGHT);
+        m_toolWdg->show();
+    }else{
+        m_toolWdg->hide();
+    }
+}
+
+void HGLWidget::mousePressEvent(QMouseEvent* event){
+    qDebug("%d,%d", event->x(), event->y());
+
+    m_bMousePressed = true;
+    m_tmMousePressed = event->timestamp();
+    event->ignore();
+}
+
+void HGLWidget::mouseReleaseEvent(QMouseEvent* event){
+    qDebug("%d,%d", event->x(), event->y());
+
+    QRect rc(0, 0, width(), height());
+    if (m_bMousePressed && (event->timestamp() - m_tmMousePressed < 300) &&
+            rc.contains(event->x(), event->y())){
+        if (m_titleWdg->isVisible()){
+            showTitlebar(false);
+            showToolbar(false);
+        }else{
+            showTitlebar(true);
+            showToolbar(true);
+        }
+    }
+
+    m_bMousePressed = false;
+    event->ignore();
 }
 
 void HGLWidget::addIcon(int type, int x, int y, int w, int h){
@@ -56,13 +105,13 @@ void HGLWidget::removeIcon(int type){
 Texture* HGLWidget::getTexture(int type){
     switch(type){
     case HAVE_AUDIO:
-        return &g_dsCtx->tex_sound;
+        return &HRcLoader::instance()->tex_sound;
     case PICK:
-        return &g_dsCtx->tex_pick;
+        return &HRcLoader::instance()->tex_pick;
     case PROHIBIT:
-        return &g_dsCtx->tex_prohibit;
+        return &HRcLoader::instance()->tex_prohibit;
     case CHANGING:
-        return &g_dsCtx->tex_video;
+        return &HRcLoader::instance()->tex_video;
     }
 
     return NULL;
@@ -85,6 +134,11 @@ void HGLWidget::initializeGL(){
 void HGLWidget::resizeGL(int w, int h){
     qDebug("");
     glViewport(0, 0, w, h);
+
+    showTitlebar(false);
+    showToolbar(false);
+
+    m_mapIcons.clear();
 }
 
 void HGLWidget::paintGL(){
@@ -104,7 +158,7 @@ void HGLWidget::paintGL(){
         drawStr(g_dsCtx->m_pFont, "NO VIDEO!", &di);
     }else if (m_status == PAUSE){
         // draw pause bgimage
-        drawTex(&g_dsCtx->tex_refresh, &di);
+        drawTex(&HRcLoader::instance()->tex_refresh, &di);
     }else if (m_status == PLAYING){
         // draw yuv
         if (g_dsCtx->tex_yuv[svrid].data && g_dsCtx->tex_yuv[svrid].width > 0
@@ -112,7 +166,7 @@ void HGLWidget::paintGL(){
             drawYUV(&g_dsCtx->tex_yuv[svrid]);
         }
     }else if (m_status == NOSIGNAL){
-        drawTex(&g_dsCtx->tex_spacer, &di);
+        drawTex(&HRcLoader::instance()->tex_spacer, &di);
     }
 
     // draw icons
@@ -143,18 +197,6 @@ void HGLWidget::paintGL(){
     di.bottom = height() - 1;
     di.color = m_outlinecolor;
     drawRect(&di);
-
-    // draw cock sub window outline
-    if (svrid == 1 && g_dsCtx->m_cntCock != 0){
-        for (int i = 1; i < g_dsCtx->m_cntCock; ++i){
-            di.left = g_dsCtx->m_tOriginCocks[i].x;
-            di.top = g_dsCtx->m_tOriginCocks[i].y;
-            di.right = di.left + g_dsCtx->m_tOriginCocks[i].w - 1;
-            di.bottom = di.top + g_dsCtx->m_tOriginCocks[i].h - 1;
-            di.color = m_outlinecolor;
-            drawRect(&di);
-        }
-    }
 }
 
 void HGLWidget::loadYUVShader(){
@@ -384,4 +426,53 @@ void HGLWidget::drawRect(DrawInfo* di){
     glColor3ub(255,255,255);
 
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+}
+
+//===============================================================================
+
+HCockGLWidget::HCockGLWidget(QWidget* parent)
+    : HGLWidget(parent)
+{
+
+}
+
+HCockGLWidget::~HCockGLWidget(){
+
+}
+
+void HCockGLWidget::paintGL(){
+    HGLWidget::paintGL();
+
+    // draw cock sub window outline
+    DrawInfo di;
+
+    for (int i = 1; i < m_vecCocks.size(); ++i){
+        di.left = m_vecCocks[i].left();
+        di.top = m_vecCocks[i].top();
+        di.right = m_vecCocks[i].right();
+        di.bottom = m_vecCocks[i].bottom();
+        di.color = m_outlinecolor;
+        drawRect(&di);
+    }
+}
+
+void HCockGLWidget::resizeEvent(QResizeEvent *e){
+    QSize sz = e->size();
+
+    qDebug("%d*%d", sz.width(),sz.height());
+
+    // scale
+    double scale_x = sz.width() / (double)g_dsCtx->m_iOriginCockW;
+    double scale_y = sz.height() / (double)g_dsCtx->m_iOriginCockH;
+    m_vecCocks.clear();
+    for (int i = 0; i < g_dsCtx->m_cntCock; ++i){
+        int x = g_dsCtx->m_tOriginCocks[i].x * scale_x;
+        int y = g_dsCtx->m_tOriginCocks[i].y * scale_y;
+        int w = g_dsCtx->m_tOriginCocks[i].w * scale_x;
+        int h = g_dsCtx->m_tOriginCocks[i].h * scale_y;
+        QRect rc(x,y,w,h);
+        m_vecCocks.push_back(rc);
+    }
+
+    HGLWidget::resizeEvent(e);
 }

@@ -6,11 +6,9 @@
 #include <QPushButton>
 #include "hglwidget.h"
 #include "ds_global.h"
-#include "hdsctx.h"
 
 #define MAXNUM_GLWIDGET 8
-#define ICON_WIDTH      64
-#define ICON_HEIGHT     64
+
 #define DRAG_WIDTH      192
 #define DRAG_HEIGHT     108
 
@@ -38,19 +36,21 @@ protected:
 signals:
 
 public slots:
-    void onBack();
+    /*
     void onStart();
     void onPause();
+    */
     void openWeb();
     void onActionChanged(int action);
     void onTitleChanged(int svrid, std::string title);
     void onvideoPushed(int svrid, bool bFirstFrame);
     void onAudioPushed(int svrid);
     void onSourceChanged(int svrid, bool bSucceed);
-    void onClicked(int svrid, int x, int y);
-    void onDclicked(int svrid, int x, int y);
     void clearOpt();
     void stop(int svrid);
+
+    void onFullScreen();
+    void onExitFullScreen();
 
 private:
     HDsContext* m_ctx;
@@ -59,24 +59,11 @@ private:
     QWebEngineView* m_webView;
     HGLWidget* m_dragWdg;
 
-    QPushButton* m_btnBack;
-    QRect m_rcBack;
-    std::string m_strBack;
-
-    QPushButton* m_btnStart;
-    QPushButton* m_btnPause;
-    QRect m_rcStart;
-    QRect m_rcPause;
-    std::string m_strStart;
-    std::string m_strPause;
-
-    QPushButton* m_btnBrower;
-    QRect m_rcBrower;
-    std::string m_strBrower;
-
     bool m_bPicked;
     int  m_iClickedSvrid;
     QTimer timer_click;
+
+    QRect m_rcSavedGeometry;
 };
 
 #endif // HMAINWIDGET_H

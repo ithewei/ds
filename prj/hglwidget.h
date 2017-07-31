@@ -6,9 +6,11 @@
 #include <qopenglwidget.h>
 #include <QTimer>
 #include "ds_global.h"
+#include "htitlebarwidget.h"
+#include "htoolbarwidget.h"
 
-#define OPT_IMAGE_WIDTH     64
-#define OPT_IMAGE_HEIGHT    64
+#define TITLE_BAR_HEIGHT    50
+#define TOOL_BAR_HEIGHT     50
 
 // GL PixelFormat extend
 #define GL_I420				0x1910
@@ -86,14 +88,20 @@ public:
         repaint();
     }
 
-    void addIcon(int type, int x_center, int y_center);
     void addIcon(int type, int x, int y, int w, int h);
     void removeIcon(int type);
     Texture* getTexture(int type);
 
-    void setTitle(const char* title) {m_title = title;}
+    void setTitle(const char* title) {m_title = title;m_titleWdg->setTitle(title);}
     void setTitleColor(int color) {m_titcolor = color;}
     void setOutlineColor(int color) {m_outlinecolor = color;}
+
+    void showTitlebar(bool bShow = true);
+    void showToolbar(bool bShow = true);
+
+signals:
+    void fullScreen();
+    void exitFullScreen();
 
 protected:
     static void loadYUVShader();
@@ -108,9 +116,14 @@ protected:
     virtual void resizeGL(int w, int h);
     virtual void paintGL();
 
+    void initUI();
+    void initConnect();
+    virtual void mousePressEvent(QMouseEvent* event);
+    virtual void mouseReleaseEvent(QMouseEvent* event);
+
 public:
     int svrid;
-private:
+
     static bool s_bInitGLEW;
     static GLuint prog_yuv;
     static GLuint texUniformY;
@@ -120,6 +133,9 @@ private:
     GLuint tex_yuv[3];
     enum E_VER_ATTR{ver_attr_ver = 3, ver_attr_tex = 4, ver_attr_num};
 
+    HTitlebarWidget* m_titleWdg;
+    HToolbarWidget*  m_toolWdg;
+
     std::string m_title;
     int m_titcolor;
     int m_outlinecolor;
@@ -128,6 +144,24 @@ private:
 
     std::map<int ,DrawInfo> m_mapIcons; // type : DrawInfo
     tmc_mutex_type m_mutex;
+
+    bool m_bMousePressed;
+    ulong m_tmMousePressed;
+};
+
+class HCockGLWidget : public HGLWidget
+{
+    Q_OBJECT
+public:
+    HCockGLWidget(QWidget* parent = Q_NULLPTR);
+    ~HCockGLWidget();
+
+protected:
+    virtual void paintGL();
+    virtual void resizeEvent(QResizeEvent *e);
+
+private:
+    std::vector<QRect> m_vecCocks;
 };
 
 #endif // HGLWIDGET_H
