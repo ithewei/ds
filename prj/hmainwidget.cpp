@@ -54,6 +54,32 @@ void HMainWidget::initUI(){
         m_mapGLWdg[wdg->svrid] = wdg;
     }
 
+    qDebug("screen_w=%d,screen_h=%d", width(), height());
+    m_btnLeftExpand = new QPushButton(this);
+    m_btnLeftExpand->setGeometry(width() - ICON_WIDTH, height() - ICON_HEIGHT, ICON_WIDTH, ICON_HEIGHT);
+    m_btnLeftExpand->setIcon(QIcon(HRcLoader::instance()->icon_left_expand));
+    m_btnLeftExpand->setIconSize(QSize(ICON_WIDTH, ICON_HEIGHT));
+    m_btnLeftExpand->setFlat(true);
+    m_btnLeftExpand->show();
+
+    m_btnRightFold = new QPushButton(this);
+    m_btnRightFold->setGeometry(width() - ICON_WIDTH, height() - ICON_HEIGHT, ICON_WIDTH, ICON_HEIGHT);
+    m_btnRightFold->setIcon(QIcon(HRcLoader::instance()->icon_right_fold));
+    m_btnRightFold->setIconSize(QSize(ICON_WIDTH, ICON_HEIGHT));
+    m_btnRightFold->setFlat(true);
+    m_btnRightFold->hide();
+
+    m_webView = new QWebEngineView(this);
+    //m_webView->setWindowFlags(Qt::SubWindow);
+    //m_webView->setWindowOpacity(0.8);
+    m_webView->setAutoFillBackground(true);
+    pal = m_webView->palette();
+    pal.setColor(QPalette::Background, QColor(105,105,105,204));
+    pal.setColor(QPalette::Foreground, QColor(255,255,255));
+    m_webView->setPalette(pal);
+    m_webView->load(QUrl("http://www.video4a.com/"));
+    m_webView->setGeometry(QRect(0, height()-ICON_HEIGHT, 0, ICON_HEIGHT));
+
     m_dragWdg = new HGLWidget(this);
     m_dragWdg->setOutlineColor(0x00FF00FF);
     m_dragWdg->hide();
@@ -82,6 +108,9 @@ void HMainWidget::initConnect(){
         QObject::connect( wdg, SIGNAL(exitFullScreen()), this, SLOT(onExitFullScreen()) );
         ++iter;
     }
+
+    QObject::connect( m_btnLeftExpand, SIGNAL(clicked(bool)), this, SLOT(showToolbar()) );
+    QObject::connect( m_btnRightFold, SIGNAL(clicked(bool)), this, SLOT(hideToolbar()) );
 
     timer_click.setSingleShot(true);
     QObject::connect( &timer_click, SIGNAL(timeout()), this, SLOT(clearOpt()) );
@@ -183,9 +212,18 @@ void HMainWidget::mouseReleaseEvent(QMouseEvent *event){
             }
         }
     }else{ // normal clicked
-        if (event->y() > height()- 32){
-            openWeb();
+        HGLWidget* wdg = getGLWdgByPos(event->x(), event->y());
+        if (wdg == NULL)
             return;
+
+        std::map<int, HGLWidget*>::iterator iter = m_mapGLWdg.begin();
+        while (iter != m_mapGLWdg.end()){
+            HGLWidget* w = iter->second;
+            if (w != wdg){
+                w->showTitlebar(false);
+                w->showToolbar(false);
+            }
+            ++iter;
         }
     }
 }
@@ -210,7 +248,6 @@ void HMainWidget::mouseDoubleClickEvent(QMouseEvent *event){
 void HMainWidget::onStart(){
     m_btnStart->hide();
     m_btnPause->show();
-    m_ctx->setPause(0);
 }
 
 void HMainWidget::onPause(){
@@ -222,19 +259,35 @@ void HMainWidget::onPause(){
         m_ctx->ifcb[0]->onservice_callback(ifservice_callback::e_service_cb_chr, libchar(), OOK_FOURCC('P', 'A', 'U', 'S'), 0, 0, NULL);
     }
     m_mapGLWdg[1]->setStatus(PAUSE);
-    m_ctx->setPause(1);
 }
 */
 
 #include <QGraphicsEffect>
-void HMainWidget::openWeb(){
-    m_webView = new QWebEngineView;
-    m_webView->setWindowFlags(Qt::Popup);
-    m_webView->setWindowOpacity(0.8);
+#include <QPropertyAnimation>
+void HMainWidget::showToolbar(){
+    qDebug("");
 
-    m_webView->load(QUrl("http://www.video4a.com/"));
-    m_webView->setGeometry(x(), y()+height()-64, width(), 64);
-    m_webView->show();
+    m_btnLeftExpand->hide();
+    m_btnRightFold->show();
+
+    QPropertyAnimation *animation = new QPropertyAnimation(m_webView, "geometry");
+    animation->setDuration(300);
+    animation->setStartValue(QRect(width()-ICON_WIDTH, height()-ICON_HEIGHT, 0, ICON_HEIGHT));
+    animation->setEndValue(QRect(0, height()-ICON_HEIGHT, width()-ICON_WIDTH, ICON_HEIGHT));
+    animation->start();
+}
+
+void HMainWidget::hideToolbar(){
+    qDebug("");
+
+    m_btnLeftExpand->show();
+    m_btnRightFold->hide();
+
+    QPropertyAnimation *animation = new QPropertyAnimation(m_webView, "geometry");
+    animation->setDuration(300);
+    animation->setStartValue(QRect(0, height()-ICON_HEIGHT, width()-ICON_WIDTH, ICON_HEIGHT));
+    animation->setEndValue(QRect(width()-ICON_WIDTH, height()-ICON_HEIGHT, 0, ICON_HEIGHT));
+    animation->start();
 }
 
 void HMainWidget::onActionChanged(int action){
@@ -280,14 +333,8 @@ void HMainWidget::onFullScreen(){
 
     m_rcSavedGeometry = pSender->geometry();
 
-    QRect rc = pSender->geometry();
-    qDebug("aaa:%d,%d", rc.width(),rc.height());
-
     pSender->setWindowFlags(Qt::Window);
     pSender->showFullScreen();
-
-    rc = pSender->geometry();
-    qDebug("bbb:%d,%d", rc.width(),rc.height());
 }
 
 void HMainWidget::onExitFullScreen(){
@@ -295,13 +342,7 @@ void HMainWidget::onExitFullScreen(){
 
     QWidget* pSender = (QWidget*)sender();
 
-    QRect rc = pSender->geometry();
-    qDebug("ccc:%d,%d", rc.width(),rc.height());
-
     pSender->setWindowFlags(Qt::SubWindow);
     pSender->setGeometry(m_rcSavedGeometry);
     pSender->showNormal();
-
-    rc = pSender->geometry();
-    qDebug("ddd:%d,%d", rc.width(),rc.height());
 }

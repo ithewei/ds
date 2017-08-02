@@ -34,6 +34,14 @@ void HRcLoader::loadIcon(){
     strImg = g_dsCtx->img_path;
     strImg += "nofullscreen.png";
     icon_exit_fullscreen.load(strImg.c_str());
+
+    strImg = g_dsCtx->img_path;
+    strImg += "left_expand.jpg";
+    icon_left_expand.load(strImg.c_str());
+
+    strImg = g_dsCtx->img_path;
+    strImg += "right_fold.png";
+    icon_right_fold.load(strImg.c_str());
 }
 
 void HRcLoader::loadTexture(){

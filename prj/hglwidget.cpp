@@ -46,10 +46,28 @@ void HGLWidget::showTitlebar(bool bShow){
 
 void HGLWidget::showToolbar(bool bShow){
     if (bShow){
+        qDebug("");
         m_toolWdg->setGeometry(2, height()-TOOL_BAR_HEIGHT-2, width()-4, TITLE_BAR_HEIGHT);
         m_toolWdg->show();
     }else{
+        qDebug("");
         m_toolWdg->hide();
+    }
+}
+
+void HGLWidget::toggleTitlebar(){
+    if (m_titleWdg->isVisible()){
+        showTitlebar(false);
+    }else{
+        showTitlebar(true);
+    }
+}
+
+void HGLWidget::toggleToolbar(){
+    if (m_toolWdg->isVisible()){
+        showToolbar(false);
+    }else{
+        showToolbar(true);
     }
 }
 
@@ -67,13 +85,9 @@ void HGLWidget::mouseReleaseEvent(QMouseEvent* event){
     QRect rc(0, 0, width(), height());
     if (m_bMousePressed && (event->timestamp() - m_tmMousePressed < 300) &&
             rc.contains(event->x(), event->y())){
-        if (m_titleWdg->isVisible()){
-            showTitlebar(false);
-            showToolbar(false);
-        }else{
-            showTitlebar(true);
-            showToolbar(true);
-        }
+        qDebug("toggle");
+        toggleTitlebar();
+        toggleToolbar();
     }
 
     m_bMousePressed = false;

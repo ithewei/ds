@@ -12,6 +12,9 @@
 #define DRAG_WIDTH      192
 #define DRAG_HEIGHT     108
 
+#define ICON_WIDTH      64
+#define ICON_HEIGHT     64
+
 class HDsContext;
 class HMainWidget : public QWidget
 {
@@ -23,7 +26,6 @@ public:
 public:
     void initUI();
     void initConnect();
-    void initFont();
 
 protected:
     HGLWidget* getGLWdgByPos(int x, int y);
@@ -40,7 +42,6 @@ public slots:
     void onStart();
     void onPause();
     */
-    void openWeb();
     void onActionChanged(int action);
     void onTitleChanged(int svrid, std::string title);
     void onvideoPushed(int svrid, bool bFirstFrame);
@@ -52,9 +53,15 @@ public slots:
     void onFullScreen();
     void onExitFullScreen();
 
+    void showToolbar();
+    void hideToolbar();
+
 private:
     HDsContext* m_ctx;
     std::map<int, HGLWidget*> m_mapGLWdg; // svrid : HGLWidget
+
+    QPushButton* m_btnLeftExpand;
+    QPushButton* m_btnRightFold;
 
     QWebEngineView* m_webView;
     HGLWidget* m_dragWdg;

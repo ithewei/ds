@@ -29,7 +29,7 @@ void myLogHandler(QtMsgType type, const QMessageLogContext & ctx, const QString 
 
     //sprintf(szLog, "%s %s\n", szType, msg.toLocal8Bit().constData());
 
-    FILE* fp = fopen("ds.log", "a");
+    FILE* fp = fopen("./ds.log", "a");
     if (fp){
         fwrite(szLog, 1, strlen(szLog), fp);
         fclose(fp);

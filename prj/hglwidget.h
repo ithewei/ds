@@ -98,6 +98,8 @@ public:
 
     void showTitlebar(bool bShow = true);
     void showToolbar(bool bShow = true);
+    void toggleTitlebar();
+    void toggleToolbar();
 
 signals:
     void fullScreen();
