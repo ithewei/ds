@@ -29,6 +29,7 @@ public:
 
 protected:
     HGLWidget* getGLWdgByPos(int x, int y);
+    HGLWidget* getGLWdgBySvrid(int svrid);
     virtual void keyPressEvent(QKeyEvent *event);
     virtual void mousePressEvent(QMouseEvent *event);
     virtual void mouseMoveEvent(QMouseEvent *event);
@@ -43,21 +44,22 @@ public slots:
     void onPause();
     */
     void onActionChanged(int action);
-    void onTitleChanged(int svrid, std::string title);
+    void onTitleChanged(int svrid);
     void onvideoPushed(int svrid, bool bFirstFrame);
     void onAudioPushed(int svrid);
     void onSourceChanged(int svrid, bool bSucceed);
-    void clearOpt();
-    void stop(int svrid);
+    void onStop(int svrid);
 
     void onFullScreen();
     void onExitFullScreen();
+    void onGLWdgClicked();
 
     void showToolbar();
     void hideToolbar();
 
 private:
     HDsContext* m_ctx;
+    std::vector<HGLWidget*> m_vecGLWdg;
     std::map<int, HGLWidget*> m_mapGLWdg; // svrid : HGLWidget
 
     QPushButton* m_btnLeftExpand;
@@ -65,9 +67,8 @@ private:
 
     QWebEngineView* m_webView;
     HGLWidget* m_dragWdg;
+    HGLWidget* m_dragSrcWdg;
 
-    bool m_bPicked;
-    int  m_iClickedSvrid;
     QTimer timer_click;
 
     QRect m_rcSavedGeometry;

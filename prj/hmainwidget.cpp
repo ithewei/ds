@@ -3,11 +3,6 @@
 HMainWidget::HMainWidget(HDsContext* ctx, QWidget *parent) : QWidget(parent)
 {
     m_ctx = ctx;
-    m_bPicked = false;
-    m_iClickedSvrid = 0;
-
-    m_webView = NULL;
-    m_dragWdg = NULL;
 
     initUI();
     initConnect();
@@ -19,15 +14,11 @@ HMainWidget::~HMainWidget(){
 
 void HMainWidget::initUI(){
     qDebug("");
-    int sw = m_ctx->width;
-    int sh = m_ctx->height;
-    bool bFS = false;
-    if (sw == 0 || sh == 0){
-       m_ctx->width = sw = QApplication::desktop()->width();
-       m_ctx->height = sh = QApplication::desktop()->height();
-       bFS = true;
+    if (m_ctx->width == 0 || m_ctx->height == 0){
+       m_ctx->width  = QApplication::desktop()->width();
+       m_ctx->height = QApplication::desktop()->height();
     }
-    setGeometry(0,0,sw, sh);
+    setGeometry(0,0,m_ctx->width, m_ctx->height);
     setAutoFillBackground(true);
     QPalette pal = palette();
     pal.setColor(QPalette::Background, QColor(0,0,0));
@@ -35,23 +26,20 @@ void HMainWidget::initUI(){
 
     for (int i = 0; i < m_ctx->m_cntItem; ++i){
         // last is cock window,svrid = 1
-        // init tilte = svrid
 
         HGLWidget* wdg;
         if (i == m_ctx->m_cntItem - 1){
             wdg = new HCockGLWidget(this);
             wdg->svrid = 1;
+            m_mapGLWdg[1] = wdg;
         }else{
             wdg = new HGLWidget(this);
-            wdg->svrid = i + 2;
+            wdg->svrid = 0;
         }
-        char szTitle[8];
-        sprintf(szTitle, "%02d", wdg->svrid);
         wdg->setGeometry(m_ctx->m_rcItems[i]);
-        wdg->setTitle(szTitle);
         wdg->setTitleColor(m_ctx->titcolor);
         wdg->setOutlineColor(m_ctx->outlinecolor);
-        m_mapGLWdg[wdg->svrid] = wdg;
+        m_vecGLWdg.push_back(wdg);
     }
 
     qDebug("screen_w=%d,screen_h=%d", width(), height());
@@ -69,24 +57,19 @@ void HMainWidget::initUI(){
     m_btnRightFold->setFlat(true);
     m_btnRightFold->hide();
 
+
     m_webView = new QWebEngineView(this);
-    //m_webView->setWindowFlags(Qt::SubWindow);
-    //m_webView->setWindowOpacity(0.8);
     m_webView->setAutoFillBackground(true);
     pal = m_webView->palette();
-    pal.setColor(QPalette::Background, QColor(105,105,105,204));
-    pal.setColor(QPalette::Foreground, QColor(255,255,255));
+    pal.setColor(QPalette::Background, QColor(105,105,105,128));
+    //pal.setColor(QPalette::Foreground, QColor(255,255,255));
     m_webView->setPalette(pal);
-    m_webView->load(QUrl("http://www.video4a.com/"));
     m_webView->setGeometry(QRect(0, height()-ICON_HEIGHT, 0, ICON_HEIGHT));
+    m_webView->load(QUrl("http://www.video4a.com/"));
 
     m_dragWdg = new HGLWidget(this);
     m_dragWdg->setOutlineColor(0x00FF00FF);
     m_dragWdg->hide();
-
-    if (bFS){
-        showFullScreen();
-    }
 }
 
 void HMainWidget::initConnect(){
@@ -94,38 +77,54 @@ void HMainWidget::initConnect(){
     setFocus(); // set key focus
 
     QObject::connect( m_ctx, SIGNAL(actionChanged(int)), this, SLOT(onActionChanged(int)) );
-    QObject::connect( m_ctx, SIGNAL(titleChanged(int,std::string)), this, SLOT(onTitleChanged(int,std::string)) );
+    QObject::connect( m_ctx, SIGNAL(titleChanged(int)), this, SLOT(onTitleChanged(int)) );
     QObject::connect( m_ctx, SIGNAL(videoPushed(int,bool)), this, SLOT(onvideoPushed(int,bool)) );
     QObject::connect( m_ctx, SIGNAL(audioPushed(int)), this, SLOT(onAudioPushed(int)) );
     QObject::connect( m_ctx, SIGNAL(sourceChanged(int,bool)), this, SLOT(onSourceChanged(int,bool)) );
-    QObject::connect( m_ctx, SIGNAL(sigStop(int)), this, SLOT(stop(int)) );
+    QObject::connect( m_ctx, SIGNAL(sigStop(int)), this, SLOT(onStop(int)) );
     QObject::connect( m_ctx, SIGNAL(quit()), this, SLOT(close()) );
 
-    std::map<int, HGLWidget*>::iterator iter = m_mapGLWdg.begin();
-    while (iter != m_mapGLWdg.end()){
-        HGLWidget* wdg = iter->second;
-        QObject::connect( wdg, SIGNAL(fullScreen()), this, SLOT(onFullScreen()) );
-        QObject::connect( wdg, SIGNAL(exitFullScreen()), this, SLOT(onExitFullScreen()) );
-        ++iter;
+    for (int i = 0; i < m_vecGLWdg.size(); ++i){
+        QObject::connect( m_vecGLWdg[i], SIGNAL(fullScreen()), this, SLOT(onFullScreen()) );
+        QObject::connect( m_vecGLWdg[i], SIGNAL(exitFullScreen()), this, SLOT(onExitFullScreen()) );
+        QObject::connect( m_vecGLWdg[i], SIGNAL(clicked()), this, SLOT(onGLWdgClicked()) );
     }
 
     QObject::connect( m_btnLeftExpand, SIGNAL(clicked(bool)), this, SLOT(showToolbar()) );
     QObject::connect( m_btnRightFold, SIGNAL(clicked(bool)), this, SLOT(hideToolbar()) );
 
     timer_click.setSingleShot(true);
-    QObject::connect( &timer_click, SIGNAL(timeout()), this, SLOT(clearOpt()) );
+    //QObject::connect( &timer_click, SIGNAL(timeout()), this, SLOT(clearOpt()) );
+}
+
+HGLWidget* HMainWidget::getGLWdgBySvrid(int svrid){
+    std::map<int, HGLWidget*>::iterator iter = m_mapGLWdg.find(svrid);
+    if (iter != m_mapGLWdg.end()){
+        HGLWidget* wdg = iter->second;
+        if (wdg->svrid == svrid){
+            return wdg;
+        }
+    }
+
+    for (int i = 0; i < m_vecGLWdg.size(); ++i){
+        if (m_vecGLWdg[i]->svrid == 0){
+            m_vecGLWdg[i]->svrid = svrid;
+            m_mapGLWdg[svrid] = m_vecGLWdg[i];
+            return m_vecGLWdg[i];
+        }
+    }
+
+    return NULL;
 }
 
 HGLWidget* HMainWidget::getGLWdgByPos(int x, int y){
-    std::map<int, HGLWidget*>::iterator iter = m_mapGLWdg.begin();
-    while (iter != m_mapGLWdg.end()){
-        HGLWidget* wdg = iter->second;
-        QRect rc = wdg->geometry();
+    for (int i = 0; i < m_vecGLWdg.size(); ++i){
+        QRect rc = m_vecGLWdg[i]->geometry();
         if (rc.contains(x,y)){
-            return wdg;
+            return m_vecGLWdg[i];
         }
-        ++iter;
     }
+
     return NULL;
 }
 
@@ -150,16 +149,6 @@ void HMainWidget::keyPressEvent(QKeyEvent *event){
     QWidget::keyPressEvent(event);
 }
 
-void HMainWidget::clearOpt(){
-    qDebug("");
-    if (m_iClickedSvrid != 0){
-        m_mapGLWdg[m_iClickedSvrid]->removeIcon(PICK);
-        m_mapGLWdg[m_iClickedSvrid]->removeIcon(PROHIBIT);
-    }
-    m_bPicked = false;
-    m_iClickedSvrid = 0;
-}
-
 void HMainWidget::mousePressEvent(QMouseEvent *event){
     qDebug("%d,%d", event->x(), event->y());
 }
@@ -168,16 +157,19 @@ void HMainWidget::mouseMoveEvent(QMouseEvent *event){
     qDebug("%d,%d", event->x(), event->y());
 
     HGLWidget* wdg = getGLWdgByPos(event->x(), event->y());
-    if (wdg && wdg->svrid != 1){// cock can not drag
+    if (wdg && wdg->svrid != 1 &&           // cock can not drag
+        (wdg->status() & MAJOR_STATUS_MASK) == PLAYING){
         if (m_dragWdg->isVisible() == false){
             m_dragWdg->setVisible(true);
             m_dragWdg->svrid = wdg->svrid;
             m_dragWdg->setStatus(wdg->status());
-            m_dragWdg->repaint();
+            m_dragSrcWdg = wdg;
         }
     }
 
-    m_dragWdg->setGeometry(event->x()-DRAG_WIDTH/2, event->y()-DRAG_HEIGHT, DRAG_WIDTH,DRAG_HEIGHT);
+    if (m_dragWdg->isVisible()){
+        m_dragWdg->setGeometry(event->x()-DRAG_WIDTH/2, event->y()-DRAG_HEIGHT, DRAG_WIDTH,DRAG_HEIGHT);
+    }
 }
 
 void HMainWidget::mouseReleaseEvent(QMouseEvent *event){
@@ -191,40 +183,28 @@ void HMainWidget::mouseReleaseEvent(QMouseEvent *event){
         if (wdg == NULL)
             return;
 
-        if (m_dragWdg->svrid != wdg->svrid){
-            HGLWidget* srcWdg = m_mapGLWdg[m_dragWdg->svrid];
-            HGLWidget* dstWdg = m_mapGLWdg[wdg->svrid];
+        if (m_dragSrcWdg != wdg){
             if (wdg->svrid == 1){
                 // pick cock's source
                 DsEvent evt;
                 evt.type = DS_EVENT_PICK;
-                evt.src_svrid = m_dragWdg->svrid;
+                evt.src_svrid = m_dragSrcWdg->svrid;
                 evt.dst_svrid = 1;
-                evt.dst_x = event->x()-dstWdg->x();
-                evt.dst_y = event->y()-dstWdg->y();
+                evt.dst_x = event->x() - wdg->x();
+                evt.dst_y = event->y() - wdg->y();
                 m_ctx->handle_event(evt);
             }else{
                 // exchange position
-                QRect rcSrc = srcWdg->geometry();
-                QRect rcDst = dstWdg->geometry();
-                dstWdg->setGeometry(rcSrc);
-                srcWdg->setGeometry(rcDst);
+                QRect rcSrc = m_dragSrcWdg->geometry();
+                QRect rcDst = wdg->geometry();
+                wdg->setGeometry(rcSrc);
+                m_dragSrcWdg->setGeometry(rcDst);
             }
         }
     }else{ // normal clicked
         HGLWidget* wdg = getGLWdgByPos(event->x(), event->y());
         if (wdg == NULL)
             return;
-
-        std::map<int, HGLWidget*>::iterator iter = m_mapGLWdg.begin();
-        while (iter != m_mapGLWdg.end()){
-            HGLWidget* w = iter->second;
-            if (w != wdg){
-                w->showTitlebar(false);
-                w->showToolbar(false);
-            }
-            ++iter;
-        }
     }
 }
 
@@ -294,36 +274,65 @@ void HMainWidget::onActionChanged(int action){
     if (action == 0){
         hide();
     }else if (action == 1){
-        show();
+        showFullScreen();
+
+        // when hide,status change but not repaint
+        for (int i = 0; i < m_vecGLWdg.size(); ++i){
+            m_vecGLWdg[i]->repaint();
+        }
     }
 }
 
-void HMainWidget::onTitleChanged(int svrid, std::string title){
-    m_mapGLWdg[svrid]->setTitle(title.c_str());
+void HMainWidget::onTitleChanged(int svrid){
+    qDebug("");
+
+    HGLWidget* wdg = getGLWdgBySvrid(svrid);
+    if (wdg == NULL)
+        return;
+
+    wdg->setTitle(m_ctx->m_title[svrid].c_str());
 }
 
 void HMainWidget::onvideoPushed(int svrid, bool bFirstFrame){
-   m_mapGLWdg[svrid]->setStatus(PLAYING);
+    HGLWidget* wdg = getGLWdgBySvrid(svrid);
+    if (wdg == NULL)
+        return;
+
+    wdg->setStatus((wdg->status() & MINOR_STATUS_MASK) | PLAYING | PLAY_VIDEO);
 }
 
 void HMainWidget::onAudioPushed(int svrid){
     if (svrid != 1){
-        HGLWidget* wdg = m_mapGLWdg[svrid];
-        wdg->addIcon(HAVE_AUDIO, wdg->width()-32, 0, 32, 32);
+        HGLWidget* wdg = getGLWdgBySvrid(svrid);
+        if (wdg == NULL)
+            return;
+
+        // audio not repaint
+        wdg->setStatus((wdg->status() & MINOR_STATUS_MASK) | PLAYING | PLAY_AUDIO, false);
     }
 }
 
 void HMainWidget::onSourceChanged(int svrid, bool bSucceed){
     qDebug("");
 
-    m_mapGLWdg[svrid]->removeIcon(CHANGING);
+    HGLWidget* wdg = getGLWdgBySvrid(svrid);
+    if (wdg == NULL)
+        return;
+
+    wdg->removeIcon(CHANGING);
     if (!bSucceed){
-        m_mapGLWdg[svrid]->setStatus(NOSIGNAL);
+        //
     }
 }
 
-void HMainWidget::stop(int svrid){
-    m_mapGLWdg[svrid]->setStatus(STOP);
+void HMainWidget::onStop(int svrid){
+    HGLWidget* wdg = getGLWdgBySvrid(svrid);
+    if (wdg == NULL)
+        return;
+
+    qDebug("");
+    wdg->setStatus(STOP);
+    wdg->svrid = 0;
 }
 
 void HMainWidget::onFullScreen(){
@@ -345,4 +354,15 @@ void HMainWidget::onExitFullScreen(){
     pSender->setWindowFlags(Qt::SubWindow);
     pSender->setGeometry(m_rcSavedGeometry);
     pSender->showNormal();
+}
+
+void HMainWidget::onGLWdgClicked(){
+    HGLWidget* pSender = (HGLWidget*)sender();
+
+    for (int i = 0; i < m_vecGLWdg.size(); ++i){
+        if (m_vecGLWdg[i] != pSender){
+            m_vecGLWdg[i]->showTitlebar(false);
+            m_vecGLWdg[i]->showToolbar(false);
+        }
+    }
 }

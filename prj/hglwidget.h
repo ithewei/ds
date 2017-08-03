@@ -59,10 +59,15 @@ struct DrawInfo{
 };
 
 enum GLWND_STATUS{
-    STOP        =  1,
-    PAUSE       =  2,
-    PLAYING     =  3,
-    NOSIGNAL    =  4,
+    MAJOR_STATUS_MASK = 0x00FF,
+    STOP        =  0x0001,
+    PAUSE       =  0x0002,
+    PLAYING     =  0x0004,
+    NOSIGNAL    =  0x0008,
+
+    MINOR_STATUS_MASK = 0xFF00,
+    PLAY_VIDEO  =  0x0100,
+    PLAY_AUDIO  =  0x0200,
 };
 
 enum GLWDG_ICONS{
@@ -83,9 +88,11 @@ public:
     ~HGLWidget();
 
     int status() {return m_status;}
-    void setStatus(int status){
+    void setStatus(int status, bool bRepaint = true){
         m_status = status;
-        repaint();
+        if (bRepaint){
+            repaint();
+        }
     }
 
     void addIcon(int type, int x, int y, int w, int h);
@@ -104,6 +111,7 @@ public:
 signals:
     void fullScreen();
     void exitFullScreen();
+    void clicked();
 
 protected:
     static void loadYUVShader();

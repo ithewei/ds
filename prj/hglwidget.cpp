@@ -46,11 +46,9 @@ void HGLWidget::showTitlebar(bool bShow){
 
 void HGLWidget::showToolbar(bool bShow){
     if (bShow){
-        qDebug("");
         m_toolWdg->setGeometry(2, height()-TOOL_BAR_HEIGHT-2, width()-4, TITLE_BAR_HEIGHT);
         m_toolWdg->show();
     }else{
-        qDebug("");
         m_toolWdg->hide();
     }
 }
@@ -85,9 +83,9 @@ void HGLWidget::mouseReleaseEvent(QMouseEvent* event){
     QRect rc(0, 0, width(), height());
     if (m_bMousePressed && (event->timestamp() - m_tmMousePressed < 300) &&
             rc.contains(event->x(), event->y())){
-        qDebug("toggle");
         toggleTitlebar();
         toggleToolbar();
+        emit clicked();
     }
 
     m_bMousePressed = false;
@@ -103,6 +101,7 @@ void HGLWidget::addIcon(int type, int x, int y, int w, int h){
         di.right = x+w;
         di.bottom = y+h;
         m_mapIcons[type] = di;
+        update();
     }
     m_mutex.lock();
 }
@@ -160,27 +159,41 @@ void HGLWidget::paintGL(){
     glClear(GL_COLOR_BUFFER_BIT);
 
     DrawInfo di;
-    di.left = 1;
-    di.top = 1;
-    di.right = width() - 1;
-    di.bottom = height() - 1;
-    if (m_status == STOP){
-        // add tips
+    switch (m_status & MAJOR_STATUS_MASK) {
+    case STOP:
         di.left = width()/2 - 50;
         di.top = height()/2 - 20;
         di.color = 0xFFFFFFFF;
         drawStr(g_dsCtx->m_pFont, "NO VIDEO!", &di);
-    }else if (m_status == PAUSE){
-        // draw pause bgimage
-        drawTex(&HRcLoader::instance()->tex_refresh, &di);
-    }else if (m_status == PLAYING){
-        // draw yuv
-        if (g_dsCtx->tex_yuv[svrid].data && g_dsCtx->tex_yuv[svrid].width > 0
-                && g_dsCtx->tex_yuv[svrid].height > 0){
-            drawYUV(&g_dsCtx->tex_yuv[svrid]);
+        break;
+    case PAUSE:
+        //
+        break;
+    case NOSIGNAL:
+        di.left = width()/2 - 50;
+        di.top = height()/2 - 20;
+        di.color = 0xFFFFFFFF;
+        drawStr(g_dsCtx->m_pFont, "NO SIGNAL!", &di);
+        break;
+    case PLAYING:
+        if (m_status & PLAY_VIDEO){
+            // draw yuv
+            if (g_dsCtx->tex_yuv[svrid].data && g_dsCtx->tex_yuv[svrid].width > 0
+                    && g_dsCtx->tex_yuv[svrid].height > 0){
+                drawYUV(&g_dsCtx->tex_yuv[svrid]);
+            }
         }
-    }else if (m_status == NOSIGNAL){
-        drawTex(&HRcLoader::instance()->tex_spacer, &di);
+
+        if (m_status & PLAY_AUDIO){
+            // draw sound icon
+            Texture *tex = getTexture(HAVE_AUDIO);
+            di.left = width() - 32;
+            di.top = 1;
+            di.right = width() - 1;
+            di.bottom = 32;
+            drawTex(tex, &di);
+        }
+        break;
     }
 
     // draw icons

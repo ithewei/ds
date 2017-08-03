@@ -17,7 +17,7 @@ int HAudioPlay::playCallback(
         pObj->m_pcmBuf->pop((unsigned char*)output, bytes);
         pObj->m_mutex.unlock();
     }else{
-        qDebug("sound delay");
+        //qDebug("sound delay");
     }
 
     return 0;

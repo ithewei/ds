@@ -18,7 +18,6 @@ void HTitlebarWidget::initUI(){
     QHBoxLayout* hbox = new QHBoxLayout;
 
     hbox->setMargin(1);
-    qDebug("margin=%d,spacing=%d", hbox->margin(), hbox->spacing());
 
     m_label = new QLabel;
     hbox->addWidget(m_label);

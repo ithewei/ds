@@ -106,6 +106,12 @@ DSSHARED_EXPORT int libinit(const char* xml, void* task, void** ctx){
         if(job_check_path(ttf_path.c_str()) == 0)
             g_dsCtx->initFont(ttf_path, 24);
 
+        if(g_dsCtx->init == 0)
+        {
+            g_dsCtx->init = 1;
+            g_dsCtx->start_gui_thread();
+        }
+
         int mask  = SERVICE_POSITION_VIDEO_AFDEC;
         if(g_dsCtx->audio)
             mask |= SERVICE_POSITION_AUDIO_AFDEC;
@@ -140,8 +146,7 @@ DSSHARED_EXPORT int libstop(void* ctx){
 }
 
 DSSHARED_EXPORT int liboper(int media_type, int data_type, int opt, void* param, void * ctx){
-//    if (media_type == 0)
-//        qDebug("media_type=%d,data_type=%d,opt=%d", media_type, data_type, opt);
+    //qDebug("media_type=%d,data_type=%d,opt=%d", media_type, data_type, opt);
 
     if (!ctx)
         return -1;
@@ -180,6 +185,8 @@ DSSHARED_EXPORT int liboper(int media_type, int data_type, int opt, void* param,
                         return -2;
 
                     if (param){
+                        qDebug("");
+                        qDebug("%s", (const char *)param);
                         g_dsCtx->setTitle(svrid, (const char *)param);
                     }
                 }
@@ -224,11 +231,6 @@ DSSHARED_EXPORT int liboper(int media_type, int data_type, int opt, void* param,
             qDebug("pic[%d] type=%s w=%d h=%d", svrid, c, pic->width, pic->height);
         }
 
-        if(g_dsCtx->init == 0)
-        {
-            g_dsCtx->init = 1;
-            g_dsCtx->start_gui_thread();
-        }
         g_dsCtx->v_input[svrid - 1]++;
         g_dsCtx->push_video(svrid, pic);
     }
@@ -250,11 +252,6 @@ DSSHARED_EXPORT int liboper(int media_type, int data_type, int opt, void* param,
             qDebug("pcm[%d] channel=%d, sample=%d len=%d", svrid, pcm->channels, pcm->samplerate, pcm->pcmlen);
         }
 
-        if(g_dsCtx->init == 0)
-        {
-            g_dsCtx->init = 1;
-            g_dsCtx->start_gui_thread();
-        }
         g_dsCtx->a_input[svrid - 1]++;
         g_dsCtx->push_audio(svrid, pcm);
     }

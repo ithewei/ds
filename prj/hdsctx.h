@@ -114,16 +114,19 @@ public:
     }
     void setTitle(int svrid, std::string title){
         qDebug("");
-        emit titleChanged(svrid, title);
+        m_title[svrid] = title;
+        emit titleChanged(svrid);
     }
     void stop(int svrid){
+        qDebug("");
         tex_yuv[svrid].release();
+        m_title[svrid].clear();
         emit sigStop(svrid);
     }
 
 signals:
     void actionChanged(int action);
-    void titleChanged(int svrid, std::string title);
+    void titleChanged(int svrid);
     void videoPushed(int svrid, bool bFirstFrame);
     void audioPushed(int svrid);
     void sourceChanged(int svrid, bool bSucceed);
@@ -179,6 +182,7 @@ public:
     int m_iOriginCockH;
 
     Texture tex_yuv[DIRECTOR_MAX_SERVS];
+    std::string m_title[DIRECTOR_MAX_SERVS];
 
     HAudioPlay* m_audioPlay;
 };

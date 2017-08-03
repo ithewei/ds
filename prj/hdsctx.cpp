@@ -21,7 +21,7 @@ void* HDsContext::thread_gui(void* param){
     HRcLoader::instance()->loadTexture();
 
     HMainWidget* mainwdg = new HMainWidget(pObj);
-    mainwdg->show();
+    mainwdg->hide();
 
     app.exec();
 
