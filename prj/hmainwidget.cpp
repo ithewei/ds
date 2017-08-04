@@ -1,4 +1,5 @@
 #include "hmainwidget.h"
+#include "hrcloader.h"
 
 HMainWidget::HMainWidget(HDsContext* ctx, QWidget *parent) : QWidget(parent)
 {
@@ -58,14 +59,15 @@ void HMainWidget::initUI(){
     m_btnRightFold->hide();
 
 
-    m_webView = new QWebEngineView(this);
-    m_webView->setAutoFillBackground(true);
-    pal = m_webView->palette();
-    pal.setColor(QPalette::Background, QColor(105,105,105,128));
-    //pal.setColor(QPalette::Foreground, QColor(255,255,255));
-    m_webView->setPalette(pal);
-    m_webView->setGeometry(QRect(0, height()-ICON_HEIGHT, 0, ICON_HEIGHT));
-    m_webView->load(QUrl("http://www.video4a.com/"));
+    m_webView = new HWebView(this);
+    m_webView->setWindowFlags(Qt::ToolTip);
+    m_webView->setWindowOpacity(0.5);
+    //m_webView->setGeometry(QRect(0, height()-ICON_HEIGHT, 0, ICON_HEIGHT));
+    m_webView->setGeometry(0, height()-ICON_HEIGHT, width()-ICON_WIDTH, ICON_HEIGHT);
+    //m_webView->load(QUrl("http://127.0.0.1/transcoder/index.php?controller=channels&action=Panel"));
+    m_webView->load(QUrl("http://192.168.1.112/transcoder/index.php?controller=channels&action=Panel"));
+    //m_webView->load(QUrl("https://www.baidu.com/"));
+    m_webView->hide();
 
     m_dragWdg = new HGLWidget(this);
     m_dragWdg->setOutlineColor(0x00FF00FF);
@@ -250,11 +252,14 @@ void HMainWidget::showToolbar(){
     m_btnLeftExpand->hide();
     m_btnRightFold->show();
 
-    QPropertyAnimation *animation = new QPropertyAnimation(m_webView, "geometry");
-    animation->setDuration(300);
-    animation->setStartValue(QRect(width()-ICON_WIDTH, height()-ICON_HEIGHT, 0, ICON_HEIGHT));
-    animation->setEndValue(QRect(0, height()-ICON_HEIGHT, width()-ICON_WIDTH, ICON_HEIGHT));
-    animation->start();
+//    QPropertyAnimation *animation = new QPropertyAnimation(m_webView, "geometry");
+//    animation->setDuration(300);
+//    animation->setStartValue(QRect(width()-ICON_WIDTH, height()-ICON_HEIGHT, 0, ICON_HEIGHT));
+//    animation->setEndValue(QRect(0, height()-ICON_HEIGHT, width()-ICON_WIDTH, ICON_HEIGHT));
+//    animation->start();
+
+    m_webView->reload();
+    m_webView->show();
 }
 
 void HMainWidget::hideToolbar(){
@@ -263,11 +268,15 @@ void HMainWidget::hideToolbar(){
     m_btnLeftExpand->show();
     m_btnRightFold->hide();
 
-    QPropertyAnimation *animation = new QPropertyAnimation(m_webView, "geometry");
-    animation->setDuration(300);
-    animation->setStartValue(QRect(0, height()-ICON_HEIGHT, width()-ICON_WIDTH, ICON_HEIGHT));
-    animation->setEndValue(QRect(width()-ICON_WIDTH, height()-ICON_HEIGHT, 0, ICON_HEIGHT));
-    animation->start();
+//    QPropertyAnimation *animation = new QPropertyAnimation(m_webView, "geometry");
+//    animation->setDuration(300);
+//    animation->setStartValue(QRect(0, height()-ICON_HEIGHT, width()-ICON_WIDTH, ICON_HEIGHT));
+//    animation->setEndValue(QRect(width()-ICON_WIDTH, height()-ICON_HEIGHT, 0, ICON_HEIGHT));
+//    animation->start();
+
+    m_webView->hide();
+
+    setFocus();
 }
 
 void HMainWidget::onActionChanged(int action){

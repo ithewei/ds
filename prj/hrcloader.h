@@ -2,6 +2,7 @@
 #define HRCLOADER_H
 
 #include "ds_global.h"
+#include "hglwidget.h"
 
 class HRcLoader
 {

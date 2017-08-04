@@ -1,5 +1,7 @@
 #include "ds_global.h"
 #include "hglwidget.h"
+#include "hdsctx.h"
+#include "hrcloader.h"
 
 bool HGLWidget::s_bInitGLEW = false;
 GLuint HGLWidget::prog_yuv;
@@ -460,11 +462,26 @@ void HGLWidget::drawRect(DrawInfo* di){
 HCockGLWidget::HCockGLWidget(QWidget* parent)
     : HGLWidget(parent)
 {
-
+    QObject::connect( g_dsCtx, SIGNAL(cockChanged()), this, SLOT(onCockChanged()) );
 }
 
 HCockGLWidget::~HCockGLWidget(){
 
+}
+
+void HCockGLWidget::onCockChanged(){
+    // scale
+    double scale_x = width() / (double)g_dsCtx->m_iOriginCockW;
+    double scale_y = height() / (double)g_dsCtx->m_iOriginCockH;
+    m_vecCocks.clear();
+    for (int i = 0; i < g_dsCtx->m_cntCock; ++i){
+        int x = g_dsCtx->m_tOriginCocks[i].x * scale_x;
+        int y = g_dsCtx->m_tOriginCocks[i].y * scale_y;
+        int w = g_dsCtx->m_tOriginCocks[i].w * scale_x;
+        int h = g_dsCtx->m_tOriginCocks[i].h * scale_y;
+        QRect rc(x,y,w,h);
+        m_vecCocks.push_back(rc);
+    }
 }
 
 void HCockGLWidget::paintGL(){
@@ -486,20 +503,7 @@ void HCockGLWidget::paintGL(){
 void HCockGLWidget::resizeEvent(QResizeEvent *e){
     QSize sz = e->size();
 
-    qDebug("%d*%d", sz.width(),sz.height());
-
-    // scale
-    double scale_x = sz.width() / (double)g_dsCtx->m_iOriginCockW;
-    double scale_y = sz.height() / (double)g_dsCtx->m_iOriginCockH;
-    m_vecCocks.clear();
-    for (int i = 0; i < g_dsCtx->m_cntCock; ++i){
-        int x = g_dsCtx->m_tOriginCocks[i].x * scale_x;
-        int y = g_dsCtx->m_tOriginCocks[i].y * scale_y;
-        int w = g_dsCtx->m_tOriginCocks[i].w * scale_x;
-        int h = g_dsCtx->m_tOriginCocks[i].h * scale_y;
-        QRect rc(x,y,w,h);
-        m_vecCocks.push_back(rc);
-    }
+    onCockChanged();
 
     HGLWidget::resizeEvent(e);
 }

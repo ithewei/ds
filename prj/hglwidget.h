@@ -85,7 +85,7 @@ class HGLWidget : public QOpenGLWidget
     Q_OBJECT
 public:
     HGLWidget(QWidget* parent = Q_NULLPTR);
-    ~HGLWidget();
+    virtual ~HGLWidget();
 
     int status() {return m_status;}
     void setStatus(int status, bool bRepaint = true){
@@ -165,6 +165,9 @@ class HCockGLWidget : public HGLWidget
 public:
     HCockGLWidget(QWidget* parent = Q_NULLPTR);
     ~HCockGLWidget();
+
+public slots:
+    void onCockChanged();
 
 protected:
     virtual void paintGL();

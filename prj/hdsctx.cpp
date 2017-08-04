@@ -1,4 +1,5 @@
 #include "hdsctx.h"
+#include "hrcloader.h"
 
 HDsContext* g_dsCtx = NULL;
 
@@ -429,6 +430,8 @@ int HDsContext::parse_cock_xml(const char* xml){
         if(m_cntCock >= 8)
             break;
     }
+
+    emit cockChanged();
 
     return 0;
 }

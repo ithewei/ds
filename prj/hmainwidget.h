@@ -2,10 +2,11 @@
 #define HMAINWIDGET_H
 
 #include <QWidget>
-#include <QWebEngineView>
 #include <QPushButton>
+#include "hmaintoolbar.h"
 #include "hglwidget.h"
 #include "ds_global.h"
+#include "hdsctx.h"
 
 #define MAXNUM_GLWIDGET 8
 
@@ -13,7 +14,7 @@
 #define DRAG_HEIGHT     108
 
 #define ICON_WIDTH      64
-#define ICON_HEIGHT     64
+#define ICON_HEIGHT     80
 
 class HDsContext;
 class HMainWidget : public QWidget
@@ -65,7 +66,9 @@ private:
     QPushButton* m_btnLeftExpand;
     QPushButton* m_btnRightFold;
 
-    QWebEngineView* m_webView;
+    //QWebEngineView* m_webView;
+    HWebView* m_webView;
+
     HGLWidget* m_dragWdg;
     HGLWidget* m_dragSrcWdg;
 

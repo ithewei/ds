@@ -44,7 +44,4 @@ extern "C" {
     #include <ook/codecs/avdef.h>
 }
 
-#include "hdsctx.h"
-#include "hrcloader.h"
-
 #endif // DS_GLOBAL_H

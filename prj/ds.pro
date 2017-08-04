@@ -34,7 +34,8 @@ SOURCES += \
     haudioplay.cpp \
     htitlebarwidget.cpp \
     htoolbarwidget.cpp \
-    hrcloader.cpp
+    hrcloader.cpp \
+    hmaintoolbar.cpp
 
 HEADERS += \
         ds.h \
@@ -46,7 +47,8 @@ HEADERS += \
     haudioplay.h \
     htitlebarwidget.h \
     htoolbarwidget.h \
-    hrcloader.h
+    hrcloader.h \
+    hmaintoolbar.h
 
 unix {
     target.path = /usr/lib

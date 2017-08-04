@@ -132,6 +132,7 @@ signals:
     void sourceChanged(int svrid, bool bSucceed);
     void sigStop(int svrid);
     void quit();
+    void cockChanged();
 
 public slots:
 

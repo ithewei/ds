@@ -1,5 +1,6 @@
 #include "hrcloader.h"
 #include "tga.h"
+#include "hdsctx.h"
 
 HRcLoader* HRcLoader::s_rcLoader = NULL;
 

@@ -1,5 +1,6 @@
 #include "htitlebarwidget.h"
 #include "ds_global.h"
+#include "hrcloader.h"
 
 HTitlebarWidget::HTitlebarWidget(QWidget *parent) : QWidget(parent)
 {
