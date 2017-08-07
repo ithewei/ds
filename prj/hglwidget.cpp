@@ -35,12 +35,18 @@ void HGLWidget::initUI(){
 void HGLWidget::initConnect(){
     QObject::connect( m_titleWdg, SIGNAL(fullScreen()), this, SIGNAL(fullScreen()) );
     QObject::connect( m_titleWdg, SIGNAL(exitFullScreen()), this, SIGNAL(exitFullScreen()) );
+
+    QObject::connect( m_toolWdg, SIGNAL(sigStart()), this, SLOT(onStart()) );
+    QObject::connect( m_toolWdg, SIGNAL(sigPause()), this, SLOT(onPause()) );
 }
 
 void HGLWidget::showTitlebar(bool bShow){
     if (bShow){
-        m_titleWdg->setGeometry(2, 2, width()-4, TITLE_BAR_HEIGHT);
-        m_titleWdg->show();
+        if ((m_status & MAJOR_STATUS_MASK) == PLAYING ||
+            (m_status & MAJOR_STATUS_MASK) == PAUSE){
+            m_titleWdg->setGeometry(2, 2, width()-4, TITLE_BAR_HEIGHT);
+            m_titleWdg->show();
+        }
     }else{
         m_titleWdg->hide();
     }
@@ -48,8 +54,11 @@ void HGLWidget::showTitlebar(bool bShow){
 
 void HGLWidget::showToolbar(bool bShow){
     if (bShow){
-        m_toolWdg->setGeometry(2, height()-TOOL_BAR_HEIGHT-2, width()-4, TITLE_BAR_HEIGHT);
-        m_toolWdg->show();
+        if ((m_status & MAJOR_STATUS_MASK) == PLAYING ||
+            (m_status & MAJOR_STATUS_MASK) == PAUSE){
+            m_toolWdg->setGeometry(2, height()-TOOL_BAR_HEIGHT-2, width()-4, TITLE_BAR_HEIGHT);
+            m_toolWdg->show();
+        }
     }else{
         m_toolWdg->hide();
     }
@@ -69,6 +78,15 @@ void HGLWidget::toggleToolbar(){
     }else{
         showToolbar(true);
     }
+}
+
+void HGLWidget::onStart(){
+    g_dsCtx->getItem(svrid)->bPause = false;
+}
+
+void HGLWidget::onPause(){
+    g_dsCtx->getItem(svrid)->bPause = true;
+    setStatus(PAUSE);
 }
 
 void HGLWidget::mousePressEvent(QMouseEvent* event){
@@ -178,11 +196,14 @@ void HGLWidget::paintGL(){
         drawStr(g_dsCtx->m_pFont, "NO SIGNAL!", &di);
         break;
     case PLAYING:
+        DsItemInfo* item = g_dsCtx->getItem(svrid);
+        if (!item)
+            break;
         if (m_status & PLAY_VIDEO){
             // draw yuv
-            if (g_dsCtx->tex_yuv[svrid].data && g_dsCtx->tex_yuv[svrid].width > 0
-                    && g_dsCtx->tex_yuv[svrid].height > 0){
-                drawYUV(&g_dsCtx->tex_yuv[svrid]);
+            if (item->tex_yuv.data && item->tex_yuv.width > 0 && item->tex_yuv.height > 0){
+                drawYUV(&item->tex_yuv);
+                m_nPreFrame = item->v_input;
             }
         }
 
@@ -194,6 +215,37 @@ void HGLWidget::paintGL(){
             di.right = width() - 1;
             di.bottom = 32;
             drawTex(tex, &di);
+
+            // draw sound average
+            di.left = width()-4 - AUDIO_WIDTH*2;
+            di.top = height()-2 - AUDIO_HEIGHT;
+            di.right = di.left + AUDIO_WIDTH;
+            di.bottom = di.top + AUDIO_HEIGHT;
+            di.color = 0x00FFFF80;
+            drawRect(&di, true);
+
+            di.left += 1;
+            di.right -= 1;
+            di.bottom -= 1;
+            di.top = di.bottom - item->a_average[0] * AUDIO_HEIGHT / 65536;
+            di.color = 0xFFFF0080;
+            drawRect(&di, true);
+
+            di.left = width()-2 - AUDIO_WIDTH;
+            di.top = height()-2 - AUDIO_HEIGHT;
+            di.right = di.left + AUDIO_WIDTH;
+            di.bottom = di.top + AUDIO_HEIGHT;
+            di.color = 0x00FFFF80;
+            drawRect(&di, true);
+
+            di.left += 1;
+            di.right -= 1;
+            di.bottom -= 1;
+            di.top = di.bottom - item->a_average[1] * AUDIO_HEIGHT / 65536;
+            di.color = 0xFFFF0080;
+            drawRect(&di, true);
+
+            item->bUpdateAverage = true;
         }
         break;
     }
@@ -441,20 +493,28 @@ void HGLWidget::drawStr(FTGLPixmapFont *pFont, const char* str, DrawInfo* di){
     delete[] wcs;
 }
 
-void HGLWidget::drawRect(DrawInfo* di){
+void HGLWidget::drawRect(DrawInfo* di, bool bFill){
     glUseProgram(0);
 
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
     glOrtho(0.0, width(), height(), 0.0, -1.0, 1.0);
 
-    glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+    if (bFill){
+        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+    }else{
+        glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+    }
 
-    glColor3ub(R(di->color), G(di->color), B(di->color));
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    glColor4ub(R(di->color), G(di->color), B(di->color), A(di->color));
     glRecti(di->left, di->top, di->right, di->bottom);
-    glColor3ub(255,255,255);
+    glColor4ub(255,255,255,255);
 
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+    glDisable(GL_BLEND);
 }
 
 //===============================================================================
@@ -501,8 +561,6 @@ void HCockGLWidget::paintGL(){
 }
 
 void HCockGLWidget::resizeEvent(QResizeEvent *e){
-    QSize sz = e->size();
-
     onCockChanged();
 
     HGLWidget::resizeEvent(e);

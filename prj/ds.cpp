@@ -203,7 +203,10 @@ DSSHARED_EXPORT int liboper(int media_type, int data_type, int opt, void* param,
 
             if(dsc->action == OOK_FOURCC('S', 'V', 'C', 'B')){
                 qDebug("OOK_FOURCC('S', 'V', 'C', 'B')");
-                g_dsCtx->ifcb[svrid - 1] = (ifservice_callback *)dsc->ptr;
+                DsItemInfo* item = g_dsCtx->getItem(svrid);
+                if (item){
+                    item->ifcb = (ifservice_callback *)dsc->ptr;
+                }
             }else if(dsc->action == OOK_FOURCC('L', 'O', 'U', 'T')){
                 qDebug("OOK_FOURCC('L', 'O', 'U', 'T')");
                 g_dsCtx->parse_cock_xml((const char *)dsc->ptr);
@@ -225,13 +228,13 @@ DSSHARED_EXPORT int liboper(int media_type, int data_type, int opt, void* param,
         if (!pic)
             return -6;
 
-        if (g_dsCtx->v_input[svrid - 1] < 1){
+        if (g_dsCtx->getItem(svrid)->v_input < 1){
             char c[5];
             memcpy(c, &pic->fourcc, 4);
             qDebug("pic[%d] type=%s w=%d h=%d", svrid, c, pic->width, pic->height);
         }
 
-        g_dsCtx->v_input[svrid - 1]++;
+        ++g_dsCtx->getItem(svrid)->v_input;
         g_dsCtx->push_video(svrid, pic);
     }
         break;
@@ -248,11 +251,11 @@ DSSHARED_EXPORT int liboper(int media_type, int data_type, int opt, void* param,
         if (!pcm)
             return -6;
 
-        if (g_dsCtx->a_input[svrid - 1] < 1){
+        if (g_dsCtx->getItem(svrid)->a_input < 1){
             qDebug("pcm[%d] channel=%d, sample=%d len=%d", svrid, pcm->channels, pcm->samplerate, pcm->pcmlen);
         }
 
-        g_dsCtx->a_input[svrid - 1]++;
+        ++g_dsCtx->getItem(svrid)->a_input;
         g_dsCtx->push_audio(svrid, pcm);
     }
         break;

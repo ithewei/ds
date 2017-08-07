@@ -24,6 +24,10 @@ public:
     QPixmap icon_exit_fullscreen;
     QPixmap icon_left_expand;
     QPixmap icon_right_fold;
+    QPixmap icon_start;
+    QPixmap icon_pause;
+    QPixmap icon_stop;
+    QPixmap icon_sound;
 
     Texture tex_video;
     Texture tex_novideo;

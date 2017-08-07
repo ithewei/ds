@@ -13,7 +13,7 @@
 #define DRAG_WIDTH      192
 #define DRAG_HEIGHT     108
 
-#define ICON_WIDTH      64
+#define ICON_WIDTH      80
 #define ICON_HEIGHT     80
 
 class HDsContext;
@@ -36,14 +36,12 @@ protected:
     virtual void mouseMoveEvent(QMouseEvent *event);
     virtual void mouseReleaseEvent(QMouseEvent *event);
     virtual void mouseDoubleClickEvent(QMouseEvent *event);
+    virtual void hideEvent(QHideEvent *e);
 
 signals:
 
 public slots:
-    /*
-    void onStart();
-    void onPause();
-    */
+    void onTimerRepaint();
     void onActionChanged(int action);
     void onTitleChanged(int svrid);
     void onvideoPushed(int svrid, bool bFirstFrame);
@@ -72,7 +70,7 @@ private:
     HGLWidget* m_dragWdg;
     HGLWidget* m_dragSrcWdg;
 
-    QTimer timer_click;
+    QTimer timer_repaint;
 
     QRect m_rcSavedGeometry;
 };

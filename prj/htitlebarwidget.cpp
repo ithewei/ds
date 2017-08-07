@@ -61,10 +61,14 @@ void HTitlebarWidget::onExitFullScreen(){
     emit exitFullScreen();
 }
 
-void HTitlebarWidget::mousePressEvent(QMouseEvent* e){
-    e->accept();
-}
-
-void HTitlebarWidget::mouseReleaseEvent(QMouseEvent* e){
-    e->accept();
+bool HTitlebarWidget::event(QEvent *e){
+    switch (e->type()){
+    case QEvent::MouseButtonPress:
+    case QEvent::MouseButtonRelease:
+    case QEvent::MouseButtonDblClick:
+    case QEvent::MouseMove:
+        return true;
+    default:
+        return QWidget::event(e);
+    }
 }

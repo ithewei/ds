@@ -4,7 +4,6 @@
 HWebView::HWebView(QWidget* parent)
     : QWebEngineView(parent)
 {
-
 }
 
 HWebView::~HWebView()

@@ -15,6 +15,7 @@ HMainWidget::~HMainWidget(){
 
 void HMainWidget::initUI(){
     qDebug("");
+    setWindowFlags(Qt::Window | Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint);
     if (m_ctx->width == 0 || m_ctx->height == 0){
        m_ctx->width  = QApplication::desktop()->width();
        m_ctx->height = QApplication::desktop()->height();
@@ -60,7 +61,13 @@ void HMainWidget::initUI(){
 
 
     m_webView = new HWebView(this);
-    m_webView->setWindowFlags(Qt::ToolTip);
+    if (m_webView->parent() != NULL){
+        qDebug("m_webView have parent");
+    }
+    m_webView->setWindowFlags(Qt::Window | Qt::FramelessWindowHint | Qt::X11BypassWindowManagerHint);
+    if (m_webView->parent() != NULL){
+        qDebug("m_webView Qt::ToolTip have parent");
+    }
     m_webView->setWindowOpacity(0.5);
     //m_webView->setGeometry(QRect(0, height()-ICON_HEIGHT, 0, ICON_HEIGHT));
     m_webView->setGeometry(0, height()-ICON_HEIGHT, width()-ICON_WIDTH, ICON_HEIGHT);
@@ -95,8 +102,10 @@ void HMainWidget::initConnect(){
     QObject::connect( m_btnLeftExpand, SIGNAL(clicked(bool)), this, SLOT(showToolbar()) );
     QObject::connect( m_btnRightFold, SIGNAL(clicked(bool)), this, SLOT(hideToolbar()) );
 
-    timer_click.setSingleShot(true);
-    //QObject::connect( &timer_click, SIGNAL(timeout()), this, SLOT(clearOpt()) );
+    QObject::connect( &timer_repaint, SIGNAL(timeout()), this, SLOT(onTimerRepaint()) );
+    if (m_ctx->display_mode == DISPLAY_MODE_TIMER){
+        timer_repaint.start(1000 / m_ctx->frames);
+    }
 }
 
 HGLWidget* HMainWidget::getGLWdgBySvrid(int svrid){
@@ -226,23 +235,21 @@ void HMainWidget::mouseDoubleClickEvent(QMouseEvent *event){
     }
 }
 
-/*
-void HMainWidget::onStart(){
-    m_btnStart->hide();
-    m_btnPause->show();
+void HMainWidget::hideEvent(QHideEvent *e){
+    hideToolbar();
 }
 
-void HMainWidget::onPause(){
-    m_btnStart->show();
-    m_btnPause->hide();
-    if(m_ctx->ifcb[0])
-    {
-        qDebug("");
-        m_ctx->ifcb[0]->onservice_callback(ifservice_callback::e_service_cb_chr, libchar(), OOK_FOURCC('P', 'A', 'U', 'S'), 0, 0, NULL);
+void HMainWidget::onTimerRepaint(){
+    qDebug("");
+    for (int i = 0; i < m_vecGLWdg.size(); ++i){
+        HGLWidget* wdg = m_vecGLWdg[i];
+        DsItemInfo* item = m_ctx->getItem(wdg->svrid);
+        if ((wdg->m_status & MAJOR_STATUS_MASK) == PLAYING && item && item->v_input != wdg->m_nPreFrame){
+            qDebug("");
+            wdg->repaint();
+        }
     }
-    m_mapGLWdg[1]->setStatus(PAUSE);
 }
-*/
 
 #include <QGraphicsEffect>
 #include <QPropertyAnimation>
@@ -299,7 +306,7 @@ void HMainWidget::onTitleChanged(int svrid){
     if (wdg == NULL)
         return;
 
-    wdg->setTitle(m_ctx->m_title[svrid].c_str());
+    wdg->setTitle(m_ctx->getItem(svrid)->title.c_str());
 }
 
 void HMainWidget::onvideoPushed(int svrid, bool bFirstFrame){
@@ -307,18 +314,20 @@ void HMainWidget::onvideoPushed(int svrid, bool bFirstFrame){
     if (wdg == NULL)
         return;
 
-    wdg->setStatus((wdg->status() & MINOR_STATUS_MASK) | PLAYING | PLAY_VIDEO);
+    bool bRepainter = false;
+    if (m_ctx->display_mode == DISPLAY_MODE_REALTIME)
+        bRepainter = true;
+
+    wdg->setStatus((wdg->status() & MINOR_STATUS_MASK) | PLAYING | PLAY_VIDEO, bRepainter);
 }
 
 void HMainWidget::onAudioPushed(int svrid){
-    if (svrid != 1){
-        HGLWidget* wdg = getGLWdgBySvrid(svrid);
-        if (wdg == NULL)
-            return;
+    HGLWidget* wdg = getGLWdgBySvrid(svrid);
+    if (wdg == NULL)
+        return;
 
-        // audio not repaint
-        wdg->setStatus((wdg->status() & MINOR_STATUS_MASK) | PLAYING | PLAY_AUDIO, false);
-    }
+    // audio not repaint
+    wdg->setStatus((wdg->status() & MINOR_STATUS_MASK) | PLAYING | PLAY_AUDIO, false);
 }
 
 void HMainWidget::onSourceChanged(int svrid, bool bSucceed){

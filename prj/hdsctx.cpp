@@ -40,12 +40,7 @@ HDsContext::HDsContext()
     ref     = 1;
     init    = 0;
     action  = 1;
-    for(int i = 0; i < DIRECTOR_MAX_SERVS; i++)
-    {
-        a_input[i] = 0;
-        v_input[i] = 0;
-        ifcb[i]    = NULL;
-    }
+    display_mode = DISPLAY_MODE_TIMER;
 
     width = 0;
     height = 0;
@@ -62,6 +57,7 @@ HDsContext::HDsContext()
     m_cntItem = 0;
     m_iCockW = 0;
     m_iCockH = 0;
+    frames = 25;
 
     m_cntCock = 0;
     m_iOriginCockW = 0;
@@ -255,11 +251,17 @@ int HDsContext::parse_layout_xml(const char* xml_file){
         const std::string & v = e->get_attribute("v");
 
         if(n == "width")
-            int width     = atoi(v.c_str());
+            width     = atoi(v.c_str());
         else if(n == "height")
-            int height    = atoi(v.c_str());
-        else if(n == "frames")
-            int frames = atoi(v.c_str());
+            height    = atoi(v.c_str());
+        else if(n == "frames"){
+            frames = atoi(v.c_str());
+            if (frames < 1)
+                frames = 25;
+            else if (frames > 30)
+                frames = 30;
+            qDebug("frames=%d", frames);
+        }
 
         else if(n == "v_back")
             std::string v_back = v;
@@ -455,6 +457,10 @@ int HDsContext::push_video(int svrid, const av_picture* pic){
     if (action < 1)
         return -1;
 
+    DsItemInfo* item = getItem(svrid);
+    if (!item || item->bPause)
+        return -2;
+
     int w = pic->width;
     int h = pic->height;
     bool bFirstFrame = false;
@@ -463,14 +469,14 @@ int HDsContext::push_video(int svrid, const av_picture* pic){
     case OOK_FOURCC('I', '4', '2', '0'):
     case OOK_FOURCC('Y', 'V', '1', '2'):
         {
-            if(!tex_yuv[svrid].data)
+            if(!item->tex_yuv.data)
             {
-                tex_yuv[svrid].data = (unsigned char *)malloc(w * h * 3 / 2);
+                item->tex_yuv.data = (unsigned char *)malloc(w * h * 3 / 2);
                 bFirstFrame = true;
                 qDebug("malloc w=%d,h=%d", w, h);
             }
 
-            unsigned char * y = tex_yuv[svrid].data;
+            unsigned char * y = item->tex_yuv.data;
             unsigned char * u = y + w * h;
             unsigned char * v = u + w * h / 4;
             unsigned char * s_y = pic->data[0];
@@ -498,9 +504,9 @@ int HDsContext::push_video(int svrid, const av_picture* pic){
                 s_u += pic->stride[1];
                 s_v += pic->stride[2];
             }
-            tex_yuv[svrid].width = pic->width;
-            tex_yuv[svrid].height = pic->height;
-            tex_yuv[svrid].type = GL_I420;
+            item->tex_yuv.width = pic->width;
+            item->tex_yuv.height = pic->height;
+            item->tex_yuv.type = GL_I420;
         }
         break;
 #if 0
@@ -535,16 +541,42 @@ int HDsContext::push_video(int svrid, const av_picture* pic){
     }
 
     emit videoPushed(svrid, bFirstFrame);
+
     return 0;
 }
 
 int HDsContext::push_audio(int svrid, const av_pcmbuff* pcm){
-    if (action < 1)
+    if (action < 1 || audio < 1)
         return -1;
+
+    DsItemInfo* item = getItem(svrid);
+    if (!item || item->bPause)
+        return -2;
 
     // just cock window play audio
     if (svrid == 1){
         m_audioPlay->pushAudio((av_pcmbuff*)pcm);
+    }
+
+    if (item->bUpdateAverage){
+        int channels = pcm->channels;
+        unsigned short * src = (unsigned short *)pcm->pcmbuf;
+        int samples = pcm->pcmlen >> 1 / channels; // >>1 beacause default bpp=16
+
+        unsigned long long a[2];
+        a[0] = 0;
+        a[1] = 0;
+        for (int s = 0; s < samples; ++s){
+            for (int c = 0; c < channels; ++c){
+                int n = c % 2;
+                a[n] += *src;
+                ++src;
+            }
+        }
+        item->a_average[0] = a[0] / ((channels + 1) / 2) / samples;
+        item->a_average[1] = a[1] / (channels / 2) / samples;
+
+        item->bUpdateAverage = false;
     }
 
     emit audioPushed(svrid);

@@ -26,8 +26,7 @@ public:
 protected:
     void initUI();
     void initConnection();
-    virtual void mousePressEvent(QMouseEvent* e);
-    virtual void mouseReleaseEvent(QMouseEvent* e);
+    virtual bool event(QEvent *e);
 
 private:
     QLabel* m_label;

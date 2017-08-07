@@ -37,12 +37,20 @@ void HRcLoader::loadIcon(){
     icon_exit_fullscreen.load(strImg.c_str());
 
     strImg = g_dsCtx->img_path;
-    strImg += "left_expand.jpg";
+    strImg += "left_expand.png";
     icon_left_expand.load(strImg.c_str());
 
     strImg = g_dsCtx->img_path;
     strImg += "right_fold.png";
     icon_right_fold.load(strImg.c_str());
+
+    strImg = g_dsCtx->img_path;
+    strImg += "start.tga";
+    icon_start.load(strImg.c_str());
+
+    strImg = g_dsCtx->img_path;
+    strImg += "pause.tga";
+    icon_pause.load(strImg.c_str());
 }
 
 void HRcLoader::loadTexture(){

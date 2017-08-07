@@ -12,12 +12,16 @@
 #define TITLE_BAR_HEIGHT    50
 #define TOOL_BAR_HEIGHT     50
 
+#define AUDIO_WIDTH         16
+#define AUDIO_HEIGHT        160
+
 // GL PixelFormat extend
 #define GL_I420				0x1910
 
 #define R(color) (((color) >> 24) & 0xFF)
 #define G(color) (((color) >> 16) & 0xFF)
 #define B(color) (((color) >>  8) & 0xFF)
+#define A(color) ((color) & 0xFF)
 
 struct Texture{
     GLuint texID; // glGenTextures分配的ID
@@ -113,13 +117,17 @@ signals:
     void exitFullScreen();
     void clicked();
 
+public slots:
+    void onStart();
+    void onPause();
+
 protected:
     static void loadYUVShader();
     void initVAO();
     void drawYUV(Texture* tex);
     void drawTex(Texture* tex, DrawInfo* di);
     void drawStr(FTGLPixmapFont *pFont, const char* str, DrawInfo* di);
-    void drawRect(DrawInfo* di);
+    void drawRect(DrawInfo* di, bool bFill = false);
 
 protected:
     virtual void initializeGL();
@@ -151,6 +159,7 @@ public:
     int m_outlinecolor;
 
     int m_status;
+    int m_nPreFrame; // previous frame cnt;
 
     std::map<int ,DrawInfo> m_mapIcons; // type : DrawInfo
     tmc_mutex_type m_mutex;
