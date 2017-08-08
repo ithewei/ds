@@ -51,6 +51,8 @@ void HToolbarWidget::initUI(){
 void HToolbarWidget::initConnection(){
     QObject::connect( m_btnStart, SIGNAL(clicked(bool)), this, SLOT(onStart()) );
     QObject::connect( m_btnPause, SIGNAL(clicked(bool)), this, SLOT(onPause()) );
+
+    QObject::connect( m_slider, SIGNAL(sliderReleased()), this, SLOT(onSlider()) );
 }
 
 #include <QEvent>
@@ -78,4 +80,8 @@ void HToolbarWidget::onPause(){
     m_btnPause->hide();
 
     emit sigPause();
+}
+
+void HToolbarWidget::onSlider(){
+    emit progressChanged(m_slider->value());
 }

@@ -13,17 +13,19 @@ public:
 signals:
     void sigStart();
     void sigPause();
+    void progressChanged(int progress);
 
 public slots:
     void onStart();
     void onPause();
+    void onSlider();
 
 protected:
     void initUI();
     void initConnection();
     virtual bool event(QEvent *e);
 
-private:
+public:
     QPushButton* m_btnStart;
     QPushButton* m_btnPause;
     QSlider* m_slider;

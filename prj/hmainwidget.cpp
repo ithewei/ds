@@ -59,21 +59,10 @@ void HMainWidget::initUI(){
     m_btnRightFold->setFlat(true);
     m_btnRightFold->hide();
 
-
     m_webView = new HWebView(this);
-    if (m_webView->parent() != NULL){
-        qDebug("m_webView have parent");
-    }
     m_webView->setWindowFlags(Qt::Window | Qt::FramelessWindowHint | Qt::X11BypassWindowManagerHint);
-    if (m_webView->parent() != NULL){
-        qDebug("m_webView Qt::ToolTip have parent");
-    }
-    m_webView->setWindowOpacity(0.5);
-    //m_webView->setGeometry(QRect(0, height()-ICON_HEIGHT, 0, ICON_HEIGHT));
+    m_webView->setWindowOpacity(0.7);
     m_webView->setGeometry(0, height()-ICON_HEIGHT, width()-ICON_WIDTH, ICON_HEIGHT);
-    //m_webView->load(QUrl("http://127.0.0.1/transcoder/index.php?controller=channels&action=Panel"));
-    m_webView->load(QUrl("http://192.168.1.112/transcoder/index.php?controller=channels&action=Panel"));
-    //m_webView->load(QUrl("https://www.baidu.com/"));
     m_webView->hide();
 
     m_dragWdg = new HGLWidget(this);
@@ -92,11 +81,13 @@ void HMainWidget::initConnect(){
     QObject::connect( m_ctx, SIGNAL(sourceChanged(int,bool)), this, SLOT(onSourceChanged(int,bool)) );
     QObject::connect( m_ctx, SIGNAL(sigStop(int)), this, SLOT(onStop(int)) );
     QObject::connect( m_ctx, SIGNAL(quit()), this, SLOT(close()) );
+    QObject::connect( m_ctx, SIGNAL(sigProgressNty(int,int)), this, SLOT(onProgressNty(int,int)) );
 
     for (int i = 0; i < m_vecGLWdg.size(); ++i){
         QObject::connect( m_vecGLWdg[i], SIGNAL(fullScreen()), this, SLOT(onFullScreen()) );
         QObject::connect( m_vecGLWdg[i], SIGNAL(exitFullScreen()), this, SLOT(onExitFullScreen()) );
         QObject::connect( m_vecGLWdg[i], SIGNAL(clicked()), this, SLOT(onGLWdgClicked()) );
+        QObject::connect( m_vecGLWdg[i], SIGNAL(progressChanged(int)), this, SLOT(onProgressChanged(int)) );
     }
 
     QObject::connect( m_btnLeftExpand, SIGNAL(clicked(bool)), this, SLOT(showToolbar()) );
@@ -161,12 +152,10 @@ void HMainWidget::keyPressEvent(QKeyEvent *event){
 }
 
 void HMainWidget::mousePressEvent(QMouseEvent *event){
-    qDebug("%d,%d", event->x(), event->y());
+
 }
 
 void HMainWidget::mouseMoveEvent(QMouseEvent *event){
-    qDebug("%d,%d", event->x(), event->y());
-
     HGLWidget* wdg = getGLWdgByPos(event->x(), event->y());
     if (wdg && wdg->svrid != 1 &&           // cock can not drag
         (wdg->status() & MAJOR_STATUS_MASK) == PLAYING){
@@ -184,8 +173,6 @@ void HMainWidget::mouseMoveEvent(QMouseEvent *event){
 }
 
 void HMainWidget::mouseReleaseEvent(QMouseEvent *event){
-    qDebug("%d,%d", event->x(), event->y());
-
     // drag release
     if (m_dragWdg->isVisible()){
         m_dragWdg->hide();
@@ -240,12 +227,10 @@ void HMainWidget::hideEvent(QHideEvent *e){
 }
 
 void HMainWidget::onTimerRepaint(){
-    qDebug("");
     for (int i = 0; i < m_vecGLWdg.size(); ++i){
         HGLWidget* wdg = m_vecGLWdg[i];
         DsItemInfo* item = m_ctx->getItem(wdg->svrid);
-        if ((wdg->m_status & MAJOR_STATUS_MASK) == PLAYING && item && item->v_input != wdg->m_nPreFrame){
-            qDebug("");
+        if (wdg->status(MAJOR_STATUS_MASK) == PLAYING && item && item->v_input != wdg->m_nPreFrame){
             wdg->repaint();
         }
     }
@@ -254,8 +239,6 @@ void HMainWidget::onTimerRepaint(){
 #include <QGraphicsEffect>
 #include <QPropertyAnimation>
 void HMainWidget::showToolbar(){
-    qDebug("");
-
     m_btnLeftExpand->hide();
     m_btnRightFold->show();
 
@@ -265,13 +248,13 @@ void HMainWidget::showToolbar(){
 //    animation->setEndValue(QRect(0, height()-ICON_HEIGHT, width()-ICON_WIDTH, ICON_HEIGHT));
 //    animation->start();
 
-    m_webView->reload();
+    m_webView->load(QUrl("http://192.168.1.112/transcoder/audio/index"));
+    //m_webView->load(QUrl("https://www.baidu.com"));
+    qDebug("load succeed");
     m_webView->show();
 }
 
 void HMainWidget::hideToolbar(){
-    qDebug("");
-
     m_btnLeftExpand->show();
     m_btnRightFold->hide();
 
@@ -318,7 +301,7 @@ void HMainWidget::onvideoPushed(int svrid, bool bFirstFrame){
     if (m_ctx->display_mode == DISPLAY_MODE_REALTIME)
         bRepainter = true;
 
-    wdg->setStatus((wdg->status() & MINOR_STATUS_MASK) | PLAYING | PLAY_VIDEO, bRepainter);
+    wdg->setStatus(PLAYING | wdg->status(MINOR_STATUS_MASK) | PLAY_VIDEO, bRepainter);
 }
 
 void HMainWidget::onAudioPushed(int svrid){
@@ -327,7 +310,7 @@ void HMainWidget::onAudioPushed(int svrid){
         return;
 
     // audio not repaint
-    wdg->setStatus((wdg->status() & MINOR_STATUS_MASK) | PLAYING | PLAY_AUDIO, false);
+    wdg->setStatus(PLAYING | wdg->status(MINOR_STATUS_MASK) | PLAY_AUDIO, false);
 }
 
 void HMainWidget::onSourceChanged(int svrid, bool bSucceed){
@@ -351,6 +334,14 @@ void HMainWidget::onStop(int svrid){
     qDebug("");
     wdg->setStatus(STOP);
     wdg->svrid = 0;
+}
+
+void HMainWidget::onProgressNty(int svrid, int progress){
+    HGLWidget* wdg = getGLWdgBySvrid(svrid);
+    if (wdg == NULL)
+        return;
+
+    wdg->setProgress(progress);
 }
 
 void HMainWidget::onFullScreen(){
@@ -382,5 +373,16 @@ void HMainWidget::onGLWdgClicked(){
             m_vecGLWdg[i]->showTitlebar(false);
             m_vecGLWdg[i]->showToolbar(false);
         }
+    }
+}
+
+void HMainWidget::onProgressChanged(int progress){
+
+    HGLWidget* pSender = (HGLWidget*)sender();
+    qDebug("svrid=%d progress=%d", pSender->svrid, progress);
+    DsItemInfo* item = m_ctx->getItem(pSender->svrid);
+    if (item && item->ifcb){
+        qDebug("progress=%d", progress);
+        item->ifcb->onservice_callback(ifservice_callback::e_service_cb_playratio, OOK_FOURCC('D', 'I', 'R', 'C'), 0, 0, progress, NULL);
     }
 }

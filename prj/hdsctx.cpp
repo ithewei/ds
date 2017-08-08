@@ -24,6 +24,9 @@ void* HDsContext::thread_gui(void* param){
     HMainWidget* mainwdg = new HMainWidget(pObj);
     mainwdg->hide();
 
+    pObj->m_mutex.unlock();
+    qDebug("mainwdg create succeed");
+
     app.exec();
 
     HRcLoader::exitInstance();
@@ -79,8 +82,11 @@ HDsContext::~HDsContext(){
     }
 }
 
+#include <QWaitCondition>
 void HDsContext::start_gui_thread(){
-    qDebug("");
+    qDebug("start_gui_thread<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<");
+
+    m_mutex.lock(); // unlock while gui create succeed
 
 #ifdef linux
     pthread_t pth;
@@ -88,6 +94,10 @@ void HDsContext::start_gui_thread(){
     //void* pRet;
     //pthread_join(pth, &pRet);
     pthread_detach(pth);
+
+    m_mutex.tryLock(10000);
+    qDebug("start_gui_thread>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>");
+
 #endif
 
 #ifdef WIN32
@@ -464,11 +474,13 @@ int HDsContext::push_video(int svrid, const av_picture* pic){
     int w = pic->width;
     int h = pic->height;
     bool bFirstFrame = false;
+
     switch(pic->fourcc)
     {
     case OOK_FOURCC('I', '4', '2', '0'):
     case OOK_FOURCC('Y', 'V', '1', '2'):
         {
+            item->mutex.lock();
             if(!item->tex_yuv.data)
             {
                 item->tex_yuv.data = (unsigned char *)malloc(w * h * 3 / 2);
@@ -507,6 +519,7 @@ int HDsContext::push_video(int svrid, const av_picture* pic){
             item->tex_yuv.width = pic->width;
             item->tex_yuv.height = pic->height;
             item->tex_yuv.type = GL_I420;
+            item->mutex.unlock();
         }
         break;
 #if 0

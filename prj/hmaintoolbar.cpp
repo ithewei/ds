@@ -17,10 +17,10 @@ QWebEngineView* HWebView::createWindow(QWebEnginePage::WebWindowType type){
     HWebView* view = new HWebView;
     view->setWindowFlags(Qt::Popup);
     view->setAttribute(Qt::WA_DeleteOnClose, true);
-    view->setWindowOpacity(0.5);
-    int sw  = QApplication::desktop()->width();
-    int sh = QApplication::desktop()->height();
-    view->setGeometry(sw/4, sh/4, sw/2, sh/2);
+    //view->setWindowOpacity(0.5);
+    //int sw  = QApplication::desktop()->width();
+    //int sh = QApplication::desktop()->height();
+    //view->setGeometry(sw/4, sh/4, sw/2, sh/2);
     view->show();
 
     return view;

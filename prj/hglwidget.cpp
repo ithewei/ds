@@ -38,6 +38,7 @@ void HGLWidget::initConnect(){
 
     QObject::connect( m_toolWdg, SIGNAL(sigStart()), this, SLOT(onStart()) );
     QObject::connect( m_toolWdg, SIGNAL(sigPause()), this, SLOT(onPause()) );
+    QObject::connect( m_toolWdg, SIGNAL(progressChanged(int)), this, SIGNAL(progressChanged(int)) );
 }
 
 void HGLWidget::showTitlebar(bool bShow){
@@ -58,6 +59,9 @@ void HGLWidget::showToolbar(bool bShow){
             (m_status & MAJOR_STATUS_MASK) == PAUSE){
             m_toolWdg->setGeometry(2, height()-TOOL_BAR_HEIGHT-2, width()-4, TITLE_BAR_HEIGHT);
             m_toolWdg->show();
+            if (g_dsCtx->getItem(svrid)->src_type != SRC_TYPE_FILE){
+                m_toolWdg->m_slider->hide();
+            }
         }
     }else{
         m_toolWdg->hide();
@@ -85,21 +89,21 @@ void HGLWidget::onStart(){
 }
 
 void HGLWidget::onPause(){
-    g_dsCtx->getItem(svrid)->bPause = true;
-    setStatus(PAUSE);
+    DsItemInfo* item = g_dsCtx->getItem(svrid);
+    item->bPause = true;
+//    if (item->ifcb){
+//        item->ifcb->onservice_callback(ifservice_callback::e_service_cb_pause, OOK_FOURCC('D', 'I', 'R', 'C'), 0, 0, 0, NULL);
+//    }
+    setStatus(PAUSE | status(MINOR_STATUS_MASK));
 }
 
 void HGLWidget::mousePressEvent(QMouseEvent* event){
-    qDebug("%d,%d", event->x(), event->y());
-
     m_bMousePressed = true;
     m_tmMousePressed = event->timestamp();
     event->ignore();
 }
 
 void HGLWidget::mouseReleaseEvent(QMouseEvent* event){
-    qDebug("%d,%d", event->x(), event->y());
-
     QRect rc(0, 0, width(), height());
     if (m_bMousePressed && (event->timestamp() - m_tmMousePressed < 300) &&
             rc.contains(event->x(), event->y())){
@@ -151,7 +155,6 @@ Texture* HGLWidget::getTexture(int type){
 }
 
 void HGLWidget::initializeGL(){
-    qDebug("");
     if (!s_bInitGLEW){
         if (glewInit() != 0){
             qFatal("glewInit failed");
@@ -165,7 +168,6 @@ void HGLWidget::initializeGL(){
 }
 
 void HGLWidget::resizeGL(int w, int h){
-    qDebug("");
     glViewport(0, 0, w, h);
 
     showTitlebar(false);
@@ -186,25 +188,25 @@ void HGLWidget::paintGL(){
         di.color = 0xFFFFFFFF;
         drawStr(g_dsCtx->m_pFont, "NO VIDEO!", &di);
         break;
-    case PAUSE:
-        //
-        break;
     case NOSIGNAL:
         di.left = width()/2 - 50;
         di.top = height()/2 - 20;
         di.color = 0xFFFFFFFF;
         drawStr(g_dsCtx->m_pFont, "NO SIGNAL!", &di);
         break;
+    case PAUSE:
     case PLAYING:
         DsItemInfo* item = g_dsCtx->getItem(svrid);
         if (!item)
             break;
         if (m_status & PLAY_VIDEO){
             // draw yuv
+            item->mutex.lock();
             if (item->tex_yuv.data && item->tex_yuv.width > 0 && item->tex_yuv.height > 0){
                 drawYUV(&item->tex_yuv);
                 m_nPreFrame = item->v_input;
             }
+            item->mutex.unlock();
         }
 
         if (m_status & PLAY_AUDIO){

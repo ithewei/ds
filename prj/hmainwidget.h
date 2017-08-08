@@ -13,8 +13,8 @@
 #define DRAG_WIDTH      192
 #define DRAG_HEIGHT     108
 
-#define ICON_WIDTH      80
-#define ICON_HEIGHT     80
+#define ICON_WIDTH      90
+#define ICON_HEIGHT     90
 
 class HDsContext;
 class HMainWidget : public QWidget
@@ -48,6 +48,8 @@ public slots:
     void onAudioPushed(int svrid);
     void onSourceChanged(int svrid, bool bSucceed);
     void onStop(int svrid);
+    void onProgressNty(int svrid, int progress);
+    void onProgressChanged(int progress);
 
     void onFullScreen();
     void onExitFullScreen();

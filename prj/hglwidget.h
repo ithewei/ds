@@ -91,7 +91,7 @@ public:
     HGLWidget(QWidget* parent = Q_NULLPTR);
     virtual ~HGLWidget();
 
-    int status() {return m_status;}
+    int status(int mask = 0xFFFF) {return m_status & mask;}
     void setStatus(int status, bool bRepaint = true){
         m_status = status;
         if (bRepaint){
@@ -111,11 +111,13 @@ public:
     void showToolbar(bool bShow = true);
     void toggleTitlebar();
     void toggleToolbar();
+    void setProgress(int progress) {m_toolWdg->m_slider->setValue(progress);}
 
 signals:
     void fullScreen();
     void exitFullScreen();
     void clicked();
+    void progressChanged(int progress);
 
 public slots:
     void onStart();

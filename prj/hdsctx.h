@@ -86,11 +86,15 @@ struct DsCockInfo{
     }
 };
 
+#include <QMutex>
 struct DsItemInfo{
     bool bPause;
 
+    int src_type;
+
     std::string title;
     Texture tex_yuv;
+    QMutex  mutex;
 
     unsigned short a_average[2];
     bool bUpdateAverage;
@@ -111,6 +115,7 @@ struct DsItemInfo{
         title.clear();
         tex_yuv.release();
 
+        src_type = 0;
         bPause = false;
         a_average[0] = 0;
         a_average[1] = 0;
@@ -186,6 +191,7 @@ signals:
     void sigStop(int svrid);
     void quit();
     void cockChanged();
+    void sigProgressNty(int svrid, int progress);
 
 public slots:
 
@@ -200,6 +206,7 @@ static void* thread_gui(void* param);
 public:
     int ref;
     int init;
+    QMutex m_mutex;
     int action; // window show or hide
     int display_mode;
 

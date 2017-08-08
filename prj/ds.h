@@ -7,6 +7,9 @@
 #define MediaTypeAudio      1
 #define MediaTypeVideo      2
 
+#define SRC_TYPE_FILE       1
+#define SRC_TYPE_NET        2
+
 extern "C" {
     DSSHARED_EXPORT int libversion(void);
     DSSHARED_EXPORT int libchar(void);

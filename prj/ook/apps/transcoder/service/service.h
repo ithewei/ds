@@ -21,16 +21,24 @@ public:
 	{
 		e_service_cb_unknow = -1,
 		e_service_cb_null,
+		
 		e_service_cb_dura,
 		e_service_cb_picxchg, // pic will be changed within so
 		
 		e_service_cb_samplerate,
 		e_service_cb_channels,
+		e_service_cb_width,
+		e_service_cb_height,
+		
+		e_service_cb_pause,
+		e_service_cb_stampcacu,
+		e_service_cb_playratio,
 		
 		e_service_cb_pic = 0x80,
 		e_service_cb_pcm,
 		
-		e_service_cb_chr = 0x100
+		e_service_cb_chr = 0x100,
+		e_service_cb_mediachr
 	};
 	
 	virtual ~ifservice_callback() {}
@@ -80,10 +88,14 @@ typedef int	(SERVICE_STDCALL * __service_libstop)   (void * ctx);
 #define SERVICE_OPT_ENCINPTOVER			0x11
 #define SERVICE_OPT_ENCCOMPLETED		0x12
 
+#define SERVICE_OPT_CMDUPDATE	 		0x80
+
 #define SERVICE_OPT_PREVSTOP		 	0xF0
 #define SERVICE_OPT_SESSION		 		0xF1
 #define SERVICE_OPT_TASKCHAR 			0xF2
 #define SERVICE_OPT_SESSNAME	 		0xF3
+#define SERVICE_OPT_SRCLABEL 			0xF4
+#define SERVICE_OPT_SPACERTYPE			0xF5
 #define SERVICE_OPT_TASKBYCMD	 		0xF8
 
 //

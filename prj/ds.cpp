@@ -185,9 +185,9 @@ DSSHARED_EXPORT int liboper(int media_type, int data_type, int opt, void* param,
                         return -2;
 
                     if (param){
-                        qDebug("");
-                        qDebug("%s", (const char *)param);
-                        g_dsCtx->setTitle(svrid, (const char *)param);
+                        const char* title = (const char*)param;
+                        qDebug("svrid=%d title=%s strlen=%d", svrid, title, strlen(title));
+                        g_dsCtx->setTitle(svrid, title);
                     }
                 }
                 break;
@@ -201,15 +201,25 @@ DSSHARED_EXPORT int liboper(int media_type, int data_type, int opt, void* param,
             if(svrid < 1 || svrid > DIRECTOR_MAX_SERVS)
                 return -2;
 
+            DsItemInfo* item = g_dsCtx->getItem(svrid);
+
             if(dsc->action == OOK_FOURCC('S', 'V', 'C', 'B')){
                 qDebug("OOK_FOURCC('S', 'V', 'C', 'B')");
-                DsItemInfo* item = g_dsCtx->getItem(svrid);
                 if (item){
                     item->ifcb = (ifservice_callback *)dsc->ptr;
                 }
             }else if(dsc->action == OOK_FOURCC('L', 'O', 'U', 'T')){
                 qDebug("OOK_FOURCC('L', 'O', 'U', 'T')");
                 g_dsCtx->parse_cock_xml((const char *)dsc->ptr);
+            }else if (dsc->action == OOK_FOURCC('S', 'R', 'C', 'L')){
+                qDebug("OOK_FOURCC('S', 'R', 'C', 'L')");
+                if (strcmp((const char*)dsc->ptr, "file") == 0){
+                    item->src_type = SRC_TYPE_FILE;
+                }
+            }else if (dsc->action == OOK_FOURCC('P', 'L', 'Y', 'R')){
+                int progress = *(int*)dsc->ptr;
+                qDebug("OOK_FOURCC('P', 'L', 'Y', 'R') progress=%d", progress);
+                emit g_dsCtx->sigProgressNty(svrid, progress);
             }
 
         }

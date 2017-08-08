@@ -44,4 +44,6 @@ extern "C" {
     #include <ook/codecs/avdef.h>
 }
 
+#include "ds.h"
+
 #endif // DS_GLOBAL_H
