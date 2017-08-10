@@ -97,6 +97,17 @@ void HGLWidget::onPause(){
     setStatus(PAUSE | status(MINOR_STATUS_MASK));
 }
 
+void HGLWidget::onStop(){
+    setStatus(STOP);
+    m_title.clear();
+    m_mapIcons.clear();
+    m_nPreFrame = 0;
+
+    if (svrid != 1){// svrid=1 is cock,reserve
+        svrid = 0;
+    }
+}
+
 void HGLWidget::mousePressEvent(QMouseEvent* event){
     m_bMousePressed = true;
     m_tmMousePressed = event->timestamp();
@@ -252,6 +263,14 @@ void HGLWidget::paintGL(){
         break;
     }
 
+    // draw title
+    if (m_title.length() > 0){
+        di.left = 2;
+        di.top = 2;
+        di.color = m_titcolor;
+        drawStr(g_dsCtx->m_pFont, m_title.c_str(), &di);
+    }
+
     // draw icons
     m_mutex.lock();
     std::map<int,DrawInfo>::iterator iter = m_mapIcons.begin();
@@ -264,14 +283,6 @@ void HGLWidget::paintGL(){
         ++iter;
     }
     m_mutex.unlock();
-
-    // draw title
-    if (m_title.length() > 0){
-        di.left = 2;
-        di.top = 2;
-        di.color = m_titcolor;
-        drawStr(g_dsCtx->m_pFont, m_title.c_str(), &di);
-    }
 
     // draw outline
     di.left = 1;

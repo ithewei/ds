@@ -23,7 +23,7 @@ void HMainWidget::initUI(){
     setGeometry(0,0,m_ctx->width, m_ctx->height);
     setAutoFillBackground(true);
     QPalette pal = palette();
-    pal.setColor(QPalette::Background, QColor(0,0,0));
+    pal.setColor(QPalette::Background, Qt::black);
     setPalette(pal);
 
     for (int i = 0; i < m_ctx->m_cntItem; ++i){
@@ -44,26 +44,14 @@ void HMainWidget::initUI(){
         m_vecGLWdg.push_back(wdg);
     }
 
-    qDebug("screen_w=%d,screen_h=%d", width(), height());
-    m_btnLeftExpand = new QPushButton(this);
-    m_btnLeftExpand->setGeometry(width() - ICON_WIDTH, height() - ICON_HEIGHT, ICON_WIDTH, ICON_HEIGHT);
-    m_btnLeftExpand->setIcon(QIcon(HRcLoader::instance()->icon_left_expand));
-    m_btnLeftExpand->setIconSize(QSize(ICON_WIDTH, ICON_HEIGHT));
-    m_btnLeftExpand->setFlat(true);
-    m_btnLeftExpand->show();
+    qDebug("screen_w=%d,screen_h=%d", width(), height());    
 
-    m_btnRightFold = new QPushButton(this);
-    m_btnRightFold->setGeometry(width() - ICON_WIDTH, height() - ICON_HEIGHT, ICON_WIDTH, ICON_HEIGHT);
-    m_btnRightFold->setIcon(QIcon(HRcLoader::instance()->icon_right_fold));
-    m_btnRightFold->setIconSize(QSize(ICON_WIDTH, ICON_HEIGHT));
-    m_btnRightFold->setFlat(true);
-    m_btnRightFold->hide();
-
-    m_webView = new HWebView(this);
-    m_webView->setWindowFlags(Qt::Window | Qt::FramelessWindowHint | Qt::X11BypassWindowManagerHint);
-    m_webView->setWindowOpacity(0.7);
-    m_webView->setGeometry(0, height()-ICON_HEIGHT, width()-ICON_WIDTH, ICON_HEIGHT);
-    m_webView->hide();
+    m_toolbar = new HMainToolbar(this);
+    m_toolbar->setGeometry(0, height()-ICON_HEIGHT-1, width(), ICON_HEIGHT);
+    m_toolbar->setAutoFillBackground(true);
+    pal = m_toolbar->palette();
+    pal.setColor(QPalette::Background, Qt::transparent);
+    m_toolbar->setPalette(pal);
 
     m_dragWdg = new HGLWidget(this);
     m_dragWdg->setOutlineColor(0x00FF00FF);
@@ -89,9 +77,6 @@ void HMainWidget::initConnect(){
         QObject::connect( m_vecGLWdg[i], SIGNAL(clicked()), this, SLOT(onGLWdgClicked()) );
         QObject::connect( m_vecGLWdg[i], SIGNAL(progressChanged(int)), this, SLOT(onProgressChanged(int)) );
     }
-
-    QObject::connect( m_btnLeftExpand, SIGNAL(clicked(bool)), this, SLOT(showToolbar()) );
-    QObject::connect( m_btnRightFold, SIGNAL(clicked(bool)), this, SLOT(hideToolbar()) );
 
     QObject::connect( &timer_repaint, SIGNAL(timeout()), this, SLOT(onTimerRepaint()) );
     if (m_ctx->display_mode == DISPLAY_MODE_TIMER){
@@ -222,10 +207,6 @@ void HMainWidget::mouseDoubleClickEvent(QMouseEvent *event){
     }
 }
 
-void HMainWidget::hideEvent(QHideEvent *e){
-    hideToolbar();
-}
-
 void HMainWidget::onTimerRepaint(){
     for (int i = 0; i < m_vecGLWdg.size(); ++i){
         HGLWidget* wdg = m_vecGLWdg[i];
@@ -234,39 +215,6 @@ void HMainWidget::onTimerRepaint(){
             wdg->repaint();
         }
     }
-}
-
-#include <QGraphicsEffect>
-#include <QPropertyAnimation>
-void HMainWidget::showToolbar(){
-    m_btnLeftExpand->hide();
-    m_btnRightFold->show();
-
-//    QPropertyAnimation *animation = new QPropertyAnimation(m_webView, "geometry");
-//    animation->setDuration(300);
-//    animation->setStartValue(QRect(width()-ICON_WIDTH, height()-ICON_HEIGHT, 0, ICON_HEIGHT));
-//    animation->setEndValue(QRect(0, height()-ICON_HEIGHT, width()-ICON_WIDTH, ICON_HEIGHT));
-//    animation->start();
-
-    m_webView->load(QUrl("http://192.168.1.112/transcoder/audio/index"));
-    //m_webView->load(QUrl("https://www.baidu.com"));
-    qDebug("load succeed");
-    m_webView->show();
-}
-
-void HMainWidget::hideToolbar(){
-    m_btnLeftExpand->show();
-    m_btnRightFold->hide();
-
-//    QPropertyAnimation *animation = new QPropertyAnimation(m_webView, "geometry");
-//    animation->setDuration(300);
-//    animation->setStartValue(QRect(0, height()-ICON_HEIGHT, width()-ICON_WIDTH, ICON_HEIGHT));
-//    animation->setEndValue(QRect(width()-ICON_WIDTH, height()-ICON_HEIGHT, 0, ICON_HEIGHT));
-//    animation->start();
-
-    m_webView->hide();
-
-    setFocus();
 }
 
 void HMainWidget::onActionChanged(int action){
@@ -332,8 +280,7 @@ void HMainWidget::onStop(int svrid){
         return;
 
     qDebug("");
-    wdg->setStatus(STOP);
-    wdg->svrid = 0;
+    wdg->onStop();
 }
 
 void HMainWidget::onProgressNty(int svrid, int progress){

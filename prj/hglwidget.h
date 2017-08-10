@@ -122,6 +122,7 @@ signals:
 public slots:
     void onStart();
     void onPause();
+    void onStop();
 
 protected:
     static void loadYUVShader();

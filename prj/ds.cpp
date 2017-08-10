@@ -186,8 +186,18 @@ DSSHARED_EXPORT int liboper(int media_type, int data_type, int opt, void* param,
 
                     if (param){
                         const char* title = (const char*)param;
-                        qDebug("svrid=%d title=%s strlen=%d", svrid, title, strlen(title));
-                        g_dsCtx->setTitle(svrid, title);
+                        if (is_ascii_string(title)){
+                            qDebug("svrid=%d ascii=%s strlen=%d", svrid, title, strlen(title));
+                            g_dsCtx->setTitle(svrid, title);
+                        }else{
+                            ANSICODE2UTF8 a2u(title);
+                            if (a2u.c_str() == NULL || strlen(a2u.c_str()) == 0){
+                                qCritical("title format error!");
+                                return -111;
+                            }
+                            qDebug("svrid=%d utf8=%s strlen=%d", svrid, a2u.c_str(), strlen(a2u.c_str()));
+                            g_dsCtx->setTitle(svrid, a2u.c_str());
+                        }
                     }
                 }
                 break;
@@ -218,7 +228,7 @@ DSSHARED_EXPORT int liboper(int media_type, int data_type, int opt, void* param,
                 }
             }else if (dsc->action == OOK_FOURCC('P', 'L', 'Y', 'R')){
                 int progress = *(int*)dsc->ptr;
-                qDebug("OOK_FOURCC('P', 'L', 'Y', 'R') progress=%d", progress);
+                //qDebug("OOK_FOURCC('P', 'L', 'Y', 'R') progress=%d", progress);
                 emit g_dsCtx->sigProgressNty(svrid, progress);
             }
 
@@ -239,7 +249,7 @@ DSSHARED_EXPORT int liboper(int media_type, int data_type, int opt, void* param,
             return -6;
 
         if (g_dsCtx->getItem(svrid)->v_input < 1){
-            char c[5];
+            char c[5] = {0};
             memcpy(c, &pic->fourcc, 4);
             qDebug("pic[%d] type=%s w=%d h=%d", svrid, c, pic->width, pic->height);
         }

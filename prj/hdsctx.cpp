@@ -24,8 +24,8 @@ void* HDsContext::thread_gui(void* param){
     HMainWidget* mainwdg = new HMainWidget(pObj);
     mainwdg->hide();
 
-    pObj->m_mutex.unlock();
     qDebug("mainwdg create succeed");
+    pObj->m_mutex.unlock();
 
     app.exec();
 
@@ -95,7 +95,8 @@ void HDsContext::start_gui_thread(){
     //pthread_join(pth, &pRet);
     pthread_detach(pth);
 
-    m_mutex.tryLock(10000);
+    m_mutex.lock();
+    m_mutex.unlock();
     qDebug("start_gui_thread>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>");
 
 #endif

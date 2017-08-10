@@ -36,6 +36,8 @@
 #include <ook/separator>
 #include <ook/macro.h>
 #include <ook/tools/chkpath.h>
+#include <ook/tools/strtool>
+#include <ook/tools/strconv>
 
 #include <ook/sock/http_client.h>
 #include <ook/cycbuf2>

@@ -156,17 +156,16 @@ public:
     int push_video(int svrid, const av_picture* pic);
     int push_audio(int svrid, const av_pcmbuff* pcm);
 
-
     void setAction(int action) {
         qDebug("");
         this->action = action;
         emit actionChanged(action);
     }
+
     void setInfo(std::string info){
         qDebug("");
     }
-    void setTitle(int svrid, std::string title){
-        qDebug("");
+    void setTitle(int svrid, const char* title){
         DsItemInfo* item = getItem(svrid);
         if (item){
             item->title = title;

@@ -13,9 +13,6 @@
 #define DRAG_WIDTH      192
 #define DRAG_HEIGHT     108
 
-#define ICON_WIDTH      90
-#define ICON_HEIGHT     90
-
 class HDsContext;
 class HMainWidget : public QWidget
 {
@@ -36,7 +33,6 @@ protected:
     virtual void mouseMoveEvent(QMouseEvent *event);
     virtual void mouseReleaseEvent(QMouseEvent *event);
     virtual void mouseDoubleClickEvent(QMouseEvent *event);
-    virtual void hideEvent(QHideEvent *e);
 
 signals:
 
@@ -55,19 +51,12 @@ public slots:
     void onExitFullScreen();
     void onGLWdgClicked();
 
-    void showToolbar();
-    void hideToolbar();
-
 private:
     HDsContext* m_ctx;
     std::vector<HGLWidget*> m_vecGLWdg;
     std::map<int, HGLWidget*> m_mapGLWdg; // svrid : HGLWidget
 
-    QPushButton* m_btnLeftExpand;
-    QPushButton* m_btnRightFold;
-
-    //QWebEngineView* m_webView;
-    HWebView* m_webView;
+    HMainToolbar* m_toolbar;
 
     HGLWidget* m_dragWdg;
     HGLWidget* m_dragSrcWdg;
