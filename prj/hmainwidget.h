@@ -51,15 +51,20 @@ public slots:
     void onExitFullScreen();
     void onGLWdgClicked();
 
+    void expand();
+    void fold();
+
 private:
     HDsContext* m_ctx;
     std::vector<HGLWidget*> m_vecGLWdg;
     std::map<int, HGLWidget*> m_mapGLWdg; // svrid : HGLWidget
 
+    QPushButton* m_btnLeftExpand;
+    QPushButton* m_btnRightFold;
     HMainToolbar* m_toolbar;
 
-    HGLWidget* m_dragWdg;
     HGLWidget* m_dragSrcWdg;
+    QLabel* m_labelDrag;
 
     QTimer timer_repaint;
 

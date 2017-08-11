@@ -51,6 +51,10 @@ void HRcLoader::loadIcon(){
     strImg = g_dsCtx->img_path;
     strImg += "pause.tga";
     icon_pause.load(strImg.c_str());
+
+    strImg = g_dsCtx->img_path;
+    strImg += "snapshot.png";
+    icon_snapshot.load(strImg.c_str());
 }
 
 void HRcLoader::loadTexture(){

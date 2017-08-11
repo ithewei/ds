@@ -25,6 +25,16 @@ void HTitlebarWidget::initUI(){
 
     hbox->addStretch();
 
+    m_btnSnapshot = new QPushButton;
+    m_btnSnapshot->setFixedSize(TITLEBAR_ICON_WIDTH,TITLEBAR_ICON_HEIGHT);
+    m_btnSnapshot->setIcon(QIcon(HRcLoader::instance()->icon_snapshot));
+    m_btnSnapshot->setIconSize(QSize(TITLEBAR_ICON_WIDTH,TITLEBAR_ICON_HEIGHT));
+    m_btnSnapshot->setFlat(true);
+    m_btnSnapshot->show();
+    hbox->addWidget(m_btnSnapshot);
+
+    hbox->addSpacing(10);
+
     m_btnFullScreen = new QPushButton;
     m_btnFullScreen->setFixedSize(TITLEBAR_ICON_WIDTH,TITLEBAR_ICON_HEIGHT);
     m_btnFullScreen->setIcon(QIcon(HRcLoader::instance()->icon_fullscreen));

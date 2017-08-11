@@ -123,6 +123,7 @@ public slots:
     void onStart();
     void onPause();
     void onStop();
+    void snapshot();
 
 protected:
     static void loadYUVShader();
@@ -143,8 +144,6 @@ protected:
     virtual void mouseReleaseEvent(QMouseEvent* event);
 
 public:
-    int svrid;
-
     static bool s_bInitGLEW;
     static GLuint prog_yuv;
     static GLuint texUniformY;
@@ -154,8 +153,11 @@ public:
     GLuint tex_yuv[3];
     enum E_VER_ATTR{ver_attr_ver = 3, ver_attr_tex = 4, ver_attr_num};
 
+    int svrid;
+
     HTitlebarWidget* m_titleWdg;
     HToolbarWidget*  m_toolWdg;
+    QLabel* m_snapshot;
 
     std::string m_title;
     int m_titcolor;

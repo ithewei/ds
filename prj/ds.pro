@@ -35,7 +35,8 @@ SOURCES += \
     htitlebarwidget.cpp \
     htoolbarwidget.cpp \
     hrcloader.cpp \
-    hmaintoolbar.cpp
+    hmaintoolbar.cpp \
+    hffmpeg.cpp
 
 HEADERS += \
         ds.h \
@@ -48,7 +49,8 @@ HEADERS += \
     htitlebarwidget.h \
     htoolbarwidget.h \
     hrcloader.h \
-    hmaintoolbar.h
+    hmaintoolbar.h \
+    hffmpeg.h
 
 unix {
     target.path = /usr/lib

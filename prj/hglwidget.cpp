@@ -25,16 +25,32 @@ HGLWidget::~HGLWidget(){
 }
 
 void HGLWidget::initUI(){
-    m_titleWdg = new HTitlebarWidget(this);
-    m_titleWdg->hide();
+    QVBoxLayout* vbox = new QVBoxLayout;
+    vbox->setMargin(2);
 
-    m_toolWdg = new HToolbarWidget(this);
+    m_titleWdg = new HTitlebarWidget;
+    m_titleWdg->setFixedHeight(TOOL_BAR_HEIGHT);
+    m_titleWdg->hide();
+    vbox->addWidget(m_titleWdg);
+
+    vbox->addStretch();
+
+    m_toolWdg = new HToolbarWidget;
+    m_toolWdg->setFixedHeight(TOOL_BAR_HEIGHT);
     m_toolWdg->hide();
+    vbox->addWidget(m_toolWdg);
+
+    setLayout(vbox);
+
+    m_snapshot = new QLabel(this);
+    m_snapshot->setStyleSheet("border:5px double #ADFF2F");
+    m_snapshot->hide();
 }
 
 void HGLWidget::initConnect(){
     QObject::connect( m_titleWdg, SIGNAL(fullScreen()), this, SIGNAL(fullScreen()) );
     QObject::connect( m_titleWdg, SIGNAL(exitFullScreen()), this, SIGNAL(exitFullScreen()) );
+    QObject::connect( m_titleWdg->m_btnSnapshot, SIGNAL(clicked(bool)), this, SLOT(snapshot()) );
 
     QObject::connect( m_toolWdg, SIGNAL(sigStart()), this, SLOT(onStart()) );
     QObject::connect( m_toolWdg, SIGNAL(sigPause()), this, SLOT(onPause()) );
@@ -45,7 +61,6 @@ void HGLWidget::showTitlebar(bool bShow){
     if (bShow){
         if ((m_status & MAJOR_STATUS_MASK) == PLAYING ||
             (m_status & MAJOR_STATUS_MASK) == PAUSE){
-            m_titleWdg->setGeometry(2, 2, width()-4, TITLE_BAR_HEIGHT);
             m_titleWdg->show();
         }
     }else{
@@ -57,7 +72,6 @@ void HGLWidget::showToolbar(bool bShow){
     if (bShow){
         if ((m_status & MAJOR_STATUS_MASK) == PLAYING ||
             (m_status & MAJOR_STATUS_MASK) == PAUSE){
-            m_toolWdg->setGeometry(2, height()-TOOL_BAR_HEIGHT-2, width()-4, TITLE_BAR_HEIGHT);
             m_toolWdg->show();
             if (g_dsCtx->getItem(svrid)->src_type != SRC_TYPE_FILE){
                 m_toolWdg->m_slider->hide();
@@ -88,7 +102,7 @@ void HGLWidget::onStart(){
     g_dsCtx->getItem(svrid)->bPause = false;
 }
 
-void HGLWidget::onPause(){
+void HGLWidget::onPause(){    
     DsItemInfo* item = g_dsCtx->getItem(svrid);
     item->bPause = true;
 //    if (item->ifcb){
@@ -105,6 +119,37 @@ void HGLWidget::onStop(){
 
     if (svrid != 1){// svrid=1 is cock,reserve
         svrid = 0;
+    }
+}
+
+#include "hffmpeg.h"
+#include <QDir>
+void HGLWidget::snapshot(){
+    //test snapshot
+    DsItemInfo* item = g_dsCtx->getItem(svrid);
+    if (item && item->tex_yuv.data){
+        static const char* prefix = "/var/transcoder/snapshot/";
+        QDir dir;
+        if (!dir.exists(prefix)){
+            dir.mkpath(prefix);
+        }
+        Texture* tex_yuv = &item->tex_yuv;
+        uchar* rgb = (uchar*)malloc(tex_yuv->width * tex_yuv->height * 4);
+        yuv2rgb32(tex_yuv->data, tex_yuv->width, tex_yuv->height, rgb);
+        QImage img(rgb, tex_yuv->width, tex_yuv->height, QImage::Format_RGB32);
+
+        QDateTime tm = QDateTime::currentDateTime();
+        QString strTime = tm.toString("yyyyMMdd_hhmmss_zzz");
+        QString strSavePath = prefix + strTime + ".jpg";
+        qDebug(strSavePath.toLocal8Bit().data());
+        img.save(strSavePath.toLocal8Bit().data());
+
+        m_snapshot->setGeometry(width()/4, height()/4, width()/2, height()/2);
+        m_snapshot->setPixmap(QPixmap::fromImage(img).scaled(width()/2,height()/2));
+        m_snapshot->show();
+        QTimer::singleShot(1000, m_snapshot, SLOT(hide()) );
+
+        free(rgb);
     }
 }
 

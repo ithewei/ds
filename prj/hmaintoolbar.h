@@ -40,20 +40,17 @@ public:
     explicit HMainToolbar(QWidget *parent = 0);
     ~HMainToolbar();
 
+    virtual void show();
+
 signals:
 
-
 public slots:
-    void expand();
-    void fold();
 
 protected:
     void initUI();
     void initConnect();
 
 public:
-    QPushButton* m_btnLeftExpand;
-    QPushButton* m_btnRightFold;
     HWebView* m_webview;
     HWebContext* m_webContext;
 };

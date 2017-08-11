@@ -28,6 +28,7 @@ public:
     QPixmap icon_pause;
     QPixmap icon_stop;
     QPixmap icon_sound;
+    QPixmap icon_snapshot;
 
     Texture tex_video;
     Texture tex_novideo;

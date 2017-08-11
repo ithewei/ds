@@ -4,6 +4,7 @@
 #include <QWebChannel>
 
 const char* toolbar_url = "http://192.168.1.237/transcoder/audio/index";
+//const char* toolbar_url = "https://www.baidu.com";
 
 void HWebContext::setAction(int action){
     g_dsCtx->setAction(action);
@@ -95,46 +96,15 @@ void HMainToolbar::initUI(){
     hbox->addWidget(m_webview);
     hbox->setAlignment(m_webview, Qt::AlignHCenter);
 
-    m_btnLeftExpand = new QPushButton;
-    m_btnLeftExpand->setFixedSize(ICON_WIDTH, ICON_HEIGHT);
-    m_btnLeftExpand->setIcon(QIcon(HRcLoader::instance()->icon_left_expand));
-    m_btnLeftExpand->setIconSize(QSize(ICON_WIDTH, ICON_HEIGHT));
-    m_btnLeftExpand->setFlat(true);
-    m_btnLeftExpand->show();
-    hbox->addWidget(m_btnLeftExpand);
-    hbox->setAlignment(m_btnLeftExpand, Qt::AlignRight);
-
-    m_btnRightFold = new QPushButton;
-    m_btnRightFold->setFixedSize(ICON_WIDTH, ICON_HEIGHT);
-    m_btnRightFold->setIconSize(QSize(ICON_WIDTH, ICON_HEIGHT));
-    m_btnRightFold->setIcon(QIcon(HRcLoader::instance()->icon_right_fold));
-    m_btnRightFold->setIconSize(QSize(ICON_WIDTH, ICON_HEIGHT));
-    m_btnRightFold->setFlat(true);
-    m_btnRightFold->hide();
-    hbox->addWidget(m_btnRightFold);
-    hbox->setAlignment(m_btnRightFold, Qt::AlignRight);
-
     setLayout(hbox);
 }
 
 void HMainToolbar::initConnect(){
-    QObject::connect( m_btnLeftExpand, SIGNAL(clicked(bool)), this, SLOT(expand()) );
-    QObject::connect( m_btnRightFold, SIGNAL(clicked(bool)), this, SLOT(fold()) );
-
     QObject::connect( m_webview, SIGNAL(loadFinished(bool)), m_webview, SLOT(show()) );
 }
 
-void HMainToolbar::expand(){
-    m_btnLeftExpand->hide();
-    m_btnRightFold->show();
-
-    m_webview->setFixedWidth(width()-ICON_WIDTH);
+void HMainToolbar::show(){
+    m_webview->setFixedSize(width(), height());
     m_webview->setUrl(QUrl(toolbar_url));
-}
-
-void HMainToolbar::fold(){
-    m_btnLeftExpand->show();
-    m_btnRightFold->hide();
-
-    m_webview->hide();
+    QWidget::show();
 }

@@ -44,18 +44,33 @@ void HMainWidget::initUI(){
         m_vecGLWdg.push_back(wdg);
     }
 
-    qDebug("screen_w=%d,screen_h=%d", width(), height());    
+    qDebug("screen_w=%d,screen_h=%d", width(), height());
+
+    m_btnLeftExpand = new QPushButton(this);
+    m_btnLeftExpand->setGeometry(width()-ICON_WIDTH-1, height()-ICON_HEIGHT-1, ICON_WIDTH, ICON_HEIGHT);
+    m_btnLeftExpand->setIcon(QIcon(HRcLoader::instance()->icon_left_expand));
+    m_btnLeftExpand->setIconSize(QSize(ICON_WIDTH, ICON_HEIGHT));
+    m_btnLeftExpand->setFlat(true);
+    m_btnLeftExpand->show();
+
+    m_btnRightFold = new QPushButton(this);
+    m_btnRightFold->setGeometry(width()-ICON_WIDTH-1, height()-ICON_HEIGHT-1, ICON_WIDTH, ICON_HEIGHT);
+    m_btnRightFold->setIcon(QIcon(HRcLoader::instance()->icon_right_fold));
+    m_btnRightFold->setIconSize(QSize(ICON_WIDTH, ICON_HEIGHT));
+    m_btnRightFold->setFlat(true);
+    m_btnRightFold->hide();
 
     m_toolbar = new HMainToolbar(this);
-    m_toolbar->setGeometry(0, height()-ICON_HEIGHT-1, width(), ICON_HEIGHT);
+    m_toolbar->setGeometry(0, height()-ICON_HEIGHT-1, width()-ICON_WIDTH, ICON_HEIGHT);
     m_toolbar->setAutoFillBackground(true);
     pal = m_toolbar->palette();
     pal.setColor(QPalette::Background, Qt::transparent);
     m_toolbar->setPalette(pal);
+    m_toolbar->hide();
 
-    m_dragWdg = new HGLWidget(this);
-    m_dragWdg->setOutlineColor(0x00FF00FF);
-    m_dragWdg->hide();
+    m_labelDrag = new QLabel(this);
+    m_labelDrag->setStyleSheet("border:3px groove #FF8C00");
+    m_labelDrag->hide();
 }
 
 void HMainWidget::initConnect(){
@@ -77,6 +92,9 @@ void HMainWidget::initConnect(){
         QObject::connect( m_vecGLWdg[i], SIGNAL(clicked()), this, SLOT(onGLWdgClicked()) );
         QObject::connect( m_vecGLWdg[i], SIGNAL(progressChanged(int)), this, SLOT(onProgressChanged(int)) );
     }
+
+    QObject::connect( m_btnLeftExpand, SIGNAL(clicked(bool)), this, SLOT(expand()) );
+    QObject::connect( m_btnRightFold, SIGNAL(clicked(bool)), this, SLOT(fold()) );
 
     QObject::connect( &timer_repaint, SIGNAL(timeout()), this, SLOT(onTimerRepaint()) );
     if (m_ctx->display_mode == DISPLAY_MODE_TIMER){
@@ -143,24 +161,23 @@ void HMainWidget::mousePressEvent(QMouseEvent *event){
 void HMainWidget::mouseMoveEvent(QMouseEvent *event){
     HGLWidget* wdg = getGLWdgByPos(event->x(), event->y());
     if (wdg && wdg->svrid != 1 &&           // cock can not drag
-        (wdg->status() & MAJOR_STATUS_MASK) == PLAYING){
-        if (m_dragWdg->isVisible() == false){
-            m_dragWdg->setVisible(true);
-            m_dragWdg->svrid = wdg->svrid;
-            m_dragWdg->setStatus(wdg->status());
+        wdg->status(MAJOR_STATUS_MASK) == PLAYING){
+        if (!m_labelDrag->isVisible()){
+            m_labelDrag->setPixmap( QPixmap::fromImage(wdg->grabFramebuffer()).scaled(DRAG_WIDTH, DRAG_HEIGHT) );
+            m_labelDrag->show();
             m_dragSrcWdg = wdg;
         }
     }
 
-    if (m_dragWdg->isVisible()){
-        m_dragWdg->setGeometry(event->x()-DRAG_WIDTH/2, event->y()-DRAG_HEIGHT, DRAG_WIDTH,DRAG_HEIGHT);
+    if (m_labelDrag->isVisible()){
+        m_labelDrag->setGeometry(event->x()-DRAG_WIDTH/2, event->y()-DRAG_HEIGHT, DRAG_WIDTH,DRAG_HEIGHT);
     }
 }
 
 void HMainWidget::mouseReleaseEvent(QMouseEvent *event){
     // drag release
-    if (m_dragWdg->isVisible()){
-        m_dragWdg->hide();
+    if (m_labelDrag->isVisible()){
+        m_labelDrag->hide();
 
         HGLWidget* wdg = getGLWdgByPos(event->x(), event->y());
         if (wdg == NULL)
@@ -289,6 +306,18 @@ void HMainWidget::onProgressNty(int svrid, int progress){
         return;
 
     wdg->setProgress(progress);
+}
+
+void HMainWidget::expand(){
+    m_btnLeftExpand->hide();
+    m_btnRightFold->show();
+    m_toolbar->show();
+}
+
+void HMainWidget::fold(){
+    m_btnLeftExpand->show();
+    m_btnRightFold->hide();
+    m_toolbar->hide();
 }
 
 void HMainWidget::onFullScreen(){

@@ -28,10 +28,11 @@ protected:
     void initConnection();
     virtual bool event(QEvent *e);
 
-private:
+public:
     QLabel* m_label;
     QPushButton* m_btnFullScreen;
     QPushButton* m_btnExitFullScreen;
+    QPushButton* m_btnSnapshot;
 };
 
 #endif // HTITLEBARWIDGET_H
