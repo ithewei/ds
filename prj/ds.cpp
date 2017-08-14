@@ -27,9 +27,17 @@ void myLogHandler(QtMsgType type, const QMessageLogContext & ctx, const QString 
     sprintf(szLog, "%s %s [%s:%u, %s]\n", szType, msg.toLocal8Bit().constData(), ctx.file, ctx.line, ctx.function);
     fprintf(stderr, szLog);
 
-    //sprintf(szLog, "%s %s\n", szType, msg.toLocal8Bit().constData());
+    QString strLogFilePath = QCoreApplication::applicationDirPath() + "/ds.log";
 
-    FILE* fp = fopen("./ds.log", "a");
+    FILE* fp = fopen(strLogFilePath.toLocal8Bit().data(), "a");
+    if (fp){
+        fseek(fp, 0, SEEK_END);
+        if (ftell(fp) > (2 << 20)){
+            fclose(fp);
+            fopen(strLogFilePath.toLocal8Bit().data(), "w");
+        }
+    }
+
     if (fp){
         fwrite(szLog, 1, strlen(szLog), fp);
         fclose(fp);
@@ -106,12 +114,6 @@ DSSHARED_EXPORT int libinit(const char* xml, void* task, void** ctx){
         if(job_check_path(ttf_path.c_str()) == 0)
             g_dsCtx->initFont(ttf_path, 24);
 
-        if(g_dsCtx->init == 0)
-        {
-            g_dsCtx->init = 1;
-            g_dsCtx->start_gui_thread();
-        }
-
         int mask  = SERVICE_POSITION_VIDEO_AFDEC;
         if(g_dsCtx->audio)
             mask |= SERVICE_POSITION_AUDIO_AFDEC;
@@ -136,9 +138,10 @@ DSSHARED_EXPORT int libstop(void* ctx){
 
     if (g_dsCtx){
         if (--g_dsCtx->ref == 0){
+            qDebug("quit");
             g_dsCtx->quit();
-            delete g_dsCtx;
-            g_dsCtx = NULL;
+//            delete g_dsCtx;
+//            g_dsCtx = NULL;
         }
     }
 
@@ -158,6 +161,11 @@ DSSHARED_EXPORT int liboper(int media_type, int data_type, int opt, void* param,
             switch(opt)
             {
             case SERVICE_OPT_DISPLAY:
+                if(g_dsCtx->init == 0)
+                {
+                    g_dsCtx->init = 1;
+                    g_dsCtx->start_gui_thread();
+                }
                 g_dsCtx->setAction(*(int*)param);
                 break;
             case SERVICE_OPT_TASKSTATUS:

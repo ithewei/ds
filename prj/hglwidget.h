@@ -124,6 +124,8 @@ public slots:
     void onPause();
     void onStop();
     void snapshot();
+    void startRecord();
+    void stopRecord();
 
 protected:
     static void loadYUVShader();

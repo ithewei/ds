@@ -19,6 +19,8 @@ signals:
 public slots:
     void onFullScreen();
     void onExitFullScreen();
+    void onStartRecord();
+    void onStopRecord();
 
 public:
     void setTitle(const char* title) {m_label->setText(title);}
@@ -33,6 +35,8 @@ public:
     QPushButton* m_btnFullScreen;
     QPushButton* m_btnExitFullScreen;
     QPushButton* m_btnSnapshot;
+    QPushButton* m_btnStartRecord;
+    QPushButton* m_btnStopRecord;
 };
 
 #endif // HTITLEBARWIDGET_H

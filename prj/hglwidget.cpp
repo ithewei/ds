@@ -51,9 +51,12 @@ void HGLWidget::initConnect(){
     QObject::connect( m_titleWdg, SIGNAL(fullScreen()), this, SIGNAL(fullScreen()) );
     QObject::connect( m_titleWdg, SIGNAL(exitFullScreen()), this, SIGNAL(exitFullScreen()) );
     QObject::connect( m_titleWdg->m_btnSnapshot, SIGNAL(clicked(bool)), this, SLOT(snapshot()) );
+    QObject::connect( m_titleWdg->m_btnStartRecord, SIGNAL(clicked(bool)), this, SLOT(startRecord()) );
+    QObject::connect( m_titleWdg->m_btnStopRecord, SIGNAL(clicked(bool)), this, SLOT(stopRecord()) );
 
     QObject::connect( m_toolWdg, SIGNAL(sigStart()), this, SLOT(onStart()) );
     QObject::connect( m_toolWdg, SIGNAL(sigPause()), this, SLOT(onPause()) );
+    QObject::connect( m_toolWdg, SIGNAL(sigStop()), this, SLOT(onStop()) );
     QObject::connect( m_toolWdg, SIGNAL(progressChanged(int)), this, SIGNAL(progressChanged(int)) );
 }
 
@@ -72,10 +75,13 @@ void HGLWidget::showToolbar(bool bShow){
     if (bShow){
         if ((m_status & MAJOR_STATUS_MASK) == PLAYING ||
             (m_status & MAJOR_STATUS_MASK) == PAUSE){
-            m_toolWdg->show();
+            m_toolWdg->m_btnStart->hide();
+            m_toolWdg->m_btnPause->show();
+            m_toolWdg->m_btnStop->setEnabled(true);
             if (g_dsCtx->getItem(svrid)->src_type != SRC_TYPE_FILE){
                 m_toolWdg->m_slider->hide();
             }
+            m_toolWdg->show();
         }
     }else{
         m_toolWdg->hide();
@@ -133,6 +139,7 @@ void HGLWidget::snapshot(){
         if (!dir.exists(prefix)){
             dir.mkpath(prefix);
         }
+
         Texture* tex_yuv = &item->tex_yuv;
         uchar* rgb = (uchar*)malloc(tex_yuv->width * tex_yuv->height * 4);
         yuv2rgb32(tex_yuv->data, tex_yuv->width, tex_yuv->height, rgb);
@@ -151,6 +158,14 @@ void HGLWidget::snapshot(){
 
         free(rgb);
     }
+}
+
+void HGLWidget::startRecord(){
+
+}
+
+void HGLWidget::stopRecord(){
+
 }
 
 void HGLWidget::mousePressEvent(QMouseEvent* event){

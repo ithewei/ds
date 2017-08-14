@@ -3,6 +3,8 @@
 
 HDsContext* g_dsCtx = NULL;
 
+#include <QSplashScreen>
+#include <QProgressBar>
 #ifdef WIN32
 void HDsContext::thread_gui(void* param) {
 #else
@@ -18,11 +20,47 @@ void* HDsContext::thread_gui(void* param){
     font.setPointSize(18);
     QApplication::setFont(font);
 
+    int sw = QApplication::desktop()->width();
+    int sh = QApplication::desktop()->height();
+
+    QSplashScreen* splash = new QSplashScreen;
+    splash->setWindowFlags(Qt::Window | Qt::FramelessWindowHint);
+    splash->setGeometry(0,0,sw,sh);
+    splash->setStyleSheet("background-color: black");
+
+    QProgressBar* progress = new QProgressBar(splash);
+    progress->setGeometry(sw/2 - 150, sh/2 + 50, 300, 30);
+    progress->setStyleSheet("background-color: white; border:2px solid gray; border-radius: 5px");
+    progress->setRange(0,100);
+    progress->setValue(0);
+    splash->showFullScreen();
+    app.processEvents();
+
+    splash->showMessage("Loading icon...", Qt::AlignCenter, Qt::white);
+    progress->setValue(10);
+    app.processEvents();
     HRcLoader::instance()->loadIcon();
+
+    splash->showMessage("Loading texture...", Qt::AlignCenter, Qt::white);
+    progress->setValue(30);
+    app.processEvents();
     HRcLoader::instance()->loadTexture();
 
+    splash->showMessage("Creating main UI...", Qt::AlignCenter, Qt::white);
+    progress->setValue(50);
+    app.processEvents();
     HMainWidget* mainwdg = new HMainWidget(pObj);
     mainwdg->hide();
+
+    splash->showMessage("Complete!", Qt::AlignCenter, Qt::white);
+    progress->setValue(100);
+    app.processEvents();
+    splash->finish(mainwdg);
+    delete splash;
+
+//    mainwdg->setAttribute(Qt::WA_QuitOnClose,true);
+//    app.connect( &app,  SIGNAL(lastWindowClosed()),  &app,  SLOT(quit()));
+//    app.connect( pObj,  SIGNAL(quit()),  &app,  SLOT(quit()));
 
     qDebug("mainwdg create succeed");
     pObj->m_mutex.unlock();
@@ -34,8 +72,6 @@ void* HDsContext::thread_gui(void* param){
 #ifdef linux
     pthread_exit(NULL);
 #endif
-
-    qDebug("thread_gui end");
 }
 
 HDsContext::HDsContext()
@@ -94,17 +130,16 @@ void HDsContext::start_gui_thread(){
     //void* pRet;
     //pthread_join(pth, &pRet);
     pthread_detach(pth);
-
-    m_mutex.lock();
-    m_mutex.unlock();
-    qDebug("start_gui_thread>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>");
-
 #endif
 
 #ifdef WIN32
     unsigned int hThread_glut = _beginthread(thread_glut, 0, this);
     //WaitForSingleObject((HANDLE)hThread_glut, INFINITE);
 #endif
+
+    m_mutex.lock();
+    m_mutex.unlock();
+    qDebug("start_gui_thread>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>");
 }
 
 /*

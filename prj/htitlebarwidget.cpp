@@ -25,12 +25,28 @@ void HTitlebarWidget::initUI(){
 
     hbox->addStretch();
 
+    m_btnStartRecord = new QPushButton;
+    m_btnStartRecord->setFixedSize(TITLEBAR_ICON_WIDTH,TITLEBAR_ICON_HEIGHT);
+    m_btnStartRecord->setIcon(QIcon(HRcLoader::instance()->icon_record));
+    m_btnStartRecord->setIconSize(QSize(TITLEBAR_ICON_WIDTH,TITLEBAR_ICON_HEIGHT));
+    m_btnStartRecord->setFlat(true);
+    hbox->addWidget(m_btnStartRecord);
+
+    m_btnStopRecord = new QPushButton;
+    m_btnStopRecord->setFixedSize(TITLEBAR_ICON_WIDTH,TITLEBAR_ICON_HEIGHT);
+    m_btnStopRecord->setIcon(QIcon(HRcLoader::instance()->icon_recording));
+    m_btnStopRecord->setIconSize(QSize(TITLEBAR_ICON_WIDTH,TITLEBAR_ICON_HEIGHT));
+    m_btnStopRecord->setFlat(true);
+    m_btnStopRecord->hide();
+    hbox->addWidget(m_btnStopRecord);
+
+    hbox->addSpacing(10);
+
     m_btnSnapshot = new QPushButton;
     m_btnSnapshot->setFixedSize(TITLEBAR_ICON_WIDTH,TITLEBAR_ICON_HEIGHT);
     m_btnSnapshot->setIcon(QIcon(HRcLoader::instance()->icon_snapshot));
     m_btnSnapshot->setIconSize(QSize(TITLEBAR_ICON_WIDTH,TITLEBAR_ICON_HEIGHT));
     m_btnSnapshot->setFlat(true);
-    m_btnSnapshot->show();
     hbox->addWidget(m_btnSnapshot);
 
     hbox->addSpacing(10);
@@ -57,6 +73,9 @@ void HTitlebarWidget::initUI(){
 void HTitlebarWidget::initConnection(){
     QObject::connect( m_btnFullScreen, SIGNAL(clicked()), this, SLOT(onFullScreen()) );
     QObject::connect( m_btnExitFullScreen, SIGNAL(clicked()), this, SLOT(onExitFullScreen()) );
+
+    QObject::connect( m_btnStartRecord, SIGNAL(clicked(bool)), this, SLOT(onStartRecord()) );
+    QObject::connect( m_btnStopRecord, SIGNAL(clicked(bool)), this, SLOT(onStopRecord()) );
 }
 
 void HTitlebarWidget::onFullScreen(){
@@ -69,6 +88,16 @@ void HTitlebarWidget::onExitFullScreen(){
     m_btnFullScreen->show();
     m_btnExitFullScreen->hide();
     emit exitFullScreen();
+}
+
+void HTitlebarWidget::onStartRecord(){
+    m_btnStartRecord->hide();
+    m_btnStopRecord->show();
+}
+
+void HTitlebarWidget::onStopRecord(){
+    m_btnStartRecord->show();
+    m_btnStopRecord->hide();
 }
 
 bool HTitlebarWidget::event(QEvent *e){

@@ -51,7 +51,6 @@ void HMainWidget::initUI(){
     m_btnLeftExpand->setIcon(QIcon(HRcLoader::instance()->icon_left_expand));
     m_btnLeftExpand->setIconSize(QSize(ICON_WIDTH, ICON_HEIGHT));
     m_btnLeftExpand->setFlat(true);
-    m_btnLeftExpand->show();
 
     m_btnRightFold = new QPushButton(this);
     m_btnRightFold->setGeometry(width()-ICON_WIDTH-1, height()-ICON_HEIGHT-1, ICON_WIDTH, ICON_HEIGHT);
@@ -71,6 +70,7 @@ void HMainWidget::initUI(){
     m_labelDrag = new QLabel(this);
     m_labelDrag->setStyleSheet("border:3px groove #FF8C00");
     m_labelDrag->hide();
+
 }
 
 void HMainWidget::initConnect(){
@@ -83,7 +83,7 @@ void HMainWidget::initConnect(){
     QObject::connect( m_ctx, SIGNAL(audioPushed(int)), this, SLOT(onAudioPushed(int)) );
     QObject::connect( m_ctx, SIGNAL(sourceChanged(int,bool)), this, SLOT(onSourceChanged(int,bool)) );
     QObject::connect( m_ctx, SIGNAL(sigStop(int)), this, SLOT(onStop(int)) );
-    QObject::connect( m_ctx, SIGNAL(quit()), this, SLOT(close()) );
+    QObject::connect( m_ctx, SIGNAL(quit()), this, SLOT(hide()) );
     QObject::connect( m_ctx, SIGNAL(sigProgressNty(int,int)), this, SLOT(onProgressNty(int,int)) );
 
     for (int i = 0; i < m_vecGLWdg.size(); ++i){

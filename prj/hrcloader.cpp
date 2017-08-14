@@ -53,8 +53,20 @@ void HRcLoader::loadIcon(){
     icon_pause.load(strImg.c_str());
 
     strImg = g_dsCtx->img_path;
+    strImg += "stop.png";
+    icon_stop.load(strImg.c_str());
+
+    strImg = g_dsCtx->img_path;
     strImg += "snapshot.png";
     icon_snapshot.load(strImg.c_str());
+
+    strImg = g_dsCtx->img_path;
+    strImg += "record.png";
+    icon_record.load(strImg.c_str());
+
+    strImg = g_dsCtx->img_path;
+    strImg += "recording.png";
+    icon_recording.load(strImg.c_str());
 }
 
 void HRcLoader::loadTexture(){

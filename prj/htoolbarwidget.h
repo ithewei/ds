@@ -13,11 +13,13 @@ public:
 signals:
     void sigStart();
     void sigPause();
+    void sigStop();
     void progressChanged(int progress);
 
 public slots:
     void onStart();
     void onPause();
+    void onStop();
     void onSlider();
 
 protected:
@@ -28,6 +30,7 @@ protected:
 public:
     QPushButton* m_btnStart;
     QPushButton* m_btnPause;
+    QPushButton* m_btnStop;
     QSlider* m_slider;
 };
 
