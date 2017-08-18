@@ -24,8 +24,13 @@ void myLogHandler(QtMsgType type, const QMessageLogContext & ctx, const QString 
     }
     char szLog[1024];
 
+#ifdef DEBUG
     sprintf(szLog, "%s %s [%s:%u, %s]\n", szType, msg.toLocal8Bit().constData(), ctx.file, ctx.line, ctx.function);
-    fprintf(stderr, szLog);
+#else
+    if (msg.length() > 0){
+        sprintf(szLog, "%s %s\n", szType, msg.toLocal8Bit().constData());
+    }
+#endif
 
     QString strLogFilePath = QCoreApplication::applicationDirPath() + "/ds.log";
 
@@ -149,8 +154,6 @@ DSSHARED_EXPORT int libstop(void* ctx){
 }
 
 DSSHARED_EXPORT int liboper(int media_type, int data_type, int opt, void* param, void * ctx){
-    //qDebug("media_type=%d,data_type=%d,opt=%d", media_type, data_type, opt);
-
     if (!ctx)
         return -1;
 
@@ -171,10 +174,19 @@ DSSHARED_EXPORT int liboper(int media_type, int data_type, int opt, void* param,
             case SERVICE_OPT_TASKSTATUS:
                 if (param){
                     std::string * str = (std::string *)param;
-                    g_dsCtx->setInfo(str->c_str());
+                    g_dsCtx->parse_taskinfo_xml(str->c_str());
                 }
                 break;
             case SERVICE_OPT_TASKSTATUSREQ:
+                if (g_dsCtx->m_curTick > g_dsCtx->m_lastTick + 3000){
+                    g_dsCtx->m_lastTick = g_dsCtx->m_curTick;
+                    if (param){
+                        int svrid = *(int*)param;
+                        if (svrid == 1){
+                            return 1;
+                        }
+                    }
+                }
                 break;
             case SERVICE_OPT_PREVSTOP:
                 if(param)
@@ -189,7 +201,8 @@ DSSHARED_EXPORT int liboper(int media_type, int data_type, int opt, void* param,
                 if(opt > 0x1000)
                 {
                     int svrid = opt - 0x1000;
-                    if (svrid < 1 || svrid > DIRECTOR_MAX_SERVS)
+                    // svrid=1 not display title
+                    if (svrid < 2 || svrid > DIRECTOR_MAX_SERVS)
                         return -2;
 
                     if (param){
@@ -222,15 +235,15 @@ DSSHARED_EXPORT int liboper(int media_type, int data_type, int opt, void* param,
             DsItemInfo* item = g_dsCtx->getItem(svrid);
 
             if(dsc->action == OOK_FOURCC('S', 'V', 'C', 'B')){
-                qDebug("OOK_FOURCC('S', 'V', 'C', 'B')");
+                qDebug("svrid=%d OOK_FOURCC('S', 'V', 'C', 'B')", svrid);
                 if (item){
                     item->ifcb = (ifservice_callback *)dsc->ptr;
                 }
             }else if(dsc->action == OOK_FOURCC('L', 'O', 'U', 'T')){
-                qDebug("OOK_FOURCC('L', 'O', 'U', 'T')");
+                qDebug("svrid=%d OOK_FOURCC('L', 'O', 'U', 'T')", svrid);
                 g_dsCtx->parse_cock_xml((const char *)dsc->ptr);
             }else if (dsc->action == OOK_FOURCC('S', 'R', 'C', 'L')){
-                qDebug("OOK_FOURCC('S', 'R', 'C', 'L')");
+                qDebug("svrid=%d OOK_FOURCC('S', 'R', 'C', 'L')", svrid);
                 if (strcmp((const char*)dsc->ptr, "file") == 0){
                     item->src_type = SRC_TYPE_FILE;
                 }

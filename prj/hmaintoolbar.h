@@ -12,6 +12,7 @@ class HWebContext : public QObject{
     Q_OBJECT
 public slots:
     void setAction(int action);
+    void toogleInfo();
 };
 
 class HWebView : public QWebEngineView

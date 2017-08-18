@@ -103,7 +103,7 @@ public:
     void removeIcon(int type);
     Texture* getTexture(int type);
 
-    void setTitle(const char* title) {m_title = title;m_titleWdg->setTitle(title);}
+    void setTitle(const char* title) {m_titleWdg->setTitle(title);}
     void setTitleColor(int color) {m_titcolor = color;}
     void setOutlineColor(int color) {m_outlinecolor = color;}
 
@@ -126,6 +126,7 @@ public slots:
     void snapshot();
     void startRecord();
     void stopRecord();
+    void onProgressChanged(int progress);
 
 protected:
     static void loadYUVShader();
@@ -161,7 +162,6 @@ public:
     HToolbarWidget*  m_toolWdg;
     QLabel* m_snapshot;
 
-    std::string m_title;
     int m_titcolor;
     int m_outlinecolor;
 

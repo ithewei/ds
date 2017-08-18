@@ -128,6 +128,41 @@ struct DsItemInfo{
     }
 };
 
+struct intf_s
+{
+    unsigned int loss;
+    unsigned int speed;
+    std::string name;
+};
+
+struct udptrf_s
+{
+    unsigned int received;
+    unsigned int dispatch;
+    unsigned int resend;
+    unsigned int loss;
+    unsigned int buffer;
+    unsigned int overflow;
+
+    intf_s intf[8];
+};
+
+static void init_udptrf_s(udptrf_s * s)
+{
+    s->received = 0;
+    s->dispatch = 0;
+    s->resend   = 0;
+    s->loss     = 0;
+    s->buffer   = 0;
+    s->overflow = 0;
+    for(int i = 0; i < 8; i++)
+    {
+        s->intf[i].loss  = 0;
+        s->intf[i].speed = 0;
+        s->intf[i].name  = "";
+    }
+}
+
 class HDsContext : public QObject
 {
     Q_OBJECT
@@ -140,6 +175,7 @@ public:
     int parse_init_xml(const char* xml);
     int parse_layout_xml(const char* xml_file);
     int parse_cock_xml(const char* xml);
+    int parse_taskinfo_xml(const char* xml);
 
     void initImg(std::string& path);
     void initFont(std::string& path, int h);
@@ -162,9 +198,6 @@ public:
         emit actionChanged(action);
     }
 
-    void setInfo(std::string info){
-        qDebug("");
-    }
     void setTitle(int svrid, const char* title){
         DsItemInfo* item = getItem(svrid);
         if (item){
@@ -245,6 +278,11 @@ public:
     HAudioPlay* m_audioPlay;
 
     DsItemInfo m_tItems[DIRECTOR_MAX_SERVS];
+
+    std::string m_strTaskInfo;
+    uint m_curTick;
+    uint m_lastTick;
+    bool m_bUpdateTaskInfo;
 };
 
 extern HDsContext* g_dsCtx;

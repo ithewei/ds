@@ -41,6 +41,7 @@
 
 #include <ook/sock/http_client.h>
 #include <ook/cycbuf2>
+#include <ook/sys/call>
 
 extern "C" {
     #include <ook/codecs/avdef.h>

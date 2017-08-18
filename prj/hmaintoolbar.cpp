@@ -3,11 +3,18 @@
 #include "hdsctx.h"
 #include <QWebChannel>
 
-const char* toolbar_url = "http://192.168.1.237/transcoder/audio/index";
+const char* toolbar_url = "http://localhost/transcoder/audio/index.html";
 //const char* toolbar_url = "https://www.baidu.com";
 
 void HWebContext::setAction(int action){
     g_dsCtx->setAction(action);
+}
+
+void HWebContext::toogleInfo(){
+    if (g_dsCtx->info)
+        g_dsCtx->info = 0;
+    else
+        g_dsCtx->info = 1;
 }
 
 HWebView::HWebView(QWidget* parent)

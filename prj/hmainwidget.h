@@ -45,7 +45,6 @@ public slots:
     void onSourceChanged(int svrid, bool bSucceed);
     void onStop(int svrid);
     void onProgressNty(int svrid, int progress);
-    void onProgressChanged(int progress);
 
     void onFullScreen();
     void onExitFullScreen();

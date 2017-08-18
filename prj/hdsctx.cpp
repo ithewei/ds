@@ -52,7 +52,7 @@ void* HDsContext::thread_gui(void* param){
     HMainWidget* mainwdg = new HMainWidget(pObj);
     mainwdg->hide();
 
-    splash->showMessage("Complete!", Qt::AlignCenter, Qt::white);
+    splash->showMessage("Loading completed!", Qt::AlignCenter, Qt::white);
     progress->setValue(100);
     app.processEvents();
     splash->finish(mainwdg);
@@ -101,6 +101,10 @@ HDsContext::HDsContext()
     m_cntCock = 0;
     m_iOriginCockW = 0;
     m_iOriginCockH = 0;
+
+    m_bUpdateTaskInfo = false;
+    m_curTick = 0;
+    m_lastTick = 0;
 
     m_trans = new transaction;
     m_audioPlay = new HAudioPlay;
@@ -484,6 +488,242 @@ int HDsContext::parse_cock_xml(const char* xml){
     return 0;
 }
 
+/*
+    <?xml version="1.0" encoding="UTF-8" ?>
+    <rsp version="1.1">
+    <list>
+    <item>
+    <param n="TTID" v="uAtCXCR9W0i1v5gazCp9" />
+    <param n="taskname" v="ook" />
+    <param n="age" v="24" />
+    <param n="wheel" v="1" />
+    <param n="inputpkgs" v="0/714/0" />
+    <param n="sync" v="30343963|0/30343475|0/30343963|30343643" />
+    <param n="audiopkgs" v="110/989(MPEG1|48000|1)/1109/900/0" />
+    <param n="videopkgs" v="603/589(MPEG2|720X576|25|De:2)/538/483/0" />
+    <param n="buffer" v="7/0/0" />
+    <param n="queue" v="xxx/xxx" />
+    <param n="overflow" v="0/0/0" />
+    <param n="outputpkgs" v="2046" />
+    <param n="outputspeed" v="2046" />
+    </item>
+    </list>
+    </rsp>
+ */
+int HDsContext::parse_taskinfo_xml(const char* xml){
+    ook::xml_element root;
+    if(!root.parse(xml, strlen(xml)))
+        return -1;
+
+    const ook::xml_element * rsp = ook::xml_parser::get_element(&root, "<rsp>");
+    if(!rsp)
+        return -2;
+
+    const ook::xml_element * list = ook::xml_parser::get_element(rsp, "<list>");
+    if(!list)
+        return -3;
+
+    const ook::xml_element * item = ook::xml_parser::get_element(list, "<item>");
+    if(!item)
+        return -4;
+
+    int buffer[3] = {-1};
+    int queue [2] = {-1};
+    int outputpkgs[2] = {-1};
+    int outputspeed = -1;
+    const ook::xml_element * e;
+    while(1)
+    {
+        e = ook::xml_parser::enum_childen(item, "param");
+        if(!e)
+            break;
+        const std::string & n = e->get_attribute("n");
+        const std::string & v = e->get_attribute("v");
+        if(n == "buffer"){
+            separator sept(v.c_str(), "/");
+            if(sept[0])
+                buffer[0] = atoi(sept[0]);
+            if(sept[1])
+                buffer[1] = atoi(sept[1]);
+            if(sept[2])
+                buffer[2] = atoi(sept[2]);
+        }else if(n == "queue"){
+            separator sept(v.c_str(), "/");
+            if(sept[0])
+                queue[0] = atoi(sept[0]);
+            if(sept[1])
+                queue[1] = atoi(sept[1]);
+        }else if(n == "outputpkgs"){
+            separator sept(v.c_str(), "/");
+            if (sept[0])
+                outputpkgs[0] = atoi(sept[0]);
+            if (sept[1])
+                outputpkgs[1] = atoi(sept[1]);
+        }else if(n == "outputspeed"){
+            outputspeed = atoi(v.c_str());
+        }
+    }
+
+    if (buffer[0] < 0 || queue[0] < 0)
+        return -5;
+
+    const ook::xml_element * elem_outputpkgs  = ook::xml_parser::get_element(item, "<outputpkgs>");
+    const ook::xml_element * udptransfer = NULL;
+    udptrf_s us;
+    init_udptrf_s(&us);
+    if(elem_outputpkgs)
+        udptransfer = ook::xml_parser::get_element(elem_outputpkgs, "<udp-transfer>");
+    if (udptransfer){
+        /*
+            <outputpkgs>
+            <udp-transfer>
+            <server>192.168.1.21:3066</server>
+            <dest>127.0.0.1:1234</dest>
+
+            <received>578</received>
+            <dispatch>578</dispatch>
+            <resend>0</resend>
+            <loss>0</loss>
+            <buffer>0</buffer>
+            <overflow>0</overflow>
+
+            <intf>
+            <name>eth0</name>
+            <state>on</state>
+            <disp>578</disp>
+            <loss>0</loss>
+            <speeds>230</speeds>
+            <speedl>235</speedl>
+            </intf>
+            </udp-transfer>
+            </outputpkgs>
+         */
+        const ook::xml_element * received = ook::xml_parser::get_element(udptransfer, "<received>");
+        if(received)
+            us.received = (unsigned int)strtoul(received->text().c_str(), NULL, 10);
+
+        const ook::xml_element * dispatch = ook::xml_parser::get_element(udptransfer, "<dispatch>");
+        if(dispatch)
+            us.dispatch = (unsigned int)strtoul(dispatch->text().c_str(), NULL, 10);
+
+        const ook::xml_element * resend   = ook::xml_parser::get_element(udptransfer, "<resend>");
+        if(resend)
+            us.resend   = (unsigned int)strtoul(resend->text().c_str(), NULL, 10);
+
+        const ook::xml_element * loss     = ook::xml_parser::get_element(udptransfer, "<loss>");
+        if(loss)
+            us.loss     = (unsigned int)strtoul(loss->text().c_str(), NULL, 10);
+
+        const ook::xml_element * buffer   = ook::xml_parser::get_element(udptransfer, "<buffer>");
+        if(buffer)
+            us.buffer   = (unsigned int)strtoul(buffer->text().c_str(), NULL, 10);
+
+        const ook::xml_element * overflow = ook::xml_parser::get_element(udptransfer, "<overflow>");
+        if(overflow)
+            us.overflow = (unsigned int)strtoul(overflow->text().c_str(), NULL, 10);
+
+        int index = 0;
+        ook::xml_parser::enum_childen(udptransfer, NULL);
+        const ook::xml_element * e_intf = NULL;
+        while(1)
+        {
+            e_intf = ook::xml_parser::enum_childen(udptransfer, "intf");
+            if(!e_intf)
+                break;
+
+            const ook::xml_element * e_name  = ook::xml_parser::get_element(e_intf, "<name>");
+            if(e_name)
+                us.intf[index].name  = e_name->text();
+
+            const ook::xml_element * e_stat  = ook::xml_parser::get_element(e_intf, "<state>");
+            if(e_stat)
+            {
+                if(e_stat->text() != "on")
+                {
+                    us.intf[index].name = "";
+                    continue;
+                }
+            }
+
+            const ook::xml_element * e_loss  = ook::xml_parser::get_element(e_intf, "<loss>");
+            if(e_loss)
+                us.intf[index].loss  = (unsigned int)strtoul(e_loss->text().c_str(), NULL, 10);
+
+            const ook::xml_element * e_speed = ook::xml_parser::get_element(e_intf, "<speeds>");
+            if(e_speed)
+                us.intf[index].speed = (unsigned int)strtoul(e_speed->text().c_str(), NULL, 10);
+            index++;
+        }
+    }
+
+    std::string s_cont;
+    char cont[128];
+    __snprintf(cont, 128, "缓 存 %d/%d/%d ", buffer[0], buffer[1], buffer[2]);
+    s_cont = cont;
+
+    if(udptransfer)
+    {
+        __snprintf(cont, 128, "接 收 %d", us.received);
+        s_cont += "\r\n";
+        s_cont += cont;
+        __snprintf(cont, 128, "发 送 %d", us.dispatch);
+        s_cont += "\r\n";
+        s_cont += cont;
+        __snprintf(cont, 128, "重 传 %d", us.resend);
+        s_cont += "\r\n";
+        s_cont += cont;
+        __snprintf(cont, 128, "丢 失 %d", us.loss);
+        s_cont += "\r\n";
+        s_cont += cont;
+        __snprintf(cont, 128, "待 发 %d", us.buffer);
+        s_cont += "\r\n";
+        s_cont += cont;
+        __snprintf(cont, 128, "溢 出 %d", us.overflow);
+        s_cont += "\r\n";
+        s_cont += cont;
+
+        int i = 0;
+        int total_speed = 0;
+        for(; i < 8; i++)
+        {
+            if(us.intf[i].name.length() == 0)
+                break;
+            total_speed += us.intf[i].speed;
+            __snprintf(cont, 128, "%-5s: %5ukps (%u) ", us.intf[i].name.c_str(), us.intf[i].speed, us.intf[i].loss);
+            s_cont += "\r\n";
+            s_cont += cont;
+        }
+        if(i > 1 && total_speed > 0)
+        {
+            s_cont += "\r\n";
+            s_cont += "------------";
+            __snprintf(cont, 128, "%-4s: %5ukps ", "TOT", total_speed);
+            s_cont += "\r\n";
+            s_cont += cont;
+        }
+    }
+    else
+    {
+        if(queue[0] > -1)
+        {
+            __snprintf(cont, 128, "排 队 %d/%d", queue[0], queue[1]);
+            s_cont += "\r\n";
+            s_cont += cont;
+        }
+        if(outputspeed > -1)
+            __snprintf(cont, 128, "发 送 %d/%d (%dkps)", outputpkgs[0], outputpkgs[1], outputspeed);
+        else
+            __snprintf(cont, 128, "发 送 %d/%d", outputpkgs[0], outputpkgs[1]);
+        s_cont += "\r\n";
+        s_cont += cont;
+    }
+
+    m_strTaskInfo = s_cont;
+    qDebug(m_strTaskInfo.c_str());
+
+    return 0;
+}
+
 void HDsContext::initImg(std::string& path){
     qDebug("");
     img_path = path;
@@ -506,6 +746,8 @@ int HDsContext::push_video(int svrid, const av_picture* pic){
     DsItemInfo* item = getItem(svrid);
     if (!item || item->bPause)
         return -2;
+
+    m_curTick = (unsigned int)chsc_gettick();
 
     int w = pic->width;
     int h = pic->height;
@@ -623,7 +865,11 @@ int HDsContext::push_audio(int svrid, const av_pcmbuff* pcm){
             }
         }
         item->a_average[0] = a[0] / ((channels + 1) / 2) / samples;
-        item->a_average[1] = a[1] / (channels / 2) / samples;
+        if (channels > 1){
+            item->a_average[1] = a[1] / (channels / 2) / samples;
+        }else{
+            item->a_average[1] = 0;
+        }
 
         item->bUpdateAverage = false;
     }

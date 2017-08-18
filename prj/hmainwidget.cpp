@@ -90,7 +90,6 @@ void HMainWidget::initConnect(){
         QObject::connect( m_vecGLWdg[i], SIGNAL(fullScreen()), this, SLOT(onFullScreen()) );
         QObject::connect( m_vecGLWdg[i], SIGNAL(exitFullScreen()), this, SLOT(onExitFullScreen()) );
         QObject::connect( m_vecGLWdg[i], SIGNAL(clicked()), this, SLOT(onGLWdgClicked()) );
-        QObject::connect( m_vecGLWdg[i], SIGNAL(progressChanged(int)), this, SLOT(onProgressChanged(int)) );
     }
 
     QObject::connect( m_btnLeftExpand, SIGNAL(clicked(bool)), this, SLOT(expand()) );
@@ -99,6 +98,7 @@ void HMainWidget::initConnect(){
     QObject::connect( &timer_repaint, SIGNAL(timeout()), this, SLOT(onTimerRepaint()) );
     if (m_ctx->display_mode == DISPLAY_MODE_TIMER){
         timer_repaint.start(1000 / m_ctx->frames);
+        //timer_repaint.start(1000 / 20);
     }
 }
 
@@ -349,16 +349,5 @@ void HMainWidget::onGLWdgClicked(){
             m_vecGLWdg[i]->showTitlebar(false);
             m_vecGLWdg[i]->showToolbar(false);
         }
-    }
-}
-
-void HMainWidget::onProgressChanged(int progress){
-
-    HGLWidget* pSender = (HGLWidget*)sender();
-    qDebug("svrid=%d progress=%d", pSender->svrid, progress);
-    DsItemInfo* item = m_ctx->getItem(pSender->svrid);
-    if (item && item->ifcb){
-        qDebug("progress=%d", progress);
-        item->ifcb->onservice_callback(ifservice_callback::e_service_cb_playratio, OOK_FOURCC('D', 'I', 'R', 'C'), 0, 0, progress, NULL);
     }
 }

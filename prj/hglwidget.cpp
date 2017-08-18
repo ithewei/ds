@@ -2,6 +2,7 @@
 #include "hglwidget.h"
 #include "hdsctx.h"
 #include "hrcloader.h"
+#include "ds.h"
 
 bool HGLWidget::s_bInitGLEW = false;
 GLuint HGLWidget::prog_yuv;
@@ -57,13 +58,17 @@ void HGLWidget::initConnect(){
     QObject::connect( m_toolWdg, SIGNAL(sigStart()), this, SLOT(onStart()) );
     QObject::connect( m_toolWdg, SIGNAL(sigPause()), this, SLOT(onPause()) );
     QObject::connect( m_toolWdg, SIGNAL(sigStop()), this, SLOT(onStop()) );
-    QObject::connect( m_toolWdg, SIGNAL(progressChanged(int)), this, SIGNAL(progressChanged(int)) );
+    QObject::connect( m_toolWdg, SIGNAL(progressChanged(int)), this, SLOT(onProgressChanged(int)) );
 }
 
 void HGLWidget::showTitlebar(bool bShow){
     if (bShow){
         if ((m_status & MAJOR_STATUS_MASK) == PLAYING ||
             (m_status & MAJOR_STATUS_MASK) == PAUSE){
+            DsItemInfo* item = g_dsCtx->getItem(svrid);
+            if (item){
+                m_titleWdg->setTitle(item->title.c_str());
+            }
             m_titleWdg->show();
         }
     }else{
@@ -75,13 +80,24 @@ void HGLWidget::showToolbar(bool bShow){
     if (bShow){
         if ((m_status & MAJOR_STATUS_MASK) == PLAYING ||
             (m_status & MAJOR_STATUS_MASK) == PAUSE){
-            m_toolWdg->m_btnStart->hide();
-            m_toolWdg->m_btnPause->show();
-            m_toolWdg->m_btnStop->setEnabled(true);
-            if (g_dsCtx->getItem(svrid)->src_type != SRC_TYPE_FILE){
-                m_toolWdg->m_slider->hide();
+
+            if ((m_status & MAJOR_STATUS_MASK) == PLAYING){
+                m_toolWdg->m_btnStart->hide();
+                m_toolWdg->m_btnPause->show();
             }
-            m_toolWdg->show();
+            if ((m_status & MAJOR_STATUS_MASK) == PAUSE){
+                m_toolWdg->m_btnStart->show();
+                m_toolWdg->m_btnPause->hide();
+            }
+
+            if (g_dsCtx->getItem(svrid)->src_type == SRC_TYPE_FILE){
+                m_toolWdg->m_slider->show();
+                m_toolWdg->show();
+            }
+            if (svrid == 1){
+                m_toolWdg->m_slider->hide();
+                m_toolWdg->show();
+            }
         }
     }else{
         m_toolWdg->hide();
@@ -105,26 +121,49 @@ void HGLWidget::toggleToolbar(){
 }
 
 void HGLWidget::onStart(){
-    g_dsCtx->getItem(svrid)->bPause = false;
+    DsItemInfo* item = g_dsCtx->getItem(svrid);
+    if (item && item->ifcb){
+        qDebug("svrid=%d startplay", svrid);
+        item->bPause = false;
+        if (svrid == 1){
+            item->ifcb->onservice_callback(
+                        ifservice_callback::e_service_cb_chr, libchar(), OOK_FOURCC('P', 'A', 'U', 'S'), 0, 0, NULL);
+        }else{
+            //
+        }
+    }
+
 }
 
 void HGLWidget::onPause(){    
     DsItemInfo* item = g_dsCtx->getItem(svrid);
-    item->bPause = true;
-//    if (item->ifcb){
-//        item->ifcb->onservice_callback(ifservice_callback::e_service_cb_pause, OOK_FOURCC('D', 'I', 'R', 'C'), 0, 0, 0, NULL);
-//    }
+    if (item && item->ifcb){
+        qDebug("svrid=%d ifservice_callback::e_service_cb_pause", svrid);
+        item->bPause = true;
+        if (svrid == 1){
+            item->ifcb->onservice_callback(ifservice_callback::e_service_cb_chr, libchar(), OOK_FOURCC('P', 'A', 'U', 'S'), 0, 0, NULL);
+        }else{
+            item->ifcb->onservice_callback(ifservice_callback::e_service_cb_pause, libchar(), OOK_FOURCC('P', 'A', 'U', 'S'), 0, 0, NULL);
+        }
+    }
     setStatus(PAUSE | status(MINOR_STATUS_MASK));
 }
 
 void HGLWidget::onStop(){
     setStatus(STOP);
-    m_title.clear();
     m_mapIcons.clear();
     m_nPreFrame = 0;
 
     if (svrid != 1){// svrid=1 is cock,reserve
         svrid = 0;
+    }
+}
+
+void HGLWidget::onProgressChanged(int progress){
+    DsItemInfo* item = g_dsCtx->getItem(svrid);
+    if (item && item->ifcb){
+        qDebug("svrid=%d progress=%d ifservice_callback::e_service_cb_playratio", svrid, progress);
+        item->ifcb->onservice_callback(ifservice_callback::e_service_cb_playratio, libchar(), 0, 0, progress, NULL);
     }
 }
 
@@ -282,15 +321,31 @@ void HGLWidget::paintGL(){
 
         if (m_status & PLAY_AUDIO){
             // draw sound icon
-            Texture *tex = getTexture(HAVE_AUDIO);
-            di.left = width() - 32;
-            di.top = 1;
-            di.right = width() - 1;
-            di.bottom = 32;
-            drawTex(tex, &di);
+//            Texture *tex = getTexture(HAVE_AUDIO);
+//            di.left = width() - 32;
+//            di.top = 1;
+//            di.right = width() - 1;
+//            di.bottom = 32;
+//            drawTex(tex, &di);
 
             // draw sound average
-            di.left = width()-4 - AUDIO_WIDTH*2;
+            if (item->a_average[1] != 0){
+                di.left = width()-4 - AUDIO_WIDTH*2;
+                di.top = height()-2 - AUDIO_HEIGHT;
+                di.right = di.left + AUDIO_WIDTH;
+                di.bottom = di.top + AUDIO_HEIGHT;
+                di.color = 0x00FFFF80;
+                drawRect(&di, true);
+
+                di.left += 1;
+                di.right -= 1;
+                di.bottom -= 1;
+                di.top = di.bottom - item->a_average[1] * AUDIO_HEIGHT / 65536;
+                di.color = 0xFFFF0080;
+                drawRect(&di, true);
+            }
+
+            di.left = width()-2 - AUDIO_WIDTH;
             di.top = height()-2 - AUDIO_HEIGHT;
             di.right = di.left + AUDIO_WIDTH;
             di.bottom = di.top + AUDIO_HEIGHT;
@@ -304,31 +359,18 @@ void HGLWidget::paintGL(){
             di.color = 0xFFFF0080;
             drawRect(&di, true);
 
-            di.left = width()-2 - AUDIO_WIDTH;
-            di.top = height()-2 - AUDIO_HEIGHT;
-            di.right = di.left + AUDIO_WIDTH;
-            di.bottom = di.top + AUDIO_HEIGHT;
-            di.color = 0x00FFFF80;
-            drawRect(&di, true);
-
-            di.left += 1;
-            di.right -= 1;
-            di.bottom -= 1;
-            di.top = di.bottom - item->a_average[1] * AUDIO_HEIGHT / 65536;
-            di.color = 0xFFFF0080;
-            drawRect(&di, true);
-
             item->bUpdateAverage = true;
         }
         break;
     }
 
     // draw title
-    if (m_title.length() > 0){
+    DsItemInfo* item = g_dsCtx->getItem(svrid);
+    if (item && item->title.length() > 0){
         di.left = 2;
         di.top = 2;
         di.color = m_titcolor;
-        drawStr(g_dsCtx->m_pFont, m_title.c_str(), &di);
+        drawStr(g_dsCtx->m_pFont, item->title.c_str(), &di);
     }
 
     // draw icons
@@ -426,6 +468,8 @@ void HGLWidget::loadYUVShader(){
     texUniformV = glGetUniformLocation(prog_yuv, "tex_v");
 
     qDebug("loadYUVShader ok");
+
+    //glUseProgram(prog_yuv);
 }
 
 void HGLWidget::initVAO(){
@@ -505,11 +549,11 @@ void HGLWidget::drawYUV(Texture* tex){
     glUniform1i(texUniformV, 2);
 
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+    glUseProgram(0);
 }
 
 void HGLWidget::drawTex(Texture* tex, DrawInfo* di){
-    glUseProgram(0);
-
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
     glOrtho(0.0, width(), height(), 0.0, -1.0, 1.0);
@@ -517,6 +561,7 @@ void HGLWidget::drawTex(Texture* tex, DrawInfo* di){
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, tex->texID);
     gluBuild2DMipmaps(GL_TEXTURE_2D, tex->bpp/8, tex->width, tex->height, tex->type, GL_UNSIGNED_BYTE, tex->data);
+    //glTexImage2D(GL_TEXTURE_2D, 0, tex->bpp/8, tex->width, tex->height, 0, tex->type, GL_UNSIGNED_BYTE, tex->data);
 
     glEnable(GL_TEXTURE_2D);
     glEnable(GL_BLEND);
@@ -541,34 +586,30 @@ void HGLWidget::drawStr(FTGLPixmapFont *pFont, const char* str, DrawInfo* di){
     if (!pFont)
         return ;
 
-    glUseProgram(0);
-
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
     glOrtho(0.0, width(), height(), 0.0, -1.0, 1.0);
 
-    const char* mbs = str;
-    int len_mbs = strlen(mbs);
-#ifdef WIN32
-    setlocale(LC_ALL,".936");
-#else
-    setlocale(LC_ALL,"zh_CN.utf8");
-#endif
-    int len_wcs = mbstowcs(NULL, mbs, 0);
-    wchar_t* wcs = new wchar_t[len_wcs + 1];
-    mbstowcs(wcs, mbs, strlen(mbs)+1);
+//    const char* mbs = str;
+//    int len_mbs = strlen(mbs);
+//#ifdef WIN32
+//    setlocale(LC_ALL,".936");
+//#else
+//    setlocale(LC_ALL,"zh_CN.utf8");
+//#endif
+//    int len_wcs = mbstowcs(NULL, mbs, 0);
+//    wchar_t* wcs = new wchar_t[len_wcs + 1];
+//    mbstowcs(wcs, mbs, strlen(mbs)+1);
 
     glColor3ub(R(di->color), G(di->color), B(di->color));
     glRasterPos2i(di->left, di->top + pFont->LineHeight());
-    pFont->Render(wcs);
+    pFont->Render(str);
     glColor3ub(255,255,255);
 
-    delete[] wcs;
+    //delete[] wcs;
 }
 
 void HGLWidget::drawRect(DrawInfo* di, bool bFill){
-    glUseProgram(0);
-
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
     glOrtho(0.0, width(), height(), 0.0, -1.0, 1.0);
@@ -620,9 +661,24 @@ void HCockGLWidget::onCockChanged(){
 void HCockGLWidget::paintGL(){
     HGLWidget::paintGL();
 
-    // draw cock sub window outline
     DrawInfo di;
 
+    // draw taskinfo
+    if (g_dsCtx->info && g_dsCtx->m_pFont){
+        int oldSize = g_dsCtx->m_pFont->FaceSize();
+        g_dsCtx->m_pFont->FaceSize(32);
+        separator sept(g_dsCtx->m_strTaskInfo.c_str(), "\r\n");
+        di.top = 10;
+        di.left = 10;
+        di.color = g_dsCtx->infcolor;
+        for (int i = 0; i < sept.size(); ++i){
+            drawStr(g_dsCtx->m_pFont, sept[i], &di);
+            di.top += g_dsCtx->m_pFont->LineHeight() + 10;
+        }
+        g_dsCtx->m_pFont->FaceSize(oldSize);
+    }
+
+    // draw cock sub window outline
     for (int i = 1; i < m_vecCocks.size(); ++i){
         di.left = m_vecCocks[i].left();
         di.top = m_vecCocks[i].top();

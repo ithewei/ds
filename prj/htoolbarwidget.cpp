@@ -39,15 +39,15 @@ void HToolbarWidget::initUI(){
 
     hbox->addSpacing(10);
 
-    m_btnStop = new QPushButton;
-    m_btnStop->setFixedSize(TITLEBAR_ICON_WIDTH,TITLEBAR_ICON_HEIGHT);
-    m_btnStop->setIcon(QIcon(HRcLoader::instance()->icon_stop));
-    m_btnStop->setIconSize(QSize(TITLEBAR_ICON_WIDTH,TITLEBAR_ICON_HEIGHT));
-    m_btnStop->setFlat(true);
-    hbox->addWidget(m_btnStop);
-    hbox->setAlignment(m_btnStop, Qt::AlignLeft);
+//    m_btnStop = new QPushButton;
+//    m_btnStop->setFixedSize(TITLEBAR_ICON_WIDTH,TITLEBAR_ICON_HEIGHT);
+//    m_btnStop->setIcon(QIcon(HRcLoader::instance()->icon_stop));
+//    m_btnStop->setIconSize(QSize(TITLEBAR_ICON_WIDTH,TITLEBAR_ICON_HEIGHT));
+//    m_btnStop->setFlat(true);
+//    hbox->addWidget(m_btnStop);
+//    hbox->setAlignment(m_btnStop, Qt::AlignLeft);
 
-    hbox->addSpacing(10);
+//    hbox->addSpacing(10);
 
     m_slider = new QSlider;
     m_slider->setOrientation(Qt::Horizontal);
@@ -66,7 +66,7 @@ void HToolbarWidget::initUI(){
 void HToolbarWidget::initConnection(){
     QObject::connect( m_btnStart, SIGNAL(clicked(bool)), this, SLOT(onStart()) );
     QObject::connect( m_btnPause, SIGNAL(clicked(bool)), this, SLOT(onPause()) );
-    QObject::connect( m_btnStop, SIGNAL(clicked(bool)), this, SLOT(onStop()) );
+    //QObject::connect( m_btnStop, SIGNAL(clicked(bool)), this, SLOT(onStop()) );
 
     QObject::connect( m_slider, SIGNAL(sliderReleased()), this, SLOT(onSlider()) );
 }
@@ -99,7 +99,7 @@ void HToolbarWidget::onPause(){
 }
 
 void HToolbarWidget::onStop(){
-    m_btnStop->setEnabled(false);
+    //m_btnStop->setEnabled(false);
     emit sigStop();
 }
 
