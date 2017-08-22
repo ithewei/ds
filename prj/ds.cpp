@@ -25,10 +25,10 @@ void myLogHandler(QtMsgType type, const QMessageLogContext & ctx, const QString 
     char szLog[1024];
 
 #ifdef DEBUG
-    sprintf(szLog, "%s %s [%s:%u, %s]\n", szType, msg.toLocal8Bit().constData(), ctx.file, ctx.line, ctx.function);
+    snprintf(szLog, 1024, "%s %s [%s:%u, %s]\n", szType, msg.toLocal8Bit().constData(), ctx.file, ctx.line, ctx.function);
 #else
     if (msg.length() > 0){
-        sprintf(szLog, "%s %s\n", szType, msg.toLocal8Bit().constData());
+        snprintf(szLog, 1024, "%s %s\n", szType, msg.toLocal8Bit().constData());
     }
 #endif
 
@@ -178,11 +178,11 @@ DSSHARED_EXPORT int liboper(int media_type, int data_type, int opt, void* param,
                 }
                 break;
             case SERVICE_OPT_TASKSTATUSREQ:
-                if (g_dsCtx->m_curTick > g_dsCtx->m_lastTick + 3000){
-                    g_dsCtx->m_lastTick = g_dsCtx->m_curTick;
-                    if (param){
-                        int svrid = *(int*)param;
-                        if (svrid == 1){
+                if (param){
+                    int svrid = *(int*)param;
+                    if (svrid == 1){
+                        if (g_dsCtx->m_curTick > g_dsCtx->m_lastTick + 1000){
+                            g_dsCtx->m_lastTick = g_dsCtx->m_curTick;
                             return 1;
                         }
                     }

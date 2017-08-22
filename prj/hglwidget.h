@@ -10,7 +10,7 @@
 #include "htoolbarwidget.h"
 
 #define TITLE_BAR_HEIGHT    50
-#define TOOL_BAR_HEIGHT     50
+#define TOOL_BAR_HEIGHT     66
 
 #define AUDIO_WIDTH         16
 #define AUDIO_HEIGHT        160
@@ -62,6 +62,37 @@ struct DrawInfo{
     GLuint color;
 };
 
+class QGLWidgetImpl : public QOpenGLWidget
+{
+    Q_OBJECT
+public:
+    QGLWidgetImpl(QWidget* parent = Q_NULLPTR);
+    virtual ~QGLWidgetImpl();
+
+protected:
+    static void loadYUVShader();
+    void initVAO();
+    void drawYUV(Texture* tex);
+    void drawTex(Texture* tex, DrawInfo* di);
+    void drawStr(FTGLPixmapFont *pFont, const char* str, DrawInfo* di);
+    void drawRect(DrawInfo* di, bool bFill = false);
+
+protected:
+    virtual void initializeGL();
+    virtual void resizeGL(int w, int h);
+    //virtual void paintGL();
+
+protected:
+    static bool s_bInitGLEW;
+    static GLuint prog_yuv;
+    static GLuint texUniformY;
+    static GLuint texUniformU;
+    static GLuint texUniformV;
+
+    GLuint tex_yuv[3];
+    enum E_VER_ATTR{ver_attr_ver = 3, ver_attr_tex = 4, ver_attr_num};
+};
+
 enum GLWND_STATUS{
     MAJOR_STATUS_MASK = 0x00FF,
     STOP        =  0x0001,
@@ -84,7 +115,7 @@ enum GLWDG_ICONS{
     CHANGING,
 };
 
-class HGLWidget : public QOpenGLWidget
+class HGLWidget : public QGLWidgetImpl
 {
     Q_OBJECT
 public:
@@ -120,42 +151,25 @@ signals:
     void progressChanged(int progress);
 
 public slots:
-    void onStart();
-    void onPause();
-    void onStop();
     void snapshot();
     void startRecord();
     void stopRecord();
+    void onNumSelected(int num);
+    void onNumUnselected(int num);
+
+    void onStart();
+    void onPause();
+    void onStop();
     void onProgressChanged(int progress);
 
 protected:
-    static void loadYUVShader();
-    void initVAO();
-    void drawYUV(Texture* tex);
-    void drawTex(Texture* tex, DrawInfo* di);
-    void drawStr(FTGLPixmapFont *pFont, const char* str, DrawInfo* di);
-    void drawRect(DrawInfo* di, bool bFill = false);
-
-protected:
-    virtual void initializeGL();
-    virtual void resizeGL(int w, int h);
     virtual void paintGL();
-
     void initUI();
     void initConnect();
     virtual void mousePressEvent(QMouseEvent* event);
     virtual void mouseReleaseEvent(QMouseEvent* event);
 
 public:
-    static bool s_bInitGLEW;
-    static GLuint prog_yuv;
-    static GLuint texUniformY;
-    static GLuint texUniformU;
-    static GLuint texUniformV;
-
-    GLuint tex_yuv[3];
-    enum E_VER_ATTR{ver_attr_ver = 3, ver_attr_tex = 4, ver_attr_num};
-
     int svrid;
 
     HTitlebarWidget* m_titleWdg;

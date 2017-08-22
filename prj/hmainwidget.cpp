@@ -1,7 +1,8 @@
 #include "hmainwidget.h"
 #include "hrcloader.h"
 
-HMainWidget::HMainWidget(HDsContext* ctx, QWidget *parent) : QWidget(parent)
+HMainWidget::HMainWidget(HDsContext* ctx, QWidget *parent)
+    : QGLWidgetImpl(parent)
 {
     m_ctx = ctx;
 
@@ -229,7 +230,7 @@ void HMainWidget::onTimerRepaint(){
         HGLWidget* wdg = m_vecGLWdg[i];
         DsItemInfo* item = m_ctx->getItem(wdg->svrid);
         if (wdg->status(MAJOR_STATUS_MASK) == PLAYING && item && item->v_input != wdg->m_nPreFrame){
-            wdg->repaint();
+            wdg->update();
         }
     }
 }

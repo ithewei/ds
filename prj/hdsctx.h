@@ -283,6 +283,8 @@ public:
     uint m_curTick;
     uint m_lastTick;
     bool m_bUpdateTaskInfo;
+
+    int m_iSelectedNum[3];
 };
 
 extern HDsContext* g_dsCtx;

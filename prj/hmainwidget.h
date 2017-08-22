@@ -14,7 +14,7 @@
 #define DRAG_HEIGHT     108
 
 class HDsContext;
-class HMainWidget : public QWidget
+class HMainWidget : public QGLWidgetImpl
 {
     Q_OBJECT
 public:

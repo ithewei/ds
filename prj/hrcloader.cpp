@@ -67,6 +67,21 @@ void HRcLoader::loadIcon(){
     strImg = g_dsCtx->img_path;
     strImg += "recording.png";
     icon_recording.load(strImg.c_str());
+
+    char num[16];
+    for (int i = 0; i < 3; ++i){
+        strImg = g_dsCtx->img_path;
+        sprintf(num, "b%d.png", i+1);
+        strImg += num;
+        icon_numb[i].load(strImg.c_str());
+    }
+
+    for (int i = 0; i < 3; ++i){
+        strImg = g_dsCtx->img_path;
+        sprintf(num, "r%d.png", i+1);
+        strImg += num;
+        icon_numr[i].load(strImg.c_str());
+    }
 }
 
 void HRcLoader::loadTexture(){

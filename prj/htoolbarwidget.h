@@ -4,6 +4,9 @@
 #include <QWidget>
 #include <QSlider>
 
+#define TOOLBAR_ICON_WIDTH          64
+#define TOOLBAR_ICON_HEIGHT         64
+
 class HToolbarWidget : public QWidget
 {
     Q_OBJECT
@@ -21,6 +24,7 @@ public slots:
     void onPause();
     void onStop();
     void onSlider();
+    void onSlider(int action);
 
 protected:
     void initUI();

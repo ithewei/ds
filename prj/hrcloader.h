@@ -31,6 +31,8 @@ public:
     QPixmap icon_snapshot;
     QPixmap icon_record;
     QPixmap icon_recording;
+    QPixmap icon_numb[3];
+    QPixmap icon_numr[3];
 
     Texture tex_video;
     Texture tex_novideo;

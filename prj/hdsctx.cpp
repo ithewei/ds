@@ -106,6 +106,10 @@ HDsContext::HDsContext()
     m_curTick = 0;
     m_lastTick = 0;
 
+    for (int i = 0; i < 3; ++i){
+        m_iSelectedNum[i] = 0;
+    }
+
     m_trans = new transaction;
     m_audioPlay = new HAudioPlay;
 }
@@ -719,7 +723,7 @@ int HDsContext::parse_taskinfo_xml(const char* xml){
     }
 
     m_strTaskInfo = s_cont;
-    qDebug(m_strTaskInfo.c_str());
+    //qDebug(m_strTaskInfo.c_str());
 
     return 0;
 }
@@ -739,6 +743,7 @@ void HDsContext::initFont(std::string& path, int h){
     }
 }
 
+#include "hffmpeg.h"
 int HDsContext::push_video(int svrid, const av_picture* pic){
     if (action < 1)
         return -1;
@@ -762,13 +767,15 @@ int HDsContext::push_video(int svrid, const av_picture* pic){
             if(!item->tex_yuv.data)
             {
                 item->tex_yuv.data = (unsigned char *)malloc(w * h * 3 / 2);
+                item->tex_yuv.type = GL_I420;
                 bFirstFrame = true;
                 qDebug("malloc w=%d,h=%d", w, h);
             }
 
+            int y_size = w * h;
             unsigned char * y = item->tex_yuv.data;
-            unsigned char * u = y + w * h;
-            unsigned char * v = u + w * h / 4;
+            unsigned char * u = y + y_size;
+            unsigned char * v = u + (y_size >> 2);
             unsigned char * s_y = pic->data[0];
             unsigned char * s_u = pic->data[1];
             unsigned char * s_v = pic->data[2];
@@ -777,26 +784,41 @@ int HDsContext::push_video(int svrid, const av_picture* pic){
                 s_v = pic->data[1];
                 s_u = pic->data[2];
             }
-            for(int i = 0; i < h; i++)
-            {
-                memcpy(y, s_y, w);
-                y   += w;
-                s_y += pic->stride[0];
-            }
-            h >>= 1;
-            w >>= 1;
-            for(int i = 0; i < h; i++)
-            {
-                memcpy(u, s_u, w);
-                memcpy(v, s_v, w);
-                u   += w;
-                v   += w;
-                s_u += pic->stride[1];
-                s_v += pic->stride[2];
-            }
-            item->tex_yuv.width = pic->width;
-            item->tex_yuv.height = pic->height;
-            item->tex_yuv.type = GL_I420;
+
+//            if (h <= 720){
+                item->tex_yuv.width = w;
+                item->tex_yuv.height = h;
+                for(int i = 0; i < h; ++i)
+                {
+                    memcpy(y, s_y, w);
+                    y   += w;
+                    s_y += pic->stride[0];
+                }
+                h >>= 1;
+                w >>= 1;
+                for(int i = 0; i < h; ++i)
+                {
+                    memcpy(u, s_u, w);
+                    memcpy(v, s_v, w);
+                    u   += w;
+                    v   += w;
+                    s_u += pic->stride[1];
+                    s_v += pic->stride[2];
+                }
+//            }else{
+//                item->tex_yuv.width = 1280;
+//                item->tex_yuv.height = 720;
+//                SwsContext* pSwsCtx = sws_getContext(w,h,AV_PIX_FMT_YUV420P, 1280,720,AV_PIX_FMT_YUV420P, SWS_BICUBIC, NULL, NULL, NULL);
+//                uint8_t* data[3];
+//                data[0] = y;
+//                data[1] = u;
+//                data[2] = v;
+//                int stride[3];
+//                stride[0] = 1280;
+//                stride[1] = stride[2] = 640;
+//                sws_scale(pSwsCtx, pic->data, pic->stride, 0, h, data, stride);
+//                sws_freeContext(pSwsCtx);
+//            }
             item->mutex.unlock();
         }
         break;
@@ -891,6 +913,7 @@ void* thread_http_req(void* param){
     {
         clt->query(strRes, 2000);
         qDebug(g_dsCtx->m_strUrl.c_str());
+        const char* p = strRes.c_str();
         qDebug(strRes.c_str());
     }
 
