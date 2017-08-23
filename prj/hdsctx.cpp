@@ -515,6 +515,8 @@ int HDsContext::parse_cock_xml(const char* xml){
     </rsp>
  */
 int HDsContext::parse_taskinfo_xml(const char* xml){
+    //qDebug(xml);
+
     ook::xml_element root;
     if(!root.parse(xml, strlen(xml)))
         return -1;
@@ -754,6 +756,12 @@ int HDsContext::push_video(int svrid, const av_picture* pic){
 
     m_curTick = (unsigned int)chsc_gettick();
 
+    if (!item->bUpdateVideo)
+        return 0;
+
+    if (display_mode == DISPLAY_MODE_TIMER)
+        item->bUpdateVideo = false;
+
     int w = pic->width;
     int h = pic->height;
     bool bFirstFrame = false;
@@ -766,13 +774,20 @@ int HDsContext::push_video(int svrid, const av_picture* pic){
             item->mutex.lock();
             if(!item->tex_yuv.data)
             {
-                item->tex_yuv.data = (unsigned char *)malloc(w * h * 3 / 2);
+                if (BIG_VIDEO_SCALE && h > 720){
+                    item->tex_yuv.width = w >> 2;
+                    item->tex_yuv.height = h >> 2;
+                }else{
+                    item->tex_yuv.width = w;
+                    item->tex_yuv.height = h;
+                }
+                item->tex_yuv.data = (unsigned char *)malloc(item->tex_yuv.width * item->tex_yuv.height * 3 / 2);
                 item->tex_yuv.type = GL_I420;
                 bFirstFrame = true;
-                qDebug("malloc w=%d,h=%d", w, h);
+                qDebug("malloc w=%d,h=%d", item->tex_yuv.width, item->tex_yuv.height);
             }
 
-            int y_size = w * h;
+            int y_size = item->tex_yuv.width * item->tex_yuv.height;
             unsigned char * y = item->tex_yuv.data;
             unsigned char * u = y + y_size;
             unsigned char * v = u + (y_size >> 2);
@@ -785,9 +800,24 @@ int HDsContext::push_video(int svrid, const av_picture* pic){
                 s_u = pic->data[2];
             }
 
-//            if (h <= 720){
-                item->tex_yuv.width = w;
-                item->tex_yuv.height = h;
+            if (BIG_VIDEO_SCALE && h > 720){
+                item->tex_yuv.width = w >> 2;
+                item->tex_yuv.height = h >> 2;
+                SwsContext* pSwsCtx = sws_getContext(w,h,AV_PIX_FMT_YUV420P, item->tex_yuv.width,item->tex_yuv.height,AV_PIX_FMT_YUV420P, SWS_BICUBIC, NULL, NULL, NULL);
+                uint8_t* src_date[3];
+                src_date[0] = s_y;
+                src_date[1] = s_u;
+                src_date[2] = s_v;
+                uint8_t* dst_data[3];
+                dst_data[0] = y;
+                dst_data[1] = u;
+                dst_data[2] = v;
+                int stride[3];
+                stride[0] = item->tex_yuv.width;
+                stride[1] = stride[2] = item->tex_yuv.width / 2;
+                sws_scale(pSwsCtx, src_date, pic->stride, 0, h, dst_data, stride);
+                sws_freeContext(pSwsCtx);
+            }else{
                 for(int i = 0; i < h; ++i)
                 {
                     memcpy(y, s_y, w);
@@ -805,20 +835,7 @@ int HDsContext::push_video(int svrid, const av_picture* pic){
                     s_u += pic->stride[1];
                     s_v += pic->stride[2];
                 }
-//            }else{
-//                item->tex_yuv.width = 1280;
-//                item->tex_yuv.height = 720;
-//                SwsContext* pSwsCtx = sws_getContext(w,h,AV_PIX_FMT_YUV420P, 1280,720,AV_PIX_FMT_YUV420P, SWS_BICUBIC, NULL, NULL, NULL);
-//                uint8_t* data[3];
-//                data[0] = y;
-//                data[1] = u;
-//                data[2] = v;
-//                int stride[3];
-//                stride[0] = 1280;
-//                stride[1] = stride[2] = 640;
-//                sws_scale(pSwsCtx, pic->data, pic->stride, 0, h, data, stride);
-//                sws_freeContext(pSwsCtx);
-//            }
+            }
             item->mutex.unlock();
         }
         break;
@@ -889,8 +906,10 @@ int HDsContext::push_audio(int svrid, const av_pcmbuff* pcm){
         item->a_average[0] = a[0] / ((channels + 1) / 2) / samples;
         if (channels > 1){
             item->a_average[1] = a[1] / (channels / 2) / samples;
+            item->a_channels = 2;
         }else{
             item->a_average[1] = 0;
+            item->a_channels = 1;
         }
 
         item->bUpdateAverage = false;

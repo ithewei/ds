@@ -33,6 +33,7 @@ public:
     QPixmap icon_recording;
     QPixmap icon_numb[3];
     QPixmap icon_numr[3];
+    QPixmap icon_trash;
 
     Texture tex_video;
     Texture tex_novideo;

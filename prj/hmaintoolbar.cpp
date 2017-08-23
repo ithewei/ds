@@ -6,6 +6,12 @@
 const char* toolbar_url = "http://localhost/transcoder/audio/index.html";
 //const char* toolbar_url = "https://www.baidu.com";
 
+HWebContext::HWebContext()
+ : QObject()
+{
+
+}
+
 void HWebContext::setAction(int action){
     g_dsCtx->setAction(action);
 }
@@ -15,6 +21,13 @@ void HWebContext::toogleInfo(){
         g_dsCtx->info = 0;
     else
         g_dsCtx->info = 1;
+}
+
+void HWebContext::getSelectInfo(int id){
+      QString ret;
+      ret.sprintf("{\"id1\":%d, \"id2\":%d, \"id3\":%d}", g_dsCtx->m_iSelectedNum[0], g_dsCtx->m_iSelectedNum[1], g_dsCtx->m_iSelectedNum[2]);
+      emit sendSelectInfo(ret, id);
+      qDebug(ret.toLocal8Bit().constData());
 }
 
 HWebView::HWebView(QWidget* parent)

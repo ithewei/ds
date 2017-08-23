@@ -10,9 +10,16 @@
 
 class HWebContext : public QObject{
     Q_OBJECT
+public:
+    HWebContext();
+
+signals:
+    void sendSelectInfo(const QString &info, int id);
+
 public slots:
     void setAction(int action);
     void toogleInfo();
+    void getSelectInfo(int id);
 };
 
 class HWebView : public QWebEngineView

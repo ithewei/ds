@@ -2,7 +2,7 @@
 #include "hrcloader.h"
 
 HMainWidget::HMainWidget(HDsContext* ctx, QWidget *parent)
-    : QGLWidgetImpl(parent)
+    : QWidget(parent)
 {
     m_ctx = ctx;
 
@@ -71,7 +71,6 @@ void HMainWidget::initUI(){
     m_labelDrag = new QLabel(this);
     m_labelDrag->setStyleSheet("border:3px groove #FF8C00");
     m_labelDrag->hide();
-
 }
 
 void HMainWidget::initConnect(){
@@ -161,13 +160,10 @@ void HMainWidget::mousePressEvent(QMouseEvent *event){
 
 void HMainWidget::mouseMoveEvent(QMouseEvent *event){
     HGLWidget* wdg = getGLWdgByPos(event->x(), event->y());
-    if (wdg && wdg->svrid != 1 &&           // cock can not drag
-        wdg->status(MAJOR_STATUS_MASK) == PLAYING){
-        if (!m_labelDrag->isVisible()){
-            m_labelDrag->setPixmap( QPixmap::fromImage(wdg->grabFramebuffer()).scaled(DRAG_WIDTH, DRAG_HEIGHT) );
-            m_labelDrag->show();
-            m_dragSrcWdg = wdg;
-        }
+    if (wdg && wdg->status(MAJOR_STATUS_MASK) == PLAYING && !m_labelDrag->isVisible()){
+        m_dragSrcWdg = wdg;
+        m_labelDrag->setPixmap( QPixmap::fromImage(wdg->grabFramebuffer()).scaled(DRAG_WIDTH, DRAG_HEIGHT) );
+        m_labelDrag->show();
     }
 
     if (m_labelDrag->isVisible()){
@@ -179,7 +175,6 @@ void HMainWidget::mouseReleaseEvent(QMouseEvent *event){
     // drag release
     if (m_labelDrag->isVisible()){
         m_labelDrag->hide();
-
         HGLWidget* wdg = getGLWdgByPos(event->x(), event->y());
         if (wdg == NULL)
             return;
@@ -209,22 +204,6 @@ void HMainWidget::mouseReleaseEvent(QMouseEvent *event){
     }
 }
 
-void HMainWidget::mouseDoubleClickEvent(QMouseEvent *event){
-    qDebug("");
-    HGLWidget* wdg = getGLWdgByPos(event->x(), event->y());
-    if (wdg == NULL)
-        return;
-
-    if (wdg->svrid == 1){
-        DsEvent evt;
-        evt.type = DS_EVENT_STOP;
-        evt.dst_svrid = 1;
-        evt.dst_x = event->x() - wdg->x();
-        evt.dst_y = event->y() - wdg->y();
-        m_ctx->handle_event(evt);
-    }
-}
-
 void HMainWidget::onTimerRepaint(){
     for (int i = 0; i < m_vecGLWdg.size(); ++i){
         HGLWidget* wdg = m_vecGLWdg[i];
@@ -232,6 +211,8 @@ void HMainWidget::onTimerRepaint(){
         if (wdg->status(MAJOR_STATUS_MASK) == PLAYING && item && item->v_input != wdg->m_nPreFrame){
             wdg->update();
         }
+        if (item)
+            item->bUpdateVideo = true;
     }
 }
 

@@ -36,7 +36,8 @@ SOURCES += \
     htoolbarwidget.cpp \
     hrcloader.cpp \
     hmaintoolbar.cpp \
-    hffmpeg.cpp
+    hffmpeg.cpp \
+    hchangecolorwidget.cpp
 
 HEADERS += \
         ds.h \
@@ -50,7 +51,8 @@ HEADERS += \
     htoolbarwidget.h \
     hrcloader.h \
     hmaintoolbar.h \
-    hffmpeg.h
+    hffmpeg.h \
+    hchangecolorwidget.h
 
 unix {
     target.path = /usr/lib

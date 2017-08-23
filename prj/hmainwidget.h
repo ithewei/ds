@@ -5,6 +5,7 @@
 #include <QPushButton>
 #include "hmaintoolbar.h"
 #include "hglwidget.h"
+#include "hchangecolorwidget.h"
 #include "ds_global.h"
 #include "hdsctx.h"
 
@@ -14,7 +15,7 @@
 #define DRAG_HEIGHT     108
 
 class HDsContext;
-class HMainWidget : public QGLWidgetImpl
+class HMainWidget : public QWidget
 {
     Q_OBJECT
 public:
@@ -32,7 +33,6 @@ protected:
     virtual void mousePressEvent(QMouseEvent *event);
     virtual void mouseMoveEvent(QMouseEvent *event);
     virtual void mouseReleaseEvent(QMouseEvent *event);
-    virtual void mouseDoubleClickEvent(QMouseEvent *event);
 
 signals:
 
@@ -62,8 +62,8 @@ private:
     QPushButton* m_btnRightFold;
     HMainToolbar* m_toolbar;
 
-    HGLWidget* m_dragSrcWdg;
     QLabel* m_labelDrag;
+    HGLWidget* m_dragSrcWdg;
 
     QTimer timer_repaint;
 

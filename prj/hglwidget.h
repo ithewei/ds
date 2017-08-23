@@ -142,6 +142,7 @@ public:
     void showToolbar(bool bShow = true);
     void toggleTitlebar();
     void toggleToolbar();
+    virtual void toggleToolWidgets();
     void setProgress(int progress) {m_toolWdg->m_slider->setValue(progress);}
 
 signals:
@@ -189,6 +190,7 @@ public:
     ulong m_tmMousePressed;
 };
 
+#include "hchangecolorwidget.h"
 class HCockGLWidget : public HGLWidget
 {
     Q_OBJECT
@@ -196,15 +198,25 @@ public:
     HCockGLWidget(QWidget* parent = Q_NULLPTR);
     ~HCockGLWidget();
 
+    // return is subcock
+    bool getCockByPos(QPoint pt, QRect& rc);
+
 public slots:
     void onCockChanged();
+    void toggleTrash() {m_wdgTrash->setVisible(!m_wdgTrash->isVisible());}
 
 protected:
     virtual void paintGL();
     virtual void resizeEvent(QResizeEvent *e);
+    virtual void mouseMoveEvent(QMouseEvent *e);
+    virtual void mouseReleaseEvent(QMouseEvent *e);
 
 private:
     std::vector<QRect> m_vecCocks;
+
+    QLabel* m_labelDrag;
+    QPoint m_ptDrag;
+    HChangeColorWidget* m_wdgTrash;
 };
 
 #endif // HGLWIDGET_H

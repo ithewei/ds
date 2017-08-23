@@ -397,6 +397,11 @@ void HGLWidget::toggleToolbar(){
     }
 }
 
+void HGLWidget::toggleToolWidgets(){
+    toggleTitlebar();
+    toggleToolbar();
+}
+
 void HGLWidget::onStart(){
     DsItemInfo* item = g_dsCtx->getItem(svrid);
     if (item && item->ifcb){
@@ -485,6 +490,12 @@ void HGLWidget::stopRecord(){
 
 void HGLWidget::onNumSelected(int num){
     g_dsCtx->m_iSelectedNum[num-1] = svrid;
+    int wdg[16];
+    for (int i = 0; i < 3; ++i){
+        int svrid = g_dsCtx->m_iSelectedNum[i];
+        wdg[svrid] *= 10;
+        wdg[svrid] += i;
+    }
 }
 
 void HGLWidget::onNumUnselected(int num){
@@ -501,8 +512,7 @@ void HGLWidget::mouseReleaseEvent(QMouseEvent* event){
     QRect rc(0, 0, width(), height());
     if (m_bMousePressed && (event->timestamp() - m_tmMousePressed < 300) &&
             rc.contains(event->x(), event->y())){
-        toggleTitlebar();
-        toggleToolbar();
+        toggleToolWidgets();
         emit clicked();
     }
 
@@ -591,7 +601,7 @@ void HGLWidget::paintGL(){
 //            drawTex(tex, &di);
 
             // draw sound average
-            if (item->a_average[1] != 0){
+            if (item->a_channels > 1){
                 di.left = width()-4 - AUDIO_WIDTH*2;
                 di.top = height()-2 - AUDIO_HEIGHT;
                 di.right = di.left + AUDIO_WIDTH;
@@ -662,11 +672,32 @@ void HGLWidget::paintGL(){
 HCockGLWidget::HCockGLWidget(QWidget* parent)
     : HGLWidget(parent)
 {
+    m_labelDrag = new QLabel(this);
+    m_labelDrag->setStyleSheet("border:3px groove #FF8C00");
+    m_labelDrag->hide();
+
+    m_wdgTrash = new HChangeColorWidget(this);
+    m_wdgTrash->setPixmap(HRcLoader::instance()->icon_trash.scaled(128,128));
+    m_wdgTrash->hide();
+
     QObject::connect( g_dsCtx, SIGNAL(cockChanged()), this, SLOT(onCockChanged()) );
+    QObject::connect( this, SIGNAL(clicked()), this, SLOT(toggleTrash()) );
 }
 
 HCockGLWidget::~HCockGLWidget(){
 
+}
+
+bool HCockGLWidget::getCockByPos(QPoint pt, QRect& rc){
+    for (int i = 1; i < m_vecCocks.size(); ++i){
+        if (m_vecCocks[i].contains(pt)){
+            rc = m_vecCocks[i];
+            return true;
+        }
+    }
+
+    rc = m_vecCocks[0];
+    return false;
 }
 
 void HCockGLWidget::onCockChanged(){
@@ -717,6 +748,78 @@ void HCockGLWidget::paintGL(){
 
 void HCockGLWidget::resizeEvent(QResizeEvent *e){
     onCockChanged();
+    m_wdgTrash->setGeometry(width()-128-1, height()/2-64, 128, 128);
 
     HGLWidget::resizeEvent(e);
+}
+
+void HCockGLWidget::mouseMoveEvent(QMouseEvent *e){
+    if (status(MAJOR_STATUS_MASK) == PLAYING && !m_labelDrag->isVisible()){
+        m_ptDrag.setX(e->x());
+        m_ptDrag.setY(e->y());
+
+        QRect rc;
+        if ( getCockByPos(m_ptDrag, rc) ){
+            m_labelDrag->setFixedSize(rc.size());
+            m_labelDrag->setPixmap(grab(rc));
+            m_labelDrag->show();
+        }else{
+            if (m_wdgTrash->isVisible()){
+                m_labelDrag->setFixedSize(DRAG_WIDTH, DRAG_HEIGHT);
+                m_labelDrag->setPixmap(grab(QRect(m_ptDrag.x()-DRAG_WIDTH/2, m_ptDrag.y()-DRAG_HEIGHT/2, DRAG_WIDTH, DRAG_HEIGHT)) );
+                m_labelDrag->show();
+            }
+        }
+    }
+
+    if (m_labelDrag->isVisible()){
+        int w = m_labelDrag->width();
+        int h = m_labelDrag->height();
+        int x1 = e->x()-w/2;
+        int y1 = e->y()-h/2;
+        int x2 = x1 + w - 1;
+        int y2 = y1 + h - 1;
+
+        if (m_wdgTrash->isVisible()){
+            if (m_wdgTrash->geometry().contains(e->pos())){
+                m_wdgTrash->changeColor(QColor(255, 0, 0, 128));
+            }else{
+                m_wdgTrash->changeColor(Qt::transparent);
+            }
+            m_labelDrag->setGeometry(x1,y1,w,h);
+        }else{
+            if (x1 < 0)
+                x1 = 0;
+            if (x2 >= width())
+                x1 = width()-w-1;
+            if (y1 < 0)
+                y1 = 0;
+            if (y2 >= height())
+                y1 = height()-h-1;
+            m_labelDrag->setGeometry(x1,y1,w,h);
+        }
+    }
+}
+
+void HCockGLWidget::mouseReleaseEvent(QMouseEvent *e){
+    HGLWidget::mouseReleaseEvent(e);
+
+    if (m_labelDrag->isVisible()){
+        m_labelDrag->hide();
+
+        if (m_wdgTrash->isVisible()){
+            if (m_wdgTrash->geometry().contains(e->pos())){
+                // stop cock
+                DsEvent evt;
+                evt.type = DS_EVENT_STOP;
+                evt.dst_svrid = 1;
+                evt.dst_x = m_ptDrag.x();
+                evt.dst_y = m_ptDrag.y();
+                g_dsCtx->handle_event(evt);
+            }
+        }else{
+            // move cock pos
+            //QRect rc = m_labelDrag->geometry();
+        }
+    }
 }

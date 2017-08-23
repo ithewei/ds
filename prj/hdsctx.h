@@ -35,6 +35,8 @@
 #define DISPLAY_MODE_REALTIME      1  // realtime display
 #define DISPLAY_MODE_TIMER         2  // timer by fps
 
+#define BIG_VIDEO_SCALE            1
+
 #include <QObject>
 #include <QRect>
 #include "ds_global.h"
@@ -94,8 +96,10 @@ struct DsItemInfo{
 
     std::string title;
     Texture tex_yuv;
+    bool bUpdateVideo;
     QMutex  mutex;
 
+    int a_channels;
     unsigned short a_average[2];
     bool bUpdateAverage;
 
@@ -114,9 +118,11 @@ struct DsItemInfo{
     void init(){
         title.clear();
         tex_yuv.release();
+        bUpdateVideo = true;
 
         src_type = 0;
         bPause = false;
+        a_channels = 0;
         a_average[0] = 0;
         a_average[1] = 0;
         bUpdateAverage = false;
