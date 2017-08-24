@@ -30,14 +30,15 @@ SOURCES += \
     hglwidget.cpp \
     hmainwidget.cpp \
     hdsctx.cpp \
-    tga.cpp \
     haudioplay.cpp \
     htitlebarwidget.cpp \
     htoolbarwidget.cpp \
     hrcloader.cpp \
     hmaintoolbar.cpp \
     hffmpeg.cpp \
-    hchangecolorwidget.cpp
+    hchangecolorwidget.cpp \
+    hnumselectwidget.cpp \
+    qglwidgetimpl.cpp
 
 HEADERS += \
         ds.h \
@@ -45,14 +46,15 @@ HEADERS += \
     hglwidget.h \
     hmainwidget.h \
     hdsctx.h \
-    tga.h \
     haudioplay.h \
     htitlebarwidget.h \
     htoolbarwidget.h \
     hrcloader.h \
     hmaintoolbar.h \
     hffmpeg.h \
-    hchangecolorwidget.h
+    hchangecolorwidget.h \
+    hnumselectwidget.h \
+    qglwidgetimpl.h
 
 unix {
     target.path = /usr/lib

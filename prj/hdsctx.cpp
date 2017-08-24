@@ -1,5 +1,6 @@
 #include "hdsctx.h"
 #include "hrcloader.h"
+#include "hmainwidget.h"
 
 HDsContext* g_dsCtx = NULL;
 
@@ -40,11 +41,6 @@ void* HDsContext::thread_gui(void* param){
     progress->setValue(10);
     app.processEvents();
     HRcLoader::instance()->loadIcon();
-
-    splash->showMessage("Loading texture...", Qt::AlignCenter, Qt::white);
-    progress->setValue(30);
-    app.processEvents();
-    HRcLoader::instance()->loadTexture();
 
     splash->showMessage("Creating main UI...", Qt::AlignCenter, Qt::white);
     progress->setValue(50);
@@ -106,7 +102,7 @@ HDsContext::HDsContext()
     m_curTick = 0;
     m_lastTick = 0;
 
-    for (int i = 0; i < 3; ++i){
+    for (int i = 0; i < MAXNUM_COCK; ++i){
         m_iSelectedNum[i] = 0;
     }
 

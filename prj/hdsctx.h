@@ -40,7 +40,6 @@
 #include <QObject>
 #include <QRect>
 #include "ds_global.h"
-#include "hmainwidget.h"
 #include "haudioplay.h"
 
 struct DsEvent{
@@ -89,6 +88,7 @@ struct DsCockInfo{
 };
 
 #include <QMutex>
+#include "qglwidgetimpl.h"
 struct DsItemInfo{
     bool bPause;
 
@@ -278,9 +278,6 @@ public:
     int m_iOriginCockW;
     int m_iOriginCockH;
 
-//    Texture tex_yuv[DIRECTOR_MAX_SERVS];
-//    std::string m_title[DIRECTOR_MAX_SERVS];
-
     HAudioPlay* m_audioPlay;
 
     DsItemInfo m_tItems[DIRECTOR_MAX_SERVS];
@@ -290,7 +287,7 @@ public:
     uint m_lastTick;
     bool m_bUpdateTaskInfo;
 
-    int m_iSelectedNum[3];
+    int m_iSelectedNum[MAXNUM_COCK];
 };
 
 extern HDsContext* g_dsCtx;

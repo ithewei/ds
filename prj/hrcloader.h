@@ -2,7 +2,9 @@
 #define HRCLOADER_H
 
 #include "ds_global.h"
-#include "hglwidget.h"
+#include "qglwidgetimpl.h"
+
+#define MAX_NUM_ICON    3
 
 class HRcLoader
 {
@@ -17,6 +19,8 @@ public:
     void loadIcon();
     void loadTexture();
 
+    static void bindTexture(Texture* tex, QImage* img);
+
 public:
     static HRcLoader* s_rcLoader;
 
@@ -27,21 +31,16 @@ public:
     QPixmap icon_start;
     QPixmap icon_pause;
     QPixmap icon_stop;
-    QPixmap icon_sound;
     QPixmap icon_snapshot;
     QPixmap icon_record;
     QPixmap icon_recording;
-    QPixmap icon_numb[3];
-    QPixmap icon_numr[3];
+    QPixmap icon_num;
+    QPixmap icon_numb[MAX_NUM_ICON];
+    QPixmap icon_numr[MAX_NUM_ICON];
     QPixmap icon_trash;
 
-    Texture tex_video;
-    Texture tex_novideo;
-    Texture tex_pick;
-    Texture tex_prohibit;
     Texture tex_sound;
-    Texture tex_spacer;
-    Texture tex_refresh;
+    Texture tex_numr[MAX_NUM_ICON];
 };
 
 #endif // HRCLOADER_H

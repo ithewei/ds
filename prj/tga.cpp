@@ -75,7 +75,10 @@ bool loadTGA(const char* fname, Texture* tex){
 			free(tex->data);
 			tex->data = NULL;
 		}
-	}
+    }else{
+        gluBuild2DMipmaps(GL_TEXTURE_2D, tex->bpp/8, tex->width, tex->height, tex->type, GL_UNSIGNED_BYTE, tex->data);
+        //glTexImage2D(GL_TEXTURE_2D, 0, tex->bpp/8, tex->width, tex->height, 0, tex->type, GL_UNSIGNED_BYTE, tex->data);
+    }
 	return bRet;
 }
 

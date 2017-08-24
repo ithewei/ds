@@ -3,6 +3,7 @@
 
 #include <QWidget>
 #include <QPushButton>
+#include <QTimer>
 #include "hmaintoolbar.h"
 #include "hglwidget.h"
 #include "hchangecolorwidget.h"

@@ -17,7 +17,7 @@ signals:
     void exitFullScreen();
 
     void numSelected(int num);
-    void numUnselected(int num);
+    void numCanceled(int num);
 
 public slots:
     void onFullScreen();
@@ -49,6 +49,7 @@ public:
     QPushButton* m_btnStopRecord;
     QPushButton* m_btnNumB[3];
     QPushButton* m_btnNumR[3];
+    QPushButton* m_btnNum;
 };
 
 #endif // HTITLEBARWIDGET_H

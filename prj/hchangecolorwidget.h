@@ -2,7 +2,6 @@
 #define HCHANGECOLORWIDGET_H
 
 #include <QLabel>
-#include <QTimer>
 #include <QColor>
 
 class HChangeColorWidget : public QLabel
@@ -23,8 +22,6 @@ private:
     QColor m_originColor;
     QColor m_changeColor;
     QColor m_curColor;
-
-    QTimer* m_timer;
 };
 
 #endif // HCHANGECOLORWIDGET_H
