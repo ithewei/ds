@@ -22,13 +22,13 @@ void myLogHandler(QtMsgType type, const QMessageLogContext & ctx, const QString 
     case QtFatalMsg:
         strcpy(szType, "Fatal");
     }
-    char szLog[1024];
+    char szLog[2048];
 
-#ifdef DEBUG
-    snprintf(szLog, 1024, "%s %s [%s:%u, %s]\n", szType, msg.toLocal8Bit().constData(), ctx.file, ctx.line, ctx.function);
+#ifndef QT_NO_DEBUG
+    snprintf(szLog, 2048, "%s %s [%s:%u, %s]\n", szType, msg.toLocal8Bit().constData(), ctx.file, ctx.line, ctx.function);
 #else
     if (msg.length() > 0){
-        snprintf(szLog, 1024, "%s %s\n", szType, msg.toLocal8Bit().constData());
+        snprintf(szLog, 2048, "%s %s\n", szType, msg.toLocal8Bit().constData());
     }
 #endif
 

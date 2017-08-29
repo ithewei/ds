@@ -89,6 +89,7 @@ protected:
     void initConnect();
     virtual void mousePressEvent(QMouseEvent* event);
     virtual void mouseReleaseEvent(QMouseEvent* event);
+    virtual void mouseMoveEvent(QMouseEvent* e);
 
 public:
     int svrid;

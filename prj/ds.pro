@@ -4,7 +4,7 @@
 #
 #-------------------------------------------------
 
-QT       += core widgets opengl webenginewidgets
+QT       += core widgets opengl webenginewidgets network
 
 TARGET = director_service
 TEMPLATE = lib

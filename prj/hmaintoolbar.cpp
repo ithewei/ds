@@ -25,7 +25,16 @@ void HWebContext::toogleInfo(){
 
 void HWebContext::getSelectInfo(int id){
       QString ret;
-      ret.sprintf("{\"id1\":%d, \"id2\":%d, \"id3\":%d}", g_dsCtx->m_iSelectedNum[0], g_dsCtx->m_iSelectedNum[1], g_dsCtx->m_iSelectedNum[2]);
+      ret = "{";
+      for (int i = 0; i < MAX_NUM_ICON; ++i){
+          char kv[16];
+          snprintf(kv, 16, "\"id%d\":%d", i+1, g_dsCtx->m_tOriginCocks[i].iSvrid);
+          ret += kv;
+          if (i != MAX_NUM_ICON-1){
+              ret += ",";
+          }
+      }
+      ret += "}";
       emit sendSelectInfo(ret, id);
       qDebug(ret.toLocal8Bit().constData());
 }

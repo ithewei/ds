@@ -86,6 +86,7 @@ HDsContext::HDsContext()
     infcolor = 0x00FF00FF;
     titcolor = 0xFF5A1EFF;
     outlinecolor = 0xFFFFFFFF;
+    focus_outlinecolor = 0xFF0000FF;
     scale_method = 0;
     pause_method = 0;
 
@@ -101,10 +102,6 @@ HDsContext::HDsContext()
     m_bUpdateTaskInfo = false;
     m_curTick = 0;
     m_lastTick = 0;
-
-    for (int i = 0; i < MAXNUM_COCK; ++i){
-        m_iSelectedNum[i] = 0;
-    }
 
     m_trans = new transaction;
     m_audioPlay = new HAudioPlay;
@@ -155,7 +152,7 @@ void HDsContext::start_gui_thread(){
     </complex>
  */
 int HDsContext::parse_init_xml(const char* xml){
-    qDebug("");
+    qDebug(xml);
 
     ook::xml_element root;
     if(root.parse(xml, strlen(xml)) < 0)
@@ -275,7 +272,7 @@ int HDsContext::parse_init_xml(const char* xml){
 </director_service>
 */
 int HDsContext::parse_layout_xml(const char* xml_file){
-    qDebug("");
+    qDebug(xml_file);
 
     ook::xml_parser x;
     if(!x.parse_file(xml_file))
@@ -412,7 +409,7 @@ int HDsContext::parse_layout_xml(const char* xml_file){
 </cocktail>
  */
 int HDsContext::parse_cock_xml(const char* xml){
-    qDebug("");
+    qDebug(xml);
 
     ook::xml_element root;
     if(!root.parse(xml, strlen(xml)))
@@ -474,8 +471,8 @@ int HDsContext::parse_cock_xml(const char* xml){
                 m_tOriginCocks[m_cntCock].y = atoi(v.c_str());
             else if(n == "a")
                 m_tOriginCocks[m_cntCock].bAudio = atoi(v.c_str());
-            else if(n == "v")
-                m_tOriginCocks[m_cntCock].bVideo = atoi(v.c_str());;
+            else if(n == "u")
+                m_tOriginCocks[m_cntCock].iSvrid = atoi(v.c_str());;
         }
 
         m_cntCock++;

@@ -25,27 +25,6 @@ void HTitlebarWidget::initUI(){
 
     hbox->addStretch();
 
-//    for (int i = 0; i < 3; ++i){
-//        m_btnNumB[i] = new QPushButton;
-//        m_btnNumB[i]->setFixedSize(TITLEBAR_ICON_WIDTH,TITLEBAR_ICON_HEIGHT);
-//        m_btnNumB[i]->setIcon(QIcon(HRcLoader::instance()->icon_numb[i]));
-//        m_btnNumB[i]->setIconSize(QSize(TITLEBAR_ICON_WIDTH,TITLEBAR_ICON_HEIGHT));
-//        m_btnNumB[i]->setFlat(true);
-//        m_btnNumB[i]->hide();
-//        hbox->addWidget(m_btnNumB[i]);
-
-//        m_btnNumR[i] = new QPushButton;
-//        m_btnNumR[i]->setFixedSize(TITLEBAR_ICON_WIDTH,TITLEBAR_ICON_HEIGHT);
-//        m_btnNumR[i]->setIcon(QIcon(HRcLoader::instance()->icon_numr[i]));
-//        m_btnNumR[i]->setIconSize(QSize(TITLEBAR_ICON_WIDTH,TITLEBAR_ICON_HEIGHT));
-//        m_btnNumR[i]->setFlat(true);
-//        m_btnNumR[i]->hide();
-//        hbox->addWidget(m_btnNumR[i]);
-
-//        hbox->addSpacing(5);
-//    }
-//    hbox->addSpacing(5);
-
     m_btnNum = new QPushButton;
     m_btnNum->setFixedSize(TITLEBAR_ICON_WIDTH,TITLEBAR_ICON_HEIGHT);
     m_btnNum->setIcon(QIcon(HRcLoader::instance()->icon_num));
@@ -103,13 +82,6 @@ void HTitlebarWidget::initConnection(){
 
     //QObject::connect( m_btnStartRecord, SIGNAL(clicked(bool)), this, SLOT(onStartRecord()) );
     //QObject::connect( m_btnStopRecord, SIGNAL(clicked(bool)), this, SLOT(onStopRecord()) );
-
-//    QObject::connect( m_btnNumB[0], SIGNAL(clicked(bool)), this, SLOT(onNumB1()) );
-//    QObject::connect( m_btnNumR[0], SIGNAL(clicked(bool)), this, SLOT(onNumR1()) );
-//    QObject::connect( m_btnNumB[1], SIGNAL(clicked(bool)), this, SLOT(onNumB2()) );
-//    QObject::connect( m_btnNumR[1], SIGNAL(clicked(bool)), this, SLOT(onNumR2()) );
-//    QObject::connect( m_btnNumB[2], SIGNAL(clicked(bool)), this, SLOT(onNumB3()) );
-//    QObject::connect( m_btnNumR[2], SIGNAL(clicked(bool)), this, SLOT(onNumR3()) );
 }
 
 void HTitlebarWidget::onFullScreen(){
@@ -132,42 +104,6 @@ void HTitlebarWidget::onStartRecord(){
 void HTitlebarWidget::onStopRecord(){
     m_btnStartRecord->show();
     m_btnStopRecord->hide();
-}
-
-void HTitlebarWidget::onNumB1(){
-    m_btnNumB[0]->hide();
-    m_btnNumR[0]->show();
-    emit numSelected(1);
-}
-
-void HTitlebarWidget::onNumR1(){
-    m_btnNumR[0]->hide();
-    m_btnNumB[0]->show();
-    emit numCanceled(1);
-}
-
-void HTitlebarWidget::onNumB2(){
-    m_btnNumB[1]->hide();
-    m_btnNumR[1]->show();
-    emit numSelected(2);
-}
-
-void HTitlebarWidget::onNumR2(){
-    m_btnNumR[1]->hide();
-    m_btnNumB[1]->show();
-    emit numCanceled(2);
-}
-
-void HTitlebarWidget::onNumB3(){
-    m_btnNumB[2]->hide();
-    m_btnNumR[2]->show();
-    emit numSelected(3);
-}
-
-void HTitlebarWidget::onNumR3(){
-    m_btnNumR[2]->hide();
-    m_btnNumB[2]->show();
-    emit numCanceled(3);
 }
 
 bool HTitlebarWidget::event(QEvent *e){

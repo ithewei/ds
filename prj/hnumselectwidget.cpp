@@ -7,6 +7,8 @@ HNumSelectWidget::HNumSelectWidget(QWidget *parent) : QWidget(parent)
 }
 
 void HNumSelectWidget::initUI(){
+    setFixedSize(MAX_NUM_ICON*(NUM_ICON_WIDTH+10)+2, NUM_ICON_HEIGHT+2);
+
     QHBoxLayout* hbox = new QHBoxLayout;
 
     hbox->setMargin(1);

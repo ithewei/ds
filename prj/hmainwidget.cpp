@@ -1,6 +1,8 @@
 #include "hmainwidget.h"
 #include "hrcloader.h"
 
+const char* url_query_cockinfo = "http://localhost/transcoder/index.php?controller=channels&action=Daoboinfo";
+
 HMainWidget::HMainWidget(HDsContext* ctx, QWidget *parent)
     : QWidget(parent)
 {
@@ -35,6 +37,7 @@ void HMainWidget::initUI(){
             wdg = new HCockGLWidget(this);
             wdg->svrid = 1;
             m_mapGLWdg[1] = wdg;
+            m_focusGLWdg = wdg;
         }else{
             wdg = new HGLWidget(this);
             wdg->svrid = 0;
@@ -85,6 +88,7 @@ void HMainWidget::initConnect(){
     QObject::connect( m_ctx, SIGNAL(sigStop(int)), this, SLOT(onStop(int)) );
     QObject::connect( m_ctx, SIGNAL(quit()), this, SLOT(hide()) );
     QObject::connect( m_ctx, SIGNAL(sigProgressNty(int,int)), this, SLOT(onProgressNty(int,int)) );
+    QObject::connect( m_ctx, SIGNAL(cockChanged()), this, SLOT(onCockChanged()) );
 
     for (int i = 0; i < m_vecGLWdg.size(); ++i){
         QObject::connect( m_vecGLWdg[i], SIGNAL(fullScreen()), this, SLOT(onFullScreen()) );
@@ -100,6 +104,9 @@ void HMainWidget::initConnect(){
         timer_repaint.start(1000 / m_ctx->frames);
         //timer_repaint.start(1000 / 20);
     }
+
+    m_NAM = new QNetworkAccessManager(this);
+    QObject::connect( m_NAM, SIGNAL(finished(QNetworkReply*)), this, SLOT(onCockInfoReply(QNetworkReply*)) );
 }
 
 HGLWidget* HMainWidget::getGLWdgBySvrid(int svrid){
@@ -160,7 +167,10 @@ void HMainWidget::mousePressEvent(QMouseEvent *event){
 
 void HMainWidget::mouseMoveEvent(QMouseEvent *event){
     HGLWidget* wdg = getGLWdgByPos(event->x(), event->y());
-    if (wdg && wdg->status(MAJOR_STATUS_MASK) == PLAYING && !m_labelDrag->isVisible()){
+    if (!wdg)
+        return;
+
+    if (wdg->status(MAJOR_STATUS_MASK) == PLAYING && !m_labelDrag->isVisible() && wdg->svrid != 1){
         m_dragSrcWdg = wdg;
         m_labelDrag->setPixmap( QPixmap::fromImage(wdg->grabFramebuffer()).scaled(DRAG_WIDTH, DRAG_HEIGHT) );
         m_labelDrag->show();
@@ -303,8 +313,6 @@ void HMainWidget::fold(){
 }
 
 void HMainWidget::onFullScreen(){
-    qDebug("");
-
     QWidget* pSender = (QWidget*)sender();
 
     m_rcSavedGeometry = pSender->geometry();
@@ -314,8 +322,6 @@ void HMainWidget::onFullScreen(){
 }
 
 void HMainWidget::onExitFullScreen(){
-    qDebug("");
-
     QWidget* pSender = (QWidget*)sender();
 
     pSender->setWindowFlags(Qt::SubWindow);
@@ -326,10 +332,53 @@ void HMainWidget::onExitFullScreen(){
 void HMainWidget::onGLWdgClicked(){
     HGLWidget* pSender = (HGLWidget*)sender();
 
-    for (int i = 0; i < m_vecGLWdg.size(); ++i){
-        if (m_vecGLWdg[i] != pSender){
-            m_vecGLWdg[i]->showTitlebar(false);
-            m_vecGLWdg[i]->showToolbar(false);
+    if (pSender != m_focusGLWdg && m_focusGLWdg->m_titleWdg->isVisible()){
+        m_focusGLWdg->toggleToolWidgets();
+    }
+
+    m_focusGLWdg = pSender;
+}
+
+void HMainWidget::onCockChanged(){
+    getCockInfo();
+}
+
+void HMainWidget::getCockInfo(){
+    if (m_NAM)
+        m_NAM->get(QNetworkRequest(QUrl(url_query_cockinfo)));
+}
+
+#include <QJsonDocument>
+#include <QJsonArray>
+#include <QJsonObject>
+void HMainWidget::onCockInfoReply(QNetworkReply* reply){
+    QByteArray bytes = reply->readAll();
+    qDebug(bytes.constData());
+    QJsonDocument dom = QJsonDocument::fromJson(bytes);
+    if (!dom.isNull()){
+        if (dom.isArray()){
+            QJsonArray arr = dom.array();
+            for (int i = 0; i < arr.size(); ++i){
+                QJsonValue val = arr[i];
+                if (val.isObject()){
+                    QJsonObject obj = val.toObject();
+                    int iID = 0;
+                    int iV = 0;
+                    if (obj.contains("id")){
+                        QJsonValue id = obj.value("id");
+                        iID = id.toInt();
+                    }
+                    if (obj.contains("v")){
+                        QJsonValue v = obj.value("v");
+                        iV = v.toInt();
+                    }
+                    g_dsCtx->m_tOriginCocks[i].iSvrid = iID;
+                    g_dsCtx->m_tOriginCocks[i].bAudio = iV;
+                    qDebug("id=%d a=%d", iID, iV);
+                }
+            }
         }
     }
+
+    reply->deleteLater();
 }

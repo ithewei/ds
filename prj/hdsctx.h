@@ -74,7 +74,7 @@ struct DsCockInfo{
     int w;
     int h;
 
-    bool bVideo;
+    int  iSvrid;
     bool bAudio;
 
     DsCockInfo(){
@@ -82,7 +82,7 @@ struct DsCockInfo{
         y = 0;
         w = 0;
         h = 0;
-        bVideo = false;
+        iSvrid = 0;
         bAudio = false;
     }
 };
@@ -259,6 +259,7 @@ public:
     unsigned int infcolor;
     unsigned int titcolor;
     unsigned int outlinecolor;
+    unsigned int focus_outlinecolor;
     int scale_method;
     int pause_method;
 
@@ -286,8 +287,6 @@ public:
     uint m_curTick;
     uint m_lastTick;
     bool m_bUpdateTaskInfo;
-
-    int m_iSelectedNum[MAXNUM_COCK];
 };
 
 extern HDsContext* g_dsCtx;

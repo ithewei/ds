@@ -16,21 +16,11 @@ signals:
     void fullScreen();
     void exitFullScreen();
 
-    void numSelected(int num);
-    void numCanceled(int num);
-
 public slots:
     void onFullScreen();
     void onExitFullScreen();
     void onStartRecord();
     void onStopRecord();
-
-    void onNumB1();
-    void onNumR1();
-    void onNumB2();
-    void onNumR2();
-    void onNumB3();
-    void onNumR3();
 
 public:
     void setTitle(const char* title) {m_label->setText(title);}
@@ -47,8 +37,6 @@ public:
     QPushButton* m_btnSnapshot;
     QPushButton* m_btnStartRecord;
     QPushButton* m_btnStopRecord;
-    QPushButton* m_btnNumB[3];
-    QPushButton* m_btnNumR[3];
     QPushButton* m_btnNum;
 };
 
