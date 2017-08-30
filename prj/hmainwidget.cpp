@@ -2,6 +2,7 @@
 #include "hrcloader.h"
 
 const char* url_query_cockinfo = "http://localhost/transcoder/index.php?controller=channels&action=Daoboinfo";
+const char* url_repos_cock = "http://localhost/transcoder/index.php?controller=channels&action=Dragsave";
 
 HMainWidget::HMainWidget(HDsContext* ctx, QWidget *parent)
     : QWidget(parent)
@@ -38,6 +39,7 @@ void HMainWidget::initUI(){
             wdg->svrid = 1;
             m_mapGLWdg[1] = wdg;
             m_focusGLWdg = wdg;
+            QObject::connect( wdg, SIGNAL(cockRepos(QByteArray&)), this, SLOT(reposCock(QByteArray&)) );
         }else{
             wdg = new HGLWidget(this);
             wdg->svrid = 0;
@@ -88,7 +90,7 @@ void HMainWidget::initConnect(){
     QObject::connect( m_ctx, SIGNAL(sigStop(int)), this, SLOT(onStop(int)) );
     QObject::connect( m_ctx, SIGNAL(quit()), this, SLOT(hide()) );
     QObject::connect( m_ctx, SIGNAL(sigProgressNty(int,int)), this, SLOT(onProgressNty(int,int)) );
-    QObject::connect( m_ctx, SIGNAL(cockChanged()), this, SLOT(onCockChanged()) );
+    //QObject::connect( m_ctx, SIGNAL(cockChanged()), this, SLOT(getCockInfo()) );
 
     for (int i = 0; i < m_vecGLWdg.size(); ++i){
         QObject::connect( m_vecGLWdg[i], SIGNAL(fullScreen()), this, SLOT(onFullScreen()) );
@@ -105,8 +107,11 @@ void HMainWidget::initConnect(){
         //timer_repaint.start(1000 / 20);
     }
 
-    m_NAM = new QNetworkAccessManager(this);
-    QObject::connect( m_NAM, SIGNAL(finished(QNetworkReply*)), this, SLOT(onCockInfoReply(QNetworkReply*)) );
+    m_NAMCockInfo = new QNetworkAccessManager(this);
+    QObject::connect( m_NAMCockInfo, SIGNAL(finished(QNetworkReply*)), this, SLOT(onCockInfoReply(QNetworkReply*)) );
+
+    m_NAMCockRepos = new QNetworkAccessManager(this);
+    QObject::connect( m_NAMCockRepos, SIGNAL(finished(QNetworkReply*)), this, SLOT(onCockReposReply(QNetworkReply*)) );
 }
 
 HGLWidget* HMainWidget::getGLWdgBySvrid(int svrid){
@@ -339,13 +344,9 @@ void HMainWidget::onGLWdgClicked(){
     m_focusGLWdg = pSender;
 }
 
-void HMainWidget::onCockChanged(){
-    getCockInfo();
-}
-
 void HMainWidget::getCockInfo(){
-    if (m_NAM)
-        m_NAM->get(QNetworkRequest(QUrl(url_query_cockinfo)));
+    if (m_NAMCockInfo)
+        m_NAMCockInfo->get(QNetworkRequest(QUrl(url_query_cockinfo)));
 }
 
 #include <QJsonDocument>
@@ -381,4 +382,14 @@ void HMainWidget::onCockInfoReply(QNetworkReply* reply){
     }
 
     reply->deleteLater();
+}
+
+void HMainWidget::reposCock(QByteArray& bytes){
+    qDebug(bytes.constData());
+    if (m_NAMCockRepos)
+        m_NAMCockRepos->post(QNetworkRequest(QUrl(url_repos_cock)), bytes);
+}
+
+void HMainWidget::onCockReposReply(QNetworkReply* reply){
+
 }

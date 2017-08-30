@@ -30,8 +30,6 @@ public:
     void initUI();
     void initConnect();
 
-    void getCockInfo();
-
 protected:
     HGLWidget* getGLWdgByPos(int x, int y);
     HGLWidget* getGLWdgBySvrid(int svrid);
@@ -52,7 +50,6 @@ public slots:
     void onSourceChanged(int svrid, bool bSucceed);
     void onStop(int svrid);
     void onProgressNty(int svrid, int progress);
-    void onCockChanged();
 
     void onFullScreen();
     void onExitFullScreen();
@@ -61,7 +58,11 @@ public slots:
     void expand();
     void fold();
 
+    void getCockInfo();
     void onCockInfoReply(QNetworkReply* reply);
+
+    void reposCock(QByteArray& bytes);
+    void onCockReposReply(QNetworkReply* reply);
 
 private:
     HDsContext* m_ctx;
@@ -80,7 +81,8 @@ private:
 
     QRect m_rcSavedGeometry;
 
-    QNetworkAccessManager* m_NAM;
+    QNetworkAccessManager* m_NAMCockInfo;
+    QNetworkAccessManager* m_NAMCockRepos;
 };
 
 #endif // HMAINWIDGET_H

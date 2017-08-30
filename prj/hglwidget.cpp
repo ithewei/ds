@@ -9,6 +9,9 @@
 HGLWidget::HGLWidget(QWidget *parent)
     : QGLWidgetImpl(parent)
 {
+    m_bDrawTitle = true;
+    m_bDrawAudio = true;
+
     m_status = STOP;
     m_bMousePressed = false;
     m_tmMousePressed = 0;
@@ -337,9 +340,25 @@ void HGLWidget::paintGL(){
         }
 
         if (m_status & PLAY_AUDIO){
-            // draw sound average
-            if (item->a_channels > 1){
-                di.left = width()-4 - AUDIO_WIDTH*2;
+            if (m_bDrawAudio){
+                // draw sound average
+                if (item->a_channels > 1){
+                    di.left = width()-4 - AUDIO_WIDTH*2;
+                    di.top = height()-2 - AUDIO_HEIGHT;
+                    di.right = di.left + AUDIO_WIDTH;
+                    di.bottom = di.top + AUDIO_HEIGHT;
+                    di.color = 0x00FFFF80;
+                    drawRect(&di, true);
+
+                    di.left += 1;
+                    di.right -= 1;
+                    di.bottom -= 1;
+                    di.top = di.bottom - item->a_average[1] * AUDIO_HEIGHT / 65536;
+                    di.color = 0xFFFF0080;
+                    drawRect(&di, true);
+                }
+
+                di.left = width()-2 - AUDIO_WIDTH;
                 di.top = height()-2 - AUDIO_HEIGHT;
                 di.right = di.left + AUDIO_WIDTH;
                 di.bottom = di.top + AUDIO_HEIGHT;
@@ -349,26 +368,12 @@ void HGLWidget::paintGL(){
                 di.left += 1;
                 di.right -= 1;
                 di.bottom -= 1;
-                di.top = di.bottom - item->a_average[1] * AUDIO_HEIGHT / 65536;
+                di.top = di.bottom - item->a_average[0] * AUDIO_HEIGHT / 65536;
                 di.color = 0xFFFF0080;
                 drawRect(&di, true);
+
+                item->bUpdateAverage = true;
             }
-
-            di.left = width()-2 - AUDIO_WIDTH;
-            di.top = height()-2 - AUDIO_HEIGHT;
-            di.right = di.left + AUDIO_WIDTH;
-            di.bottom = di.top + AUDIO_HEIGHT;
-            di.color = 0x00FFFF80;
-            drawRect(&di, true);
-
-            di.left += 1;
-            di.right -= 1;
-            di.bottom -= 1;
-            di.top = di.bottom - item->a_average[0] * AUDIO_HEIGHT / 65536;
-            di.color = 0xFFFF0080;
-            drawRect(&di, true);
-
-            item->bUpdateAverage = true;
         }
 
         // draw select num
@@ -385,10 +390,10 @@ void HGLWidget::paintGL(){
                     // draw sound icon
                     DrawInfo diAudio;
                     Texture *tex = getTexture(HAVE_AUDIO);
-                    diAudio.left = width() - 32;
-                    diAudio.top = 1;
                     diAudio.right = width() - 1;
-                    diAudio.bottom = 32;
+                    diAudio.top = 1;
+                    diAudio.left = diAudio.right - 32 + 1;
+                    diAudio.bottom = diAudio.top + 32 - 1;
                     drawTex(tex, &diAudio);
                 }
             }
@@ -397,12 +402,14 @@ void HGLWidget::paintGL(){
     }
 
     // draw title
-    DsItemInfo* item = g_dsCtx->getItem(svrid);
-    if (item && item->title.length() > 0){
-        di.left = 2;
-        di.top = 2;
-        di.color = m_titcolor;
-        drawStr(g_dsCtx->m_pFont, item->title.c_str(), &di);
+    if (m_bDrawTitle){
+        DsItemInfo* item = g_dsCtx->getItem(svrid);
+        if (item && item->title.length() > 0){
+            di.left = 2;
+            di.top = 2;
+            di.color = m_titcolor;
+            drawStr(g_dsCtx->m_pFont, item->title.c_str(), &di);
+        }
     }
 
     // draw icons
@@ -419,8 +426,8 @@ void HGLWidget::paintGL(){
     m_mutex.unlock();
 
     // draw outline
-    di.left = 1;
-    di.top = 1;
+    di.left = 0;
+    di.top = 0;
     di.right = width() - 1;
     di.bottom = height() - 1;
     di.color = m_outlinecolor;
@@ -432,6 +439,8 @@ void HGLWidget::paintGL(){
 HCockGLWidget::HCockGLWidget(QWidget* parent)
     : HGLWidget(parent)
 {
+    m_cockoutlinecolor = 0xFFFFFFFF;
+
     m_titleWdg->m_btnNum->hide();
 
     m_labelDrag = new QLabel(this);
@@ -454,61 +463,93 @@ void HCockGLWidget::toggleToolWidgets(){
     toggleTrash();
 }
 
-bool HCockGLWidget::getCockByPos(QPoint pt, QRect& rc){
+int HCockGLWidget::getCockByPos(QPoint pt, QRect& rc){
     for (int i = 1; i < m_vecCocks.size(); ++i){
         if (m_vecCocks[i].contains(pt)){
             rc = m_vecCocks[i];
-            return true;
+            return i;
         }
     }
 
     rc = m_vecCocks[0];
-    return false;
+    return 0;
+}
+
+void HCockGLWidget::adjustPos(QRect &rc){
+    int x = rc.x();
+    int y = rc.y();
+    int w = rc.width();
+    int h = rc.height();
+    if (rc.left() < 0)
+        x = 0;
+    if (rc.right() >= width())
+        x = width()-w;
+    if (rc.top() < 0)
+        y = 0;
+    if (rc.bottom() >= height())
+        y = height()-h;
+
+    rc.setRect(x,y,w,h);
 }
 
 void HCockGLWidget::onCockChanged(){
     // scale
-    double scale_x = width() / (double)g_dsCtx->m_iOriginCockW;
-    double scale_y = height() / (double)g_dsCtx->m_iOriginCockH;
+    double scale_x = (double)width() / (double)g_dsCtx->m_iOriginCockW;
+    double scale_y = (double)height() / (double)g_dsCtx->m_iOriginCockH;
     m_vecCocks.clear();
     for (int i = 0; i < g_dsCtx->m_cntCock; ++i){
-        int x = g_dsCtx->m_tOriginCocks[i].x * scale_x;
-        int y = g_dsCtx->m_tOriginCocks[i].y * scale_y;
-        int w = g_dsCtx->m_tOriginCocks[i].w * scale_x;
-        int h = g_dsCtx->m_tOriginCocks[i].h * scale_y;
+        int x = g_dsCtx->m_tOriginCocks[i].x * scale_x + 0.5;
+        int y = g_dsCtx->m_tOriginCocks[i].y * scale_y + 0.5;
+        int w = g_dsCtx->m_tOriginCocks[i].w * scale_x + 0.5;
+        int h = g_dsCtx->m_tOriginCocks[i].h * scale_y + 0.5;
         QRect rc(x,y,w,h);
         m_vecCocks.push_back(rc);
     }
 }
 
 void HCockGLWidget::paintGL(){
+    if (g_dsCtx->info){
+        m_bDrawTitle = true;
+        m_bDrawAudio = true;
+    }else{
+        m_bDrawTitle = false;
+        m_bDrawAudio = false;
+    }
     HGLWidget::paintGL();
 
-    DrawInfo di;
-
-    // draw taskinfo
-    if (g_dsCtx->info && g_dsCtx->m_pFont){
-        int oldSize = g_dsCtx->m_pFont->FaceSize();
-        g_dsCtx->m_pFont->FaceSize(32);
-        separator sept(g_dsCtx->m_strTaskInfo.c_str(), "\r\n");
-        di.top = 10;
-        di.left = 10;
-        di.color = g_dsCtx->infcolor;
-        for (int i = 0; i < sept.size(); ++i){
-            drawStr(g_dsCtx->m_pFont, sept[i], &di);
-            di.top += g_dsCtx->m_pFont->LineHeight() + 10;
+    if (g_dsCtx->info){
+        DrawInfo di;
+        // draw taskinfo
+        if (g_dsCtx->m_pFont){
+            int oldSize = g_dsCtx->m_pFont->FaceSize();
+            g_dsCtx->m_pFont->FaceSize(32);
+            separator sept(g_dsCtx->m_strTaskInfo.c_str(), "\r\n");
+            di.top = 10;
+            di.left = 10;
+            di.color = g_dsCtx->infcolor;
+            for (int i = 0; i < sept.size(); ++i){
+                drawStr(g_dsCtx->m_pFont, sept[i], &di);
+                di.top += g_dsCtx->m_pFont->LineHeight() + 10;
+            }
+            g_dsCtx->m_pFont->FaceSize(oldSize);
         }
-        g_dsCtx->m_pFont->FaceSize(oldSize);
-    }
 
-    // draw cock sub window outline
-    for (int i = 1; i < m_vecCocks.size(); ++i){
-        di.left = m_vecCocks[i].left();
-        di.top = m_vecCocks[i].top();
-        di.right = m_vecCocks[i].right();
-        di.bottom = m_vecCocks[i].bottom();
-        di.color = m_outlinecolor;
-        drawRect(&di);
+        for (int i = 0; i < m_vecCocks.size(); ++i){
+            // draw cock NO.
+            di.left = m_vecCocks[i].left() + 1;
+            di.bottom = m_vecCocks[i].bottom() - 1;
+            di.top = di.bottom - 48 + 1;
+            di.right = di.left + 48 - 1;
+            drawTex(&HRcLoader::instance()->tex_numr[i], &di);
+
+            // draw cock outline
+            di.left = m_vecCocks[i].left();
+            di.top = m_vecCocks[i].top();
+            di.right = m_vecCocks[i].right();
+            di.bottom = m_vecCocks[i].bottom();
+            di.color = m_cockoutlinecolor;
+            drawRect(&di);
+        }
     }
 }
 
@@ -529,26 +570,21 @@ void HCockGLWidget::mouseMoveEvent(QMouseEvent *e){
         m_ptDrag.setY(e->y());
 
         QRect rc;
-        if ( getCockByPos(m_ptDrag, rc) ){
+        m_indexDrag = getCockByPos(m_ptDrag, rc);
+        if (m_wdgTrash->isVisible()){
+            m_labelDrag->setFixedSize(DRAG_WIDTH, DRAG_HEIGHT);
+            m_labelDrag->setPixmap(grab(rc).scaled(DRAG_WIDTH, DRAG_HEIGHT));
+        }else{
             m_labelDrag->setFixedSize(rc.size());
             m_labelDrag->setPixmap(grab(rc));
-            m_labelDrag->show();
-        }else{
-            if (m_wdgTrash->isVisible()){
-                m_labelDrag->setFixedSize(DRAG_WIDTH, DRAG_HEIGHT);
-                m_labelDrag->setPixmap(grab(QRect(m_ptDrag.x()-DRAG_WIDTH/2, m_ptDrag.y()-DRAG_HEIGHT/2, DRAG_WIDTH, DRAG_HEIGHT)) );
-                m_labelDrag->show();
-            }
         }
+        m_labelDrag->show();
     }
 
     if (m_labelDrag->isVisible()){
         int w = m_labelDrag->width();
         int h = m_labelDrag->height();
-        int x1 = e->x()-w/2;
-        int y1 = e->y()-h/2;
-        int x2 = x1 + w - 1;
-        int y2 = y1 + h - 1;
+        QRect rc(e->x()-w/2, e->y()-w/2, w, h);
 
         if (m_wdgTrash->isVisible()){
             if (m_wdgTrash->geometry().contains(e->pos())){
@@ -556,21 +592,16 @@ void HCockGLWidget::mouseMoveEvent(QMouseEvent *e){
             }else{
                 m_wdgTrash->changeColor(Qt::transparent);
             }
-            m_labelDrag->setGeometry(x1,y1,w,h);
         }else{
-            if (x1 < 0)
-                x1 = 0;
-            if (x2 >= width())
-                x1 = width()-w-1;
-            if (y1 < 0)
-                y1 = 0;
-            if (y2 >= height())
-                y1 = height()-h-1;
-            m_labelDrag->setGeometry(x1,y1,w,h);
+            adjustPos(rc);
         }
+        m_labelDrag->setGeometry(rc);
     }
 }
 
+#include <QJsonDocument>
+#include <QJsonArray>
+#include <QJsonObject>
 void HCockGLWidget::mouseReleaseEvent(QMouseEvent *e){
     HGLWidget::mouseReleaseEvent(e);
 
@@ -589,7 +620,42 @@ void HCockGLWidget::mouseReleaseEvent(QMouseEvent *e){
             }
         }else{
             // move cock pos
-            //QRect rc = m_labelDrag->geometry();
+            QRect rcDst = m_labelDrag->geometry();
+            if (rcDst == m_vecCocks[m_indexDrag]){
+                qDebug("");
+                return;
+            }
+            double scale_x = (double)g_dsCtx->m_iOriginCockW / (double)width();
+            double scale_y = (double)g_dsCtx->m_iOriginCockH / (double)height();
+            int x = rcDst.x() * scale_x;
+            int y = rcDst.y() * scale_y;
+            int w = rcDst.width() * scale_x;
+            int h = rcDst.height() * scale_y;
+
+            QJsonArray arr;
+            for (int i = 0; i < g_dsCtx->m_cntCock; ++i){
+                QJsonObject obj;
+                DsCockInfo* info = &g_dsCtx->m_tOriginCocks[i];
+                if (i == m_indexDrag){
+                    obj.insert("x", x);
+                    obj.insert("y", y);
+                    obj.insert("w", w);
+                    obj.insert("h", h);
+                }else{
+                    obj.insert("x", info->x);
+                    obj.insert("y", info->y);
+                    obj.insert("w", info->w);
+                    obj.insert("h", info->h);
+                }
+                obj.insert("v", info->iSvrid);
+                obj.insert("a", info->bAudio ? 1 : 0);
+                arr.append(obj);
+            }
+            QJsonDocument doc;
+            doc.setArray(arr);
+            QByteArray bytes = doc.toJson();
+            qDebug(bytes.constData());
+            emit cockRepos(bytes);
         }
     }
 }

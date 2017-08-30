@@ -94,6 +94,9 @@ protected:
 public:
     int svrid;
 
+    bool m_bDrawTitle;
+    bool m_bDrawAudio;
+
     HTitlebarWidget* m_titleWdg;
     HToolbarWidget*  m_toolWdg;
     QLabel* m_snapshot;
@@ -120,10 +123,13 @@ public:
     HCockGLWidget(QWidget* parent = Q_NULLPTR);
     ~HCockGLWidget();
 
-    // return is subcock
-    bool getCockByPos(QPoint pt, QRect& rc);
+    int getCockByPos(QPoint pt, QRect& rc);
     void toggleTrash() {m_wdgTrash->setVisible(!m_wdgTrash->isVisible());}
     virtual void toggleToolWidgets();
+    void adjustPos(QRect& rc);
+
+signals:
+    void cockRepos(QByteArray& bytes);
 
 public slots:
     void onCockChanged();
@@ -136,9 +142,11 @@ protected:
 
 private:
     std::vector<QRect> m_vecCocks;
+    int m_cockoutlinecolor;
 
     QLabel* m_labelDrag;
     QPoint m_ptDrag;
+    int m_indexDrag;
     HChangeColorWidget* m_wdgTrash;
 };
 

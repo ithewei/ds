@@ -201,8 +201,7 @@ DSSHARED_EXPORT int liboper(int media_type, int data_type, int opt, void* param,
                 if(opt > 0x1000)
                 {
                     int svrid = opt - 0x1000;
-                    // svrid=1 not display title
-                    if (svrid < 2 || svrid > DIRECTOR_MAX_SERVS)
+                    if (svrid < 1 || svrid > DIRECTOR_MAX_SERVS)
                         return -2;
 
                     if (param){
