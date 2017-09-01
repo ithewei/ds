@@ -90,6 +90,10 @@ void HRcLoader::loadIcon(){
     strImg = g_dsCtx->img_path;
     strImg += "trash.png";
     icon_trash.load(strImg.c_str());
+
+    strImg = g_dsCtx->img_path;
+    strImg += "undo.png";
+    icon_undo.load(strImg.c_str());
 }
 
 void HRcLoader::loadTexture(){

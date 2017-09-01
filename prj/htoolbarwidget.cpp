@@ -18,6 +18,7 @@ void HToolbarWidget::initUI(){
     QHBoxLayout* hbox = new QHBoxLayout;
 
     hbox->setMargin(1);
+    hbox->setSpacing(10);
 
     m_btnStart = new QPushButton;
     m_btnStart->setFixedSize(TOOLBAR_ICON_WIDTH,TOOLBAR_ICON_HEIGHT);
@@ -37,17 +38,22 @@ void HToolbarWidget::initUI(){
     hbox->addWidget(m_btnPause);
     hbox->setAlignment(m_btnPause, Qt::AlignLeft);
 
-    hbox->addSpacing(10);
-
 //    m_btnStop = new QPushButton;
-//    m_btnStop->setFixedSize(TITLEBAR_ICON_WIDTH,TITLEBAR_ICON_HEIGHT);
+//    m_btnStop->setFixedSize(TOOLBAR_ICON_WIDTH,TOOLBAR_ICON_HEIGHT);
 //    m_btnStop->setIcon(QIcon(HRcLoader::instance()->icon_stop));
-//    m_btnStop->setIconSize(QSize(TITLEBAR_ICON_WIDTH,TITLEBAR_ICON_HEIGHT));
+//    m_btnStop->setIconSize(QSize(TOOLBAR_ICON_WIDTH,TOOLBAR_ICON_HEIGHT));
 //    m_btnStop->setFlat(true);
 //    hbox->addWidget(m_btnStop);
 //    hbox->setAlignment(m_btnStop, Qt::AlignLeft);
 
-//    hbox->addSpacing(10);
+    m_btnUndo = new QPushButton;
+    m_btnUndo->setFixedSize(TOOLBAR_ICON_WIDTH,TOOLBAR_ICON_HEIGHT);
+    m_btnUndo->setIcon(QIcon(HRcLoader::instance()->icon_undo));
+    m_btnUndo->setIconSize(QSize(TOOLBAR_ICON_WIDTH,TOOLBAR_ICON_HEIGHT));
+    m_btnUndo->setFlat(true);
+    m_btnUndo->hide();
+    hbox->addWidget(m_btnUndo);
+    hbox->setAlignment(m_btnUndo, Qt::AlignLeft);
 
     m_slider = new QSlider;
     m_slider->setOrientation(Qt::Horizontal);
@@ -91,8 +97,6 @@ void HToolbarWidget::initUI(){
                             );
     hbox->addWidget(m_slider);
     hbox->setStretchFactor(m_slider, 1);
-
-    hbox->addSpacing(10);
 
     hbox->addStretch();
 

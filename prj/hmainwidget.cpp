@@ -11,6 +11,8 @@ HMainWidget::HMainWidget(HDsContext* ctx, QWidget *parent)
 
     initUI();
     initConnect();
+
+    setAttribute(Qt::WA_AcceptTouchEvents);
 }
 
 HMainWidget::~HMainWidget(){
@@ -20,33 +22,34 @@ HMainWidget::~HMainWidget(){
 void HMainWidget::initUI(){
     qDebug("");
     setWindowFlags(Qt::Window | Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint);
-    if (m_ctx->width == 0 || m_ctx->height == 0){
-       m_ctx->width  = QApplication::desktop()->width();
-       m_ctx->height = QApplication::desktop()->height();
+    if (m_ctx->m_tLayout.width == 0 || m_ctx->m_tLayout.height == 0){
+       m_ctx->m_tLayout.width  = QApplication::desktop()->width();
+       m_ctx->m_tLayout.height = QApplication::desktop()->height();
     }
-    setGeometry(0,0,m_ctx->width, m_ctx->height);
+    setGeometry(0,0,m_ctx->m_tLayout.width, m_ctx->m_tLayout.height);
     setAutoFillBackground(true);
     QPalette pal = palette();
     pal.setColor(QPalette::Background, Qt::black);
     setPalette(pal);
 
-    for (int i = 0; i < m_ctx->m_cntItem; ++i){
+    for (int i = 0; i < m_ctx->m_tLayout.itemCnt; ++i){
         // last is cock window,svrid = 1
 
         HGLWidget* wdg;
-        if (i == m_ctx->m_cntItem - 1){
+        if (i == m_ctx->m_tLayout.itemCnt - 1){
             wdg = new HCockGLWidget(this);
             wdg->svrid = 1;
             m_mapGLWdg[1] = wdg;
             m_focusGLWdg = wdg;
-            QObject::connect( wdg, SIGNAL(cockRepos(QByteArray&)), this, SLOT(reposCock(QByteArray&)) );
+            QObject::connect( wdg, SIGNAL(cockRepos(DsCockInfo)), this, SLOT(reposCock(DsCockInfo)) );
+            QObject::connect( wdg, SIGNAL(undo()), this, SLOT(undo()) );
         }else{
             wdg = new HGLWidget(this);
             wdg->svrid = 0;
         }
-        wdg->setGeometry(m_ctx->m_rcItems[i]);
-        wdg->setTitleColor(m_ctx->titcolor);
-        wdg->setOutlineColor(m_ctx->outlinecolor);
+        wdg->setGeometry(m_ctx->m_tLayout.items[i]);
+        wdg->setTitleColor(m_ctx->m_tInit.titcolor);
+        wdg->setOutlineColor(m_ctx->m_tInit.outlinecolor);
         m_vecGLWdg.push_back(wdg);
     }
 
@@ -222,7 +225,7 @@ void HMainWidget::mouseReleaseEvent(QMouseEvent *event){
 void HMainWidget::onTimerRepaint(){
     for (int i = 0; i < m_vecGLWdg.size(); ++i){
         HGLWidget* wdg = m_vecGLWdg[i];
-        DsItemInfo* item = m_ctx->getItem(wdg->svrid);
+        DsSvrItem* item = m_ctx->getItem(wdg->svrid);
         if (wdg->status(MAJOR_STATUS_MASK) == PLAYING && item && item->v_input != wdg->m_nPreFrame){
             wdg->update();
         }
@@ -337,7 +340,7 @@ void HMainWidget::onExitFullScreen(){
 void HMainWidget::onGLWdgClicked(){
     HGLWidget* pSender = (HGLWidget*)sender();
 
-    if (pSender != m_focusGLWdg && m_focusGLWdg->m_titleWdg->isVisible()){
+    if (pSender != m_focusGLWdg && m_focusGLWdg->m_titlebar->isVisible()){
         m_focusGLWdg->toggleToolWidgets();
     }
 
@@ -373,8 +376,8 @@ void HMainWidget::onCockInfoReply(QNetworkReply* reply){
                         QJsonValue v = obj.value("v");
                         iV = v.toInt();
                     }
-                    g_dsCtx->m_tOriginCocks[i].iSvrid = iID;
-                    g_dsCtx->m_tOriginCocks[i].bAudio = iV;
+                    g_dsCtx->m_tCock.items[i].iSvrid = iID;
+                    g_dsCtx->m_tCock.items[i].bAudio = iV;
                     qDebug("id=%d a=%d", iID, iV);
                 }
             }
@@ -384,12 +387,32 @@ void HMainWidget::onCockInfoReply(QNetworkReply* reply){
     reply->deleteLater();
 }
 
-void HMainWidget::reposCock(QByteArray& bytes){
-    qDebug(bytes.constData());
-    if (m_NAMCockRepos)
+void HMainWidget::reposCock(DsCockInfo ci){
+    if (m_NAMCockRepos){
+        QJsonArray arr;
+        for (int i = 0; i < ci.itemCnt; ++i){
+            QJsonObject obj;
+            DsCockItem* item = &ci.items[i];
+            obj.insert("x", item->x);
+            obj.insert("y", item->y);
+            obj.insert("w", item->w);
+            obj.insert("h", item->h);
+            obj.insert("v", item->iSvrid);
+            obj.insert("a", item->bAudio ? 1 : 0);
+            arr.append(obj);
+        }
+        QJsonDocument doc;
+        doc.setArray(arr);
+        QByteArray bytes = doc.toJson();
+        qDebug(bytes.constData());
         m_NAMCockRepos->post(QNetworkRequest(QUrl(url_repos_cock)), bytes);
+    }
 }
 
 void HMainWidget::onCockReposReply(QNetworkReply* reply){
 
+}
+
+void HMainWidget::undo(){
+    reposCock(m_ctx->m_tCockUndo);
 }

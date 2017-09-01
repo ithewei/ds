@@ -42,6 +42,50 @@
 #include "ds_global.h"
 #include "haudioplay.h"
 
+struct DsInitInfo{
+    int audio;
+    int play_audio;
+    int info;
+    int title;
+    unsigned int infcolor;
+    unsigned int titcolor;
+    unsigned int outlinecolor;
+    unsigned int focus_outlinecolor;
+    int scale_method;
+    int pause_method;
+
+    DsInitInfo(){
+        audio = 1;
+        play_audio = 0;
+        info  = 1;
+        title  = 1;
+        infcolor = 0x00FF00FF;
+        titcolor = 0xFF5A1EFF;
+        outlinecolor = 0xFFFFFFFF;
+        focus_outlinecolor = 0xFF0000FF;
+        scale_method = 0;
+        pause_method = 0;
+    }
+};
+
+struct DsLayoutInfo{
+    int width;
+    int height;
+    QRect items[MAXNUM_LAYOUT];
+    int itemCnt;
+    int cockW;
+    int cockH;
+
+    DsLayoutInfo(){
+        width = 0;
+        height = 0;
+        itemCnt = 0;
+
+        cockW = 0;
+        cockH = 0;
+    }
+};
+
 struct DsEvent{
     int type;
 
@@ -68,7 +112,7 @@ struct HRect{
     }
 };
 
-struct DsCockInfo{
+struct DsCockItem{
     int x;
     int y;
     int w;
@@ -77,7 +121,7 @@ struct DsCockInfo{
     int  iSvrid;
     bool bAudio;
 
-    DsCockInfo(){
+    DsCockItem(){
         x = 0;
         y = 0;
         w = 0;
@@ -87,9 +131,23 @@ struct DsCockInfo{
     }
 };
 
+struct DsCockInfo{
+    int width;
+    int height;
+
+    DsCockItem items[MAXNUM_COCK];
+    int itemCnt;
+
+    DsCockInfo(){
+        width = 0;
+        height = 0;
+        itemCnt = 0;
+    }
+};
+
 #include <QMutex>
 #include "qglwidgetimpl.h"
-struct DsItemInfo{
+struct DsSvrItem{
     bool bPause;
 
     int src_type;
@@ -107,11 +165,11 @@ struct DsItemInfo{
     unsigned int v_input;
     ifservice_callback * ifcb;
 
-    DsItemInfo(){
+    DsSvrItem(){
         init();
     }
 
-    ~DsItemInfo(){
+    ~DsSvrItem(){
 
     }
 
@@ -189,7 +247,7 @@ public:
     void start_gui_thread();
     void handle_event(DsEvent& event);
 
-    DsItemInfo* getItem(int svrid){
+    DsSvrItem* getItem(int svrid){
         if (svrid < 1 || svrid > DIRECTOR_MAX_SERVS)
             return NULL;
         return &m_tItems[svrid-1];
@@ -205,7 +263,7 @@ public:
     }
 
     void setTitle(int svrid, const char* title){
-        DsItemInfo* item = getItem(svrid);
+        DsSvrItem* item = getItem(svrid);
         if (item){
             item->title = title;
             emit titleChanged(svrid);
@@ -213,7 +271,7 @@ public:
     }
     void stop(int svrid){
         qDebug("");
-        DsItemInfo* item = getItem(svrid);
+        DsSvrItem* item = getItem(svrid);
         if (item){
             item->init();
         }
@@ -247,46 +305,26 @@ public:
     QMutex m_mutex;
     int action; // window show or hide
     int display_mode;
+    int frames;
 
-    transaction* m_trans;
-
-    int width;
-    int height;
-    int audio;
-    int play_audio;
-    int info;
-    int title;
-    unsigned int infcolor;
-    unsigned int titcolor;
-    unsigned int outlinecolor;
-    unsigned int focus_outlinecolor;
-    int scale_method;
-    int pause_method;
+    DsInitInfo m_tInit;
+    DsLayoutInfo m_tLayout;
+    DsCockInfo m_tCock;
+    DsCockInfo m_tCockUndo;
+    int m_preselect[MAXNUM_COCK];
 
     std::string img_path;
     std::string ttf_path;
+
     FTGLPixmapFont* m_pFont;
-
-    int frames;
-    std::string m_strUrl;
-    QRect m_rcItems[MAXNUM_LAYOUT];
-    int m_cntItem;
-    int m_iCockW;
-    int m_iCockH;
-
-    DsCockInfo m_tOriginCocks[MAXNUM_COCK];
-    int m_cntCock;
-    int m_iOriginCockW;
-    int m_iOriginCockH;
-
     HAudioPlay* m_audioPlay;
+    transaction* m_trans;
 
-    DsItemInfo m_tItems[DIRECTOR_MAX_SERVS];
+    DsSvrItem m_tItems[DIRECTOR_MAX_SERVS];
 
     std::string m_strTaskInfo;
     uint m_curTick;
     uint m_lastTick;
-    bool m_bUpdateTaskInfo;
 };
 
 extern HDsContext* g_dsCtx;

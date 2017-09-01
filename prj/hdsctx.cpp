@@ -3,6 +3,7 @@
 #include "hmainwidget.h"
 
 HDsContext* g_dsCtx = NULL;
+const char* url_handle_event = "http://127.0.0.1/transcoder/index.php?controller=channels&action=srcchange";
 
 #include <QSplashScreen>
 #include <QProgressBar>
@@ -76,30 +77,8 @@ HDsContext::HDsContext()
     init    = 0;
     action  = 1;
     display_mode = DISPLAY_MODE_TIMER;
-
-    width = 0;
-    height = 0;
-    audio = 1;
-    play_audio = 0;
-    info  = 1;
-    title  = 1;
-    infcolor = 0x00FF00FF;
-    titcolor = 0xFF5A1EFF;
-    outlinecolor = 0xFFFFFFFF;
-    focus_outlinecolor = 0xFF0000FF;
-    scale_method = 0;
-    pause_method = 0;
-
-    m_cntItem = 0;
-    m_iCockW = 0;
-    m_iCockH = 0;
     frames = 25;
 
-    m_cntCock = 0;
-    m_iOriginCockW = 0;
-    m_iOriginCockH = 0;
-
-    m_bUpdateTaskInfo = false;
     m_curTick = 0;
     m_lastTick = 0;
 
@@ -116,6 +95,11 @@ HDsContext::~HDsContext(){
     if (m_audioPlay){
         delete m_audioPlay;
         m_audioPlay = NULL;
+    }
+
+    if (m_pFont){
+        delete m_pFont;
+        m_pFont = NULL;
     }
 }
 
@@ -181,29 +165,24 @@ int HDsContext::parse_init_xml(const char* xml){
             const std::string & n = e->get_attribute("n");
             const std::string & v = e->get_attribute("v");
 
-            if(n == "width")
-                width = atoi(v.c_str());
-            else if(n == "height")
-                height = atoi(v.c_str());
-
-            else if(n == "audio")
-                audio    = atoi(v.c_str());
+            if(n == "audio")
+                m_tInit.audio    = atoi(v.c_str());
             else if(n == "play_audio")
-                play_audio    = atoi(v.c_str());
+                m_tInit.play_audio    = atoi(v.c_str());
 
             else if(n == "info")
-                info     = atoi(v.c_str());
+                m_tInit.info     = atoi(v.c_str());
             else if(n == "infcolor")
-                infcolor      = (unsigned int)strtoul(v.c_str(), NULL, 16);
+                m_tInit.infcolor      = (unsigned int)strtoul(v.c_str(), NULL, 16);
 
             else if(n == "title")
-                title     = atoi(v.c_str());
+                m_tInit.title     = atoi(v.c_str());
             else if(n == "titcolor")
-                titcolor      = (unsigned int)strtoul(v.c_str(), NULL, 16);
+                m_tInit.titcolor      = (unsigned int)strtoul(v.c_str(), NULL, 16);
             else if(n == "scale_method")
-                scale_method = (int)strtoul(v.c_str(), NULL, 16);
+                m_tInit.scale_method = (int)strtoul(v.c_str(), NULL, 16);
             else if(n == "pause_method")
-                pause_method= atoi(v.c_str());
+                m_tInit.pause_method= atoi(v.c_str());
         }
     }
 
@@ -298,9 +277,9 @@ int HDsContext::parse_layout_xml(const char* xml_file){
         const std::string & v = e->get_attribute("v");
 
         if(n == "width")
-            width     = atoi(v.c_str());
+            m_tLayout.width     = atoi(v.c_str());
         else if(n == "height")
-            height    = atoi(v.c_str());
+            m_tLayout.height    = atoi(v.c_str());
         else if(n == "frames"){
             frames = atoi(v.c_str());
             if (frames < 1)
@@ -323,12 +302,11 @@ int HDsContext::parse_layout_xml(const char* xml_file){
             int pic_threshold   = (unsigned int)strtoul(v.c_str(), NULL, 10);
         else if(n == "detail_numb")
             int detail_numb     = (unsigned int)strtoul(v.c_str(), NULL, 10);
-
         else if(n == "pick.cb")
-            m_strUrl = v;
+            std::string urlHandleEvent = v;
     }
 
-    m_cntItem = 0;
+    int i = 0;
     ook::xml_parser::enum_childen(body, NULL);
     const ook::xml_element * item;
     while(1)
@@ -355,16 +333,17 @@ int HDsContext::parse_layout_xml(const char* xml_file){
             else if(n == "y")
                 hrc.y = atoi(v.c_str());
         }
-        m_rcItems[m_cntItem].setRect(hrc.x, hrc.y, hrc.w, hrc.h);
+        m_tLayout.items[i].setRect(hrc.x, hrc.y, hrc.w, hrc.h);
 
-        m_cntItem++;
-        if(m_cntItem >= MAXNUM_LAYOUT)
+        ++i;
+        if(i >= MAXNUM_LAYOUT)
             break;
     }
+    m_tLayout.itemCnt = i;
 
     // last is cock window
-    m_iCockW = m_rcItems[m_cntItem-1].width();
-    m_iCockH = m_rcItems[m_cntItem-1].height();
+    m_tLayout.cockW = m_tLayout.items[m_tLayout.itemCnt-1].width();
+    m_tLayout.cockH = m_tLayout.items[m_tLayout.itemCnt-1].height();
 
     return 0;
 }
@@ -424,8 +403,9 @@ int HDsContext::parse_cock_xml(const char* xml){
     if(!head || !body)
         return -3;
 
-    const ook::xml_element * e;
     ook::xml_parser::enum_childen(head, NULL);
+    const ook::xml_element * e;
+    DsCockInfo ci;
     while(1)
     {
         e = ook::xml_parser::enum_childen(head, "param");
@@ -435,17 +415,16 @@ int HDsContext::parse_cock_xml(const char* xml){
         const std::string & v = e->get_attribute("v");
 
         if(n == "width")
-            m_iOriginCockW = atoi(v.c_str());
+            ci.width = atoi(v.c_str());
         else if(n == "height")
-            m_iOriginCockH = atoi(v.c_str());
+            ci.height = atoi(v.c_str());
     }
 
-    if(m_iOriginCockW < 1 || m_iOriginCockH < 1)
+    if(ci.width < 1 || ci.height < 1)
         return -10;
 
     ook::xml_parser::enum_childen(body, NULL);
     const ook::xml_element * item;
-    m_cntCock = 0;
     while(1)
     {
         item = ook::xml_parser::enum_childen(body, "item");
@@ -462,23 +441,32 @@ int HDsContext::parse_cock_xml(const char* xml){
             const std::string & n = e->get_attribute("n");
             const std::string & v = e->get_attribute("v");
             if(n == "w")
-                m_tOriginCocks[m_cntCock].w = atoi(v.c_str());
+                ci.items[ci.itemCnt].w = atoi(v.c_str());
             else if(n == "h")
-                m_tOriginCocks[m_cntCock].h = atoi(v.c_str());
+                ci.items[ci.itemCnt].h = atoi(v.c_str());
             else if(n == "x")
-                m_tOriginCocks[m_cntCock].x = atoi(v.c_str());
+                ci.items[ci.itemCnt].x = atoi(v.c_str());
             else if(n == "y")
-                m_tOriginCocks[m_cntCock].y = atoi(v.c_str());
+                ci.items[ci.itemCnt].y = atoi(v.c_str());
             else if(n == "a")
-                m_tOriginCocks[m_cntCock].bAudio = atoi(v.c_str());
+                ci.items[ci.itemCnt].bAudio = atoi(v.c_str());
             else if(n == "u")
-                m_tOriginCocks[m_cntCock].iSvrid = atoi(v.c_str());;
+                ci.items[ci.itemCnt].iSvrid = atoi(v.c_str());;
         }
 
-        m_cntCock++;
-        if(m_cntCock >= 8)
+        ++ci.itemCnt;
+        if(ci.itemCnt >= 8)
             break;
     }
+
+    for (int i = 0; i < MAXNUM_COCK; ++i){
+        m_preselect[i] = ci.items[i].iSvrid;
+    }
+
+    if (memcmp(&m_tCock, &m_tCockUndo, sizeof(DsCockInfo)) != 0){
+        m_tCockUndo = m_tCock;
+    }
+    m_tCock = ci;
 
     emit cockChanged();
 
@@ -531,6 +519,7 @@ int HDsContext::parse_taskinfo_xml(const char* xml){
     int outputpkgs[2] = {-1};
     int outputspeed = -1;
     const ook::xml_element * e;
+    ook::xml_parser::enum_childen(item, NULL);
     while(1)
     {
         e = ook::xml_parser::enum_childen(item, "param");
@@ -743,7 +732,7 @@ int HDsContext::push_video(int svrid, const av_picture* pic){
     if (action < 1)
         return -1;
 
-    DsItemInfo* item = getItem(svrid);
+    DsSvrItem* item = getItem(svrid);
     if (!item || item->bPause)
         return -2;
 
@@ -869,10 +858,10 @@ int HDsContext::push_video(int svrid, const av_picture* pic){
 }
 
 int HDsContext::push_audio(int svrid, const av_pcmbuff* pcm){
-    if (action < 1 || audio < 1)
+    if (action < 1 || m_tInit.audio < 1)
         return -1;
 
-    DsItemInfo* item = getItem(svrid);
+    DsSvrItem* item = getItem(svrid);
     if (!item || item->bPause)
         return -2;
 
@@ -921,11 +910,9 @@ void* thread_http_req(void* param){
     clt->tracegrade = 4;
 
     std::string strRes;
-    if(clt->request(g_dsCtx->m_strUrl.c_str(), szReq, 3000))
+    if(clt->request(url_handle_event, szReq, 3000))
     {
         clt->query(strRes, 2000);
-        qDebug(g_dsCtx->m_strUrl.c_str());
-        const char* p = strRes.c_str();
         qDebug(strRes.c_str());
     }
 
@@ -948,9 +935,9 @@ void HDsContext::handle_event(DsEvent& event){
     // scale cock x y
     int x = event.dst_x;
     int y = event.dst_y;
-    if (x != -1 && y != -1 && m_iCockW && m_iCockH){
-        x *= m_iOriginCockW / (double)m_iCockW;
-        y *= m_iOriginCockH / (double)m_iCockH;
+    if (x != -1 && y != -1 && m_tLayout.cockW && m_tLayout.cockH){
+        x *= (double)m_tCock.width / (double)m_tLayout.cockW;
+        y *= (double)m_tCock.height / (double)m_tLayout.cockH;
     }
 
     char* szReq = (char*)malloc(512); // 在调用线程中注意释放

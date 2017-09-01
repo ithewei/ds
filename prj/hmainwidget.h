@@ -61,8 +61,10 @@ public slots:
     void getCockInfo();
     void onCockInfoReply(QNetworkReply* reply);
 
-    void reposCock(QByteArray& bytes);
+    void reposCock(DsCockInfo ci);
     void onCockReposReply(QNetworkReply* reply);
+
+    void undo();
 
 private:
     HDsContext* m_ctx;

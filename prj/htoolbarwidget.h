@@ -35,6 +35,7 @@ public:
     QPushButton* m_btnStart;
     QPushButton* m_btnPause;
     QPushButton* m_btnStop;
+    QPushButton* m_btnUndo;
     QSlider* m_slider;
 };
 

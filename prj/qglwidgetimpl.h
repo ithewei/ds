@@ -68,7 +68,7 @@ protected:
     void drawYUV(Texture* tex);
     void drawTex(Texture* tex, DrawInfo* di);
     void drawStr(FTGLPixmapFont *pFont, const char* str, DrawInfo* di);
-    void drawRect(DrawInfo* di, bool bFill = false);
+    void drawRect(DrawInfo* di, int linewidth = 1, bool bFill = false);
 
 protected:
     virtual void initializeGL();

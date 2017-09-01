@@ -65,7 +65,7 @@ DSSHARED_EXPORT int libinit(const char* xml, void* task, void** ctx){
         *ctx = g_dsCtx;
         g_dsCtx->ref++;
         int mask  = SERVICE_POSITION_VIDEO_AFDEC;
-        if(g_dsCtx->audio)
+        if(g_dsCtx->m_tInit.audio)
             mask |= SERVICE_POSITION_AUDIO_AFDEC;
         return mask;
     }
@@ -120,7 +120,7 @@ DSSHARED_EXPORT int libinit(const char* xml, void* task, void** ctx){
             g_dsCtx->initFont(ttf_path, 24);
 
         int mask  = SERVICE_POSITION_VIDEO_AFDEC;
-        if(g_dsCtx->audio)
+        if(g_dsCtx->m_tInit.audio)
             mask |= SERVICE_POSITION_AUDIO_AFDEC;
 
         *ctx = g_dsCtx;
@@ -231,7 +231,7 @@ DSSHARED_EXPORT int liboper(int media_type, int data_type, int opt, void* param,
             if(svrid < 1 || svrid > DIRECTOR_MAX_SERVS)
                 return -2;
 
-            DsItemInfo* item = g_dsCtx->getItem(svrid);
+            DsSvrItem* item = g_dsCtx->getItem(svrid);
 
             if(dsc->action == OOK_FOURCC('S', 'V', 'C', 'B')){
                 qDebug("svrid=%d OOK_FOURCC('S', 'V', 'C', 'B')", svrid);

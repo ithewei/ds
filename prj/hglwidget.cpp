@@ -13,7 +13,6 @@ HGLWidget::HGLWidget(QWidget *parent)
     m_bDrawAudio = true;
 
     m_status = STOP;
-    m_bMousePressed = false;
     m_tmMousePressed = 0;
 
     initUI();
@@ -28,17 +27,17 @@ void HGLWidget::initUI(){
     QVBoxLayout* vbox = new QVBoxLayout;
     vbox->setMargin(2);
 
-    m_titleWdg = new HTitlebarWidget;
-    m_titleWdg->setFixedHeight(TITLE_BAR_HEIGHT);
-    m_titleWdg->hide();
-    vbox->addWidget(m_titleWdg);
+    m_titlebar = new HTitlebarWidget;
+    m_titlebar->setFixedHeight(TITLE_BAR_HEIGHT);
+    m_titlebar->hide();
+    vbox->addWidget(m_titlebar);
 
     vbox->addStretch();
 
-    m_toolWdg = new HToolbarWidget;
-    m_toolWdg->setFixedHeight(TOOL_BAR_HEIGHT);
-    m_toolWdg->hide();
-    vbox->addWidget(m_toolWdg);
+    m_toolbar = new HToolbarWidget;
+    m_toolbar->setFixedHeight(TOOL_BAR_HEIGHT);
+    m_toolbar->hide();
+    vbox->addWidget(m_toolbar);
 
     setLayout(vbox);
 
@@ -53,17 +52,17 @@ void HGLWidget::initUI(){
 }
 
 void HGLWidget::initConnect(){
-    QObject::connect( m_titleWdg, SIGNAL(fullScreen()), this, SIGNAL(fullScreen()) );
-    QObject::connect( m_titleWdg, SIGNAL(exitFullScreen()), this, SIGNAL(exitFullScreen()) );
-    QObject::connect( m_titleWdg->m_btnSnapshot, SIGNAL(clicked(bool)), this, SLOT(snapshot()) );
-    //QObject::connect( m_titleWdg->m_btnStartRecord, SIGNAL(clicked(bool)), this, SLOT(startRecord()) );
-    //QObject::connect( m_titleWdg->m_btnStopRecord, SIGNAL(clicked(bool)), this, SLOT(stopRecord()) );
-    QObject::connect( m_titleWdg->m_btnNum, SIGNAL(clicked(bool)), this, SLOT(showNumSelector()) );
+    QObject::connect( m_titlebar, SIGNAL(fullScreen()), this, SIGNAL(fullScreen()) );
+    QObject::connect( m_titlebar, SIGNAL(exitFullScreen()), this, SIGNAL(exitFullScreen()) );
+    QObject::connect( m_titlebar->m_btnSnapshot, SIGNAL(clicked(bool)), this, SLOT(snapshot()) );
+    //QObject::connect( m_titlebar->m_btnStartRecord, SIGNAL(clicked(bool)), this, SLOT(startRecord()) );
+    //QObject::connect( m_titlebar->m_btnStopRecord, SIGNAL(clicked(bool)), this, SLOT(stopRecord()) );
+    QObject::connect( m_titlebar->m_btnNum, SIGNAL(clicked(bool)), this, SLOT(showNumSelector()) );
 
-    QObject::connect( m_toolWdg, SIGNAL(sigStart()), this, SLOT(onStart()) );
-    QObject::connect( m_toolWdg, SIGNAL(sigPause()), this, SLOT(onPause()) );
-    QObject::connect( m_toolWdg, SIGNAL(sigStop()), this, SLOT(onStop()) );
-    QObject::connect( m_toolWdg, SIGNAL(progressChanged(int)), this, SLOT(onProgressChanged(int)) );
+    QObject::connect( m_toolbar, SIGNAL(sigStart()), this, SLOT(onStart()) );
+    QObject::connect( m_toolbar, SIGNAL(sigPause()), this, SLOT(onPause()) );
+    QObject::connect( m_toolbar, SIGNAL(sigStop()), this, SLOT(onStop()) );
+    QObject::connect( m_toolbar, SIGNAL(progressChanged(int)), this, SLOT(onProgressChanged(int)) );
 
     QObject::connect( m_numSelector, SIGNAL(numSelected(int)), this, SLOT(onNumSelected(int)) );
     QObject::connect( m_numSelector, SIGNAL(numCanceled(int)), this, SLOT(onNumCanceled(int)) );
@@ -73,16 +72,14 @@ void HGLWidget::showTitlebar(bool bShow){
     if (bShow){
         if ((m_status & MAJOR_STATUS_MASK) == PLAYING ||
             (m_status & MAJOR_STATUS_MASK) == PAUSE){
-            DsItemInfo* item = g_dsCtx->getItem(svrid);
+            DsSvrItem* item = g_dsCtx->getItem(svrid);
             if (item){
-                m_titleWdg->setTitle(item->title.c_str());
+                m_titlebar->setTitle(item->title.c_str());
             }
-            m_titleWdg->show();
-            setOutlineColor(g_dsCtx->focus_outlinecolor);
+            m_titlebar->show();
         }
     }else{
-        m_titleWdg->hide();
-        setOutlineColor(g_dsCtx->outlinecolor);
+        m_titlebar->hide();
     }
 }
 
@@ -92,30 +89,30 @@ void HGLWidget::showToolbar(bool bShow){
             (m_status & MAJOR_STATUS_MASK) == PAUSE){
 
             if ((m_status & MAJOR_STATUS_MASK) == PLAYING){
-                m_toolWdg->m_btnStart->hide();
-                m_toolWdg->m_btnPause->show();
+                m_toolbar->m_btnStart->hide();
+                m_toolbar->m_btnPause->show();
             }
             if ((m_status & MAJOR_STATUS_MASK) == PAUSE){
-                m_toolWdg->m_btnStart->show();
-                m_toolWdg->m_btnPause->hide();
+                m_toolbar->m_btnStart->show();
+                m_toolbar->m_btnPause->hide();
             }
 
             if (g_dsCtx->getItem(svrid)->src_type == SRC_TYPE_FILE){
-                m_toolWdg->m_slider->show();
-                m_toolWdg->show();
+                m_toolbar->m_slider->show();
+                m_toolbar->show();
             }
             if (svrid == 1){
-                m_toolWdg->m_slider->hide();
-                m_toolWdg->show();
+                m_toolbar->m_slider->hide();
+                m_toolbar->show();
             }
         }
     }else{
-        m_toolWdg->hide();
+        m_toolbar->hide();
     }
 }
 
 void HGLWidget::toggleTitlebar(){
-    if (m_titleWdg->isVisible()){
+    if (m_titlebar->isVisible()){
         showTitlebar(false);
     }else{
         showTitlebar(true);
@@ -123,7 +120,7 @@ void HGLWidget::toggleTitlebar(){
 }
 
 void HGLWidget::toggleToolbar(){
-    if (m_toolWdg->isVisible()){
+    if (m_toolbar->isVisible()){
         showToolbar(false);
     }else{
         showToolbar(true);
@@ -136,7 +133,7 @@ void HGLWidget::toggleToolWidgets(){
 }
 
 void HGLWidget::onStart(){
-    DsItemInfo* item = g_dsCtx->getItem(svrid);
+    DsSvrItem* item = g_dsCtx->getItem(svrid);
     if (item && item->ifcb){
         qDebug("svrid=%d startplay", svrid);
         //item->bPause = false;
@@ -150,7 +147,7 @@ void HGLWidget::onStart(){
 }
 
 void HGLWidget::onPause(){    
-    DsItemInfo* item = g_dsCtx->getItem(svrid);
+    DsSvrItem* item = g_dsCtx->getItem(svrid);
     if (item && item->ifcb){
         qDebug("svrid=%d ifservice_callback::e_service_cb_pause", svrid);
         //item->bPause = true;
@@ -174,7 +171,7 @@ void HGLWidget::onStop(){
 }
 
 void HGLWidget::onProgressChanged(int progress){
-    DsItemInfo* item = g_dsCtx->getItem(svrid);
+    DsSvrItem* item = g_dsCtx->getItem(svrid);
     if (item && item->ifcb){
         qDebug("svrid=%d progress=%d ifservice_callback::e_service_cb_playratio", svrid, progress);
         item->ifcb->onservice_callback(ifservice_callback::e_service_cb_playratio, libchar(), 0, 0, progress, NULL);
@@ -186,7 +183,7 @@ void HGLWidget::onProgressChanged(int progress){
 #include <QDateTime>
 void HGLWidget::snapshot(){
     //test snapshot
-    DsItemInfo* item = g_dsCtx->getItem(svrid);
+    DsSvrItem* item = g_dsCtx->getItem(svrid);
     if (item && item->tex_yuv.data){
         static const char* prefix = "/var/transcoder/snapshot/";
         QDir dir;
@@ -223,16 +220,18 @@ void HGLWidget::stopRecord(){
 }
 
 void HGLWidget::onNumSelected(int num){
-    g_dsCtx->m_tOriginCocks[num - 1].iSvrid = svrid;
+    //g_dsCtx->m_tCock.items[num - 1].iSvrid = svrid;
+    g_dsCtx->m_preselect[num-1] = svrid;
 }
 
 void HGLWidget::onNumCanceled(int num){
-    g_dsCtx->m_tOriginCocks[num - 1].iSvrid = 0;
+    //g_dsCtx->m_tCock.items[num - 1].iSvrid = 0;
+    g_dsCtx->m_preselect[num-1] = 0;
 }
 
 void HGLWidget::showNumSelector(){
     for (int i = 0; i < MAX_NUM_ICON; ++i){
-        if (g_dsCtx->m_tOriginCocks[i].iSvrid == svrid){
+        if (g_dsCtx->m_preselect[i] == svrid){
             m_numSelector->m_numSelects[i]->hide();
             m_numSelector->m_numCancels[i]->show();
         }else{
@@ -247,26 +246,23 @@ void HGLWidget::showNumSelector(){
 }
 
 void HGLWidget::mousePressEvent(QMouseEvent* event){
-    m_bMousePressed = true;
     m_tmMousePressed = event->timestamp();
+    m_ptMousePressed = event->pos();
     event->ignore();
 }
 
 void HGLWidget::mouseReleaseEvent(QMouseEvent* event){
-    QRect rc(0, 0, width(), height());
-    if (m_bMousePressed && (event->timestamp() - m_tmMousePressed < 200) &&
-            rc.contains(event->x(), event->y())){
+    if ((event->timestamp() - m_tmMousePressed < 200)){
         toggleToolWidgets();
         emit clicked();
     }
 
-    m_bMousePressed = false;
     event->ignore();
 }
 
 void HGLWidget::mouseMoveEvent(QMouseEvent* e){
     // add delay to prevent misopration
-    if (m_bMousePressed && (e->timestamp() - m_tmMousePressed < 200)){
+    if ((e->timestamp() - m_tmMousePressed < 200)){
         e->accept();
         return;
     }
@@ -326,7 +322,7 @@ void HGLWidget::paintGL(){
         break;
     case PAUSE:
     case PLAYING:
-        DsItemInfo* item = g_dsCtx->getItem(svrid);
+        DsSvrItem* item = g_dsCtx->getItem(svrid);
         if (!item)
             break;
         if (m_status & PLAY_VIDEO){
@@ -348,14 +344,14 @@ void HGLWidget::paintGL(){
                     di.right = di.left + AUDIO_WIDTH;
                     di.bottom = di.top + AUDIO_HEIGHT;
                     di.color = 0x00FFFF80;
-                    drawRect(&di, true);
+                    drawRect(&di, 1, true);
 
                     di.left += 1;
                     di.right -= 1;
                     di.bottom -= 1;
                     di.top = di.bottom - item->a_average[1] * AUDIO_HEIGHT / 65536;
                     di.color = 0xFFFF0080;
-                    drawRect(&di, true);
+                    drawRect(&di, 1, true);
                 }
 
                 di.left = width()-2 - AUDIO_WIDTH;
@@ -363,14 +359,14 @@ void HGLWidget::paintGL(){
                 di.right = di.left + AUDIO_WIDTH;
                 di.bottom = di.top + AUDIO_HEIGHT;
                 di.color = 0x00FFFF80;
-                drawRect(&di, true);
+                drawRect(&di, 1, true);
 
                 di.left += 1;
                 di.right -= 1;
                 di.bottom -= 1;
                 di.top = di.bottom - item->a_average[0] * AUDIO_HEIGHT / 65536;
                 di.color = 0xFFFF0080;
-                drawRect(&di, true);
+                drawRect(&di, 1, true);
 
                 item->bUpdateAverage = true;
             }
@@ -382,11 +378,11 @@ void HGLWidget::paintGL(){
         di.left = 1;
         di.right = 48;
         for (int i = 0; i < MAX_NUM_ICON; ++i){
-            if (g_dsCtx->m_tOriginCocks[i].iSvrid == svrid){
+            if (g_dsCtx->m_preselect[i] == svrid){
                 drawTex(&HRcLoader::instance()->tex_numr[i], &di);
                 di.left += 48;
                 di.right += 48;
-                if (g_dsCtx->m_tOriginCocks[i].bAudio){
+                if (g_dsCtx->m_tCock.items[i].bAudio){
                     // draw sound icon
                     DrawInfo diAudio;
                     Texture *tex = getTexture(HAVE_AUDIO);
@@ -403,7 +399,7 @@ void HGLWidget::paintGL(){
 
     // draw title
     if (m_bDrawTitle){
-        DsItemInfo* item = g_dsCtx->getItem(svrid);
+        DsSvrItem* item = g_dsCtx->getItem(svrid);
         if (item && item->title.length() > 0){
             di.left = 2;
             di.top = 2;
@@ -430,8 +426,12 @@ void HGLWidget::paintGL(){
     di.top = 0;
     di.right = width() - 1;
     di.bottom = height() - 1;
-    di.color = m_outlinecolor;
-    drawRect(&di);
+    if (m_titlebar->isVisible()){
+        di.color = g_dsCtx->m_tInit.focus_outlinecolor;
+    }else{
+        di.color = m_outlinecolor;
+    }
+    drawRect(&di, 3);
 }
 
 //===============================================================================
@@ -440,18 +440,27 @@ HCockGLWidget::HCockGLWidget(QWidget* parent)
     : HGLWidget(parent)
 {
     m_cockoutlinecolor = 0xFFFFFFFF;
+    m_cocktype = 0;
 
-    m_titleWdg->m_btnNum->hide();
+    m_titlebar->m_btnNum->hide();
+    m_toolbar->m_btnUndo->show();
 
     m_labelDrag = new QLabel(this);
     m_labelDrag->setStyleSheet("border:3px groove #FF8C00");
     m_labelDrag->hide();
+
+    m_labelResize = new QLabel(this);
+    m_labelResize->setStyleSheet("border:3px groove #FF8C00");
+    m_labelResize->hide();
 
     m_wdgTrash = new HChangeColorWidget(this);
     m_wdgTrash->setPixmap(HRcLoader::instance()->icon_trash);
     m_wdgTrash->hide();
 
     QObject::connect( g_dsCtx, SIGNAL(cockChanged()), this, SLOT(onCockChanged()) );
+    QObject::connect( m_toolbar->m_btnUndo, SIGNAL(clicked(bool)), this, SIGNAL(undo()) );
+
+    setAttribute(Qt::WA_AcceptTouchEvents);
 }
 
 HCockGLWidget::~HCockGLWidget(){
@@ -463,16 +472,34 @@ void HCockGLWidget::toggleToolWidgets(){
     toggleTrash();
 }
 
-int HCockGLWidget::getCockByPos(QPoint pt, QRect& rc){
+#define LOCATION_PADDING    32
+int HCockGLWidget::getLocation(QPoint pt, QRect rc){
+    int l = NotIn;
+    if (rc.contains(pt)){
+         if (pt.x() - rc.left() < LOCATION_PADDING)
+             l |= Left;
+         if (rc.right() - pt.x() < LOCATION_PADDING)
+             l |= Right;
+         if (pt.y() - rc.top() < LOCATION_PADDING)
+             l |= Top;
+         if (rc.bottom() - pt.y() < LOCATION_PADDING)
+             l |= Bottom;
+         return l == NotIn ? Center : l;
+    }
+
+    return NotIn;
+}
+
+int HCockGLWidget::getCockByPos(QPoint pt){
+    int index = 0;
     for (int i = 1; i < m_vecCocks.size(); ++i){
         if (m_vecCocks[i].contains(pt)){
-            rc = m_vecCocks[i];
-            return i;
+            index = i;
+            break;
         }
     }
 
-    rc = m_vecCocks[0];
-    return 0;
+    return index;
 }
 
 void HCockGLWidget::adjustPos(QRect &rc){
@@ -494,21 +521,27 @@ void HCockGLWidget::adjustPos(QRect &rc){
 
 void HCockGLWidget::onCockChanged(){
     // scale
-    double scale_x = (double)width() / (double)g_dsCtx->m_iOriginCockW;
-    double scale_y = (double)height() / (double)g_dsCtx->m_iOriginCockH;
+    double scale_x = (double)width() / (double)g_dsCtx->m_tCock.width;
+    double scale_y = (double)height() / (double)g_dsCtx->m_tCock.height;
     m_vecCocks.clear();
-    for (int i = 0; i < g_dsCtx->m_cntCock; ++i){
-        int x = g_dsCtx->m_tOriginCocks[i].x * scale_x + 0.5;
-        int y = g_dsCtx->m_tOriginCocks[i].y * scale_y + 0.5;
-        int w = g_dsCtx->m_tOriginCocks[i].w * scale_x + 0.5;
-        int h = g_dsCtx->m_tOriginCocks[i].h * scale_y + 0.5;
+    for (int i = 0; i < g_dsCtx->m_tCock.itemCnt; ++i){
+        int x = g_dsCtx->m_tCock.items[i].x * scale_x + 0.5;
+        int y = g_dsCtx->m_tCock.items[i].y * scale_y + 0.5;
+        int w = g_dsCtx->m_tCock.items[i].w * scale_x + 0.5;
+        int h = g_dsCtx->m_tCock.items[i].h * scale_y + 0.5;
         QRect rc(x,y,w,h);
         m_vecCocks.push_back(rc);
+    }
+
+    if (m_vecCocks[0].width() > width()-10 && m_vecCocks[0].height() > height()-10){
+        m_cocktype = PIP;
+    }else{
+        m_cocktype = TILED;
     }
 }
 
 void HCockGLWidget::paintGL(){
-    if (g_dsCtx->info){
+    if (g_dsCtx->m_tInit.info){
         m_bDrawTitle = true;
         m_bDrawAudio = true;
     }else{
@@ -517,7 +550,7 @@ void HCockGLWidget::paintGL(){
     }
     HGLWidget::paintGL();
 
-    if (g_dsCtx->info){
+    if (g_dsCtx->m_tInit.info){
         DrawInfo di;
         // draw taskinfo
         if (g_dsCtx->m_pFont){
@@ -526,7 +559,7 @@ void HCockGLWidget::paintGL(){
             separator sept(g_dsCtx->m_strTaskInfo.c_str(), "\r\n");
             di.top = 10;
             di.left = 10;
-            di.color = g_dsCtx->infcolor;
+            di.color = g_dsCtx->m_tInit.infcolor;
             for (int i = 0; i < sept.size(); ++i){
                 drawStr(g_dsCtx->m_pFont, sept[i], &di);
                 di.top += g_dsCtx->m_pFont->LineHeight() + 10;
@@ -551,6 +584,16 @@ void HCockGLWidget::paintGL(){
             drawRect(&di);
         }
     }
+
+    if (m_titlebar->isVisible()){
+        DrawInfo di;
+        di.left = m_vecCocks[m_indexCock].left();
+        di.top = m_vecCocks[m_indexCock].top();
+        di.right = m_vecCocks[m_indexCock].right();
+        di.bottom = m_vecCocks[m_indexCock].bottom();
+        di.color = g_dsCtx->m_tInit.focus_outlinecolor;
+        drawRect(&di, 3);
+    }
 }
 
 void HCockGLWidget::resizeEvent(QResizeEvent *e){
@@ -560,50 +603,96 @@ void HCockGLWidget::resizeEvent(QResizeEvent *e){
     HGLWidget::resizeEvent(e);
 }
 
+void HCockGLWidget::mousePressEvent(QMouseEvent* e){
+    HGLWidget::mousePressEvent(e);
+
+    m_indexCock = getCockByPos(e->pos());
+    m_location = getLocation(e->pos(), m_vecCocks[m_indexCock]);
+}
+
 void HCockGLWidget::mouseMoveEvent(QMouseEvent *e){
     HGLWidget::mouseMoveEvent(e);
     if (e->isAccepted())
         return;
 
-    if (status(MAJOR_STATUS_MASK) == PLAYING && !m_labelDrag->isVisible()){
-        m_ptDrag.setX(e->x());
-        m_ptDrag.setY(e->y());
-
-        QRect rc;
-        m_indexDrag = getCockByPos(m_ptDrag, rc);
-        if (m_wdgTrash->isVisible()){
-            m_labelDrag->setFixedSize(DRAG_WIDTH, DRAG_HEIGHT);
-            m_labelDrag->setPixmap(grab(rc).scaled(DRAG_WIDTH, DRAG_HEIGHT));
-        }else{
-            m_labelDrag->setFixedSize(rc.size());
-            m_labelDrag->setPixmap(grab(rc));
-        }
-        m_labelDrag->show();
+    if (!QRect(0,0,width(),height()).contains(e->pos())){
+        e->accept();
+        return;
     }
 
-    if (m_labelDrag->isVisible()){
-        int w = m_labelDrag->width();
-        int h = m_labelDrag->height();
-        QRect rc(e->x()-w/2, e->y()-w/2, w, h);
-
-        if (m_wdgTrash->isVisible()){
-            if (m_wdgTrash->geometry().contains(e->pos())){
-                m_wdgTrash->changeColor(QColor(255, 0, 0, 128));
+    if (m_location & Center){
+        // move cock
+        if (status(MAJOR_STATUS_MASK) == PLAYING && !m_labelDrag->isVisible()){
+            QRect rc = m_vecCocks[m_indexCock];
+            if (m_wdgTrash->isVisible()){
+                m_labelDrag->setFixedSize(DRAG_WIDTH, DRAG_HEIGHT);
+                m_labelDrag->setPixmap(grab(rc).scaled(DRAG_WIDTH, DRAG_HEIGHT));
             }else{
-                m_wdgTrash->changeColor(Qt::transparent);
+                if (m_indexCock == 0 && m_cocktype == PIP) // main cock can not move
+                    return;
+
+                m_labelDrag->setFixedSize(rc.size());
+                m_labelDrag->setPixmap(grab(rc));
             }
-        }else{
-            adjustPos(rc);
+            m_labelDrag->show();
         }
-        m_labelDrag->setGeometry(rc);
+
+        if (m_labelDrag->isVisible()){
+            int w = m_labelDrag->width();
+            int h = m_labelDrag->height();
+            QRect rc(e->x()-w/2, e->y()-h/2, w, h);
+
+            if (m_wdgTrash->isVisible()){
+                if (m_wdgTrash->geometry().contains(e->pos())){
+                    m_wdgTrash->changeColor(QColor(255, 0, 0, 128));
+                }else{
+                    m_wdgTrash->changeColor(Qt::transparent);
+                }
+            }else{
+                adjustPos(rc);
+            }
+            m_labelDrag->setGeometry(rc);
+        }
+    }else{
+        // resize cock
+        if (m_indexCock == 0 && m_cocktype == PIP) // main cock can not resize
+            return;
+
+        if (status(MAJOR_STATUS_MASK) == PLAYING && !m_labelResize->isVisible()){
+            m_pixmapCock = grab(m_vecCocks[m_indexCock]);
+            m_labelResize->setGeometry(m_vecCocks[m_indexCock]);
+            m_labelResize->show();
+        }
+        if (m_labelResize->isVisible()){
+            QRect rc = m_labelResize->geometry();
+            if (m_location & Left){
+                if (e->x() < rc.right() - 2*LOCATION_PADDING)
+                    rc.setLeft(e->x());
+            }else if (m_location & Right){
+                if (e->x() > rc.left() + 2*LOCATION_PADDING)
+                rc.setRight(e->x());
+            }
+            if (m_location & Top){
+                if (e->y() < rc.bottom() - 2*LOCATION_PADDING)
+                    rc.setTop(e->y());
+            }else if (m_location & Bottom){
+                if (e->y() > rc.top() + 2*LOCATION_PADDING)
+                    rc.setBottom(e->y());
+            }
+            m_labelResize->setGeometry(rc);
+            m_labelResize->setPixmap(m_pixmapCock.scaled(rc.size()));
+        }
     }
 }
 
-#include <QJsonDocument>
-#include <QJsonArray>
-#include <QJsonObject>
 void HCockGLWidget::mouseReleaseEvent(QMouseEvent *e){
     HGLWidget::mouseReleaseEvent(e);
+
+    if (m_labelResize->isVisible()){
+        m_labelResize->hide();
+        // resize cock
+        reposCock(m_indexCock, m_labelResize->geometry());
+    }
 
     if (m_labelDrag->isVisible()){
         m_labelDrag->hide();
@@ -614,48 +703,29 @@ void HCockGLWidget::mouseReleaseEvent(QMouseEvent *e){
                 DsEvent evt;
                 evt.type = DS_EVENT_STOP;
                 evt.dst_svrid = 1;
-                evt.dst_x = m_ptDrag.x();
-                evt.dst_y = m_ptDrag.y();
+                evt.dst_x = m_ptMousePressed.x();
+                evt.dst_y = m_ptMousePressed.y();
                 g_dsCtx->handle_event(evt);
             }
         }else{
-            // move cock pos
-            QRect rcDst = m_labelDrag->geometry();
-            if (rcDst == m_vecCocks[m_indexDrag]){
-                qDebug("");
-                return;
-            }
-            double scale_x = (double)g_dsCtx->m_iOriginCockW / (double)width();
-            double scale_y = (double)g_dsCtx->m_iOriginCockH / (double)height();
-            int x = rcDst.x() * scale_x;
-            int y = rcDst.y() * scale_y;
-            int w = rcDst.width() * scale_x;
-            int h = rcDst.height() * scale_y;
-
-            QJsonArray arr;
-            for (int i = 0; i < g_dsCtx->m_cntCock; ++i){
-                QJsonObject obj;
-                DsCockInfo* info = &g_dsCtx->m_tOriginCocks[i];
-                if (i == m_indexDrag){
-                    obj.insert("x", x);
-                    obj.insert("y", y);
-                    obj.insert("w", w);
-                    obj.insert("h", h);
-                }else{
-                    obj.insert("x", info->x);
-                    obj.insert("y", info->y);
-                    obj.insert("w", info->w);
-                    obj.insert("h", info->h);
-                }
-                obj.insert("v", info->iSvrid);
-                obj.insert("a", info->bAudio ? 1 : 0);
-                arr.append(obj);
-            }
-            QJsonDocument doc;
-            doc.setArray(arr);
-            QByteArray bytes = doc.toJson();
-            qDebug(bytes.constData());
-            emit cockRepos(bytes);
+            // move cock
+            reposCock(m_indexCock ,m_labelDrag->geometry());
         }
     }
+}
+
+void HCockGLWidget::reposCock(int index, QRect rc){
+    if (rc == m_vecCocks[index])
+        return;
+
+    DsCockInfo ci = g_dsCtx->m_tCock;
+
+    double scale_x = (double)g_dsCtx->m_tCock.width / (double)width();
+    double scale_y = (double)g_dsCtx->m_tCock.height / (double)height();
+    ci.items[index].x = rc.x() * scale_x;
+    ci.items[index].y = rc.y() * scale_y;
+    ci.items[index].w = rc.width() * scale_x;
+    ci.items[index].h = rc.height() * scale_y;
+
+    emit cockRepos(ci);
 }

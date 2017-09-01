@@ -243,7 +243,7 @@ void QGLWidgetImpl::drawStr(FTGLPixmapFont *pFont, const char* str, DrawInfo* di
     //delete[] wcs;
 }
 
-void QGLWidgetImpl::drawRect(DrawInfo* di, bool bFill){
+void QGLWidgetImpl::drawRect(DrawInfo* di, int linewidth, bool bFill){
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
     glOrtho(0.0, width(), height(), 0.0, -1.0, 1.0);
@@ -253,6 +253,8 @@ void QGLWidgetImpl::drawRect(DrawInfo* di, bool bFill){
     }else{
         glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
     }
+
+    glLineWidth(linewidth);
 
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);

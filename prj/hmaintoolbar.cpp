@@ -17,10 +17,10 @@ void HWebContext::setAction(int action){
 }
 
 void HWebContext::toogleInfo(){
-    if (g_dsCtx->info)
-        g_dsCtx->info = 0;
+    if (g_dsCtx->m_tInit.info)
+        g_dsCtx->m_tInit.info = 0;
     else
-        g_dsCtx->info = 1;
+        g_dsCtx->m_tInit.info = 1;
 }
 
 void HWebContext::getSelectInfo(int id){
@@ -28,7 +28,7 @@ void HWebContext::getSelectInfo(int id){
       ret = "{";
       for (int i = 0; i < MAX_NUM_ICON; ++i){
           char kv[16];
-          snprintf(kv, 16, "\"id%d\":%d", i+1, g_dsCtx->m_tOriginCocks[i].iSvrid);
+          snprintf(kv, 16, "\"id%d\":%d", i+1, g_dsCtx->m_preselect[i]);
           ret += kv;
           if (i != MAX_NUM_ICON-1){
               ret += ",";

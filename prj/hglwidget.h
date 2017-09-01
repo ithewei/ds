@@ -6,6 +6,7 @@
 #include "htitlebarwidget.h"
 #include "htoolbarwidget.h"
 #include "hnumselectwidget.h"
+#include "hdsctx.h"
 
 #define TITLE_BAR_HEIGHT    50
 #define TOOL_BAR_HEIGHT     66
@@ -54,7 +55,7 @@ public:
     void removeIcon(int type);
     Texture* getTexture(int type);
 
-    void setTitle(const char* title) {m_titleWdg->setTitle(title);}
+    void setTitle(const char* title) {m_titlebar->setTitle(title);}
     void setTitleColor(int color) {m_titcolor = color;}
     void setOutlineColor(int color) {m_outlinecolor = color;}
 
@@ -63,7 +64,7 @@ public:
     void toggleTitlebar();
     void toggleToolbar();
     virtual void toggleToolWidgets();
-    void setProgress(int progress) {m_toolWdg->m_slider->setValue(progress);}
+    void setProgress(int progress) {m_toolbar->m_slider->setValue(progress);}
 
 signals:
     void fullScreen();
@@ -97,8 +98,8 @@ public:
     bool m_bDrawTitle;
     bool m_bDrawAudio;
 
-    HTitlebarWidget* m_titleWdg;
-    HToolbarWidget*  m_toolWdg;
+    HTitlebarWidget* m_titlebar;
+    HToolbarWidget*  m_toolbar;
     QLabel* m_snapshot;
     HNumSelectWidget* m_numSelector;
 
@@ -111,8 +112,8 @@ public:
     std::map<int ,DrawInfo> m_mapIcons; // type : DrawInfo
     tmc_mutex_type m_mutex;
 
-    bool m_bMousePressed;
     ulong m_tmMousePressed;
+    QPoint m_ptMousePressed;
 };
 
 #include "hchangecolorwidget.h"
@@ -123,13 +124,24 @@ public:
     HCockGLWidget(QWidget* parent = Q_NULLPTR);
     ~HCockGLWidget();
 
-    int getCockByPos(QPoint pt, QRect& rc);
+    enum LOCATION{
+        NotIn = 0,
+        Left = 0x01,
+        Right = 0x02,
+        Top = 0x04,
+        Bottom = 0x08,
+        Center = 0x10,
+    };
+    int getLocation(QPoint pt, QRect rc);
+
+    int getCockByPos(QPoint pt);
     void toggleTrash() {m_wdgTrash->setVisible(!m_wdgTrash->isVisible());}
     virtual void toggleToolWidgets();
     void adjustPos(QRect& rc);
 
 signals:
-    void cockRepos(QByteArray& bytes);
+    void cockRepos(DsCockInfo ci);
+    void undo();
 
 public slots:
     void onCockChanged();
@@ -137,17 +149,31 @@ public slots:
 protected:
     virtual void paintGL();
     virtual void resizeEvent(QResizeEvent *e);
+    virtual void mousePressEvent(QMouseEvent* e);
     virtual void mouseMoveEvent(QMouseEvent *e);
     virtual void mouseReleaseEvent(QMouseEvent *e);
+
+    void reposCock(int index, QRect rc);
 
 private:
     std::vector<QRect> m_vecCocks;
     int m_cockoutlinecolor;
 
+    int m_indexCock;
+    int m_location;
+
     QLabel* m_labelDrag;
-    QPoint m_ptDrag;
-    int m_indexDrag;
     HChangeColorWidget* m_wdgTrash;
+
+    QLabel* m_labelResize;
+    QPixmap m_pixmapCock;
+
+    enum COCK_TYPE{
+        PIP = 1,
+        TILED = 2,
+    };
+
+    int m_cocktype;
 };
 
 #endif // HGLWIDGET_H

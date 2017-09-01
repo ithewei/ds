@@ -19,6 +19,7 @@ void HTitlebarWidget::initUI(){
     QHBoxLayout* hbox = new QHBoxLayout;
 
     hbox->setMargin(1);
+    hbox->setSpacing(10);
 
     m_label = new QLabel;
     hbox->addWidget(m_label);
@@ -31,7 +32,6 @@ void HTitlebarWidget::initUI(){
     m_btnNum->setIconSize(QSize(TITLEBAR_ICON_WIDTH,TITLEBAR_ICON_HEIGHT));
     m_btnNum->setFlat(true);
     hbox->addWidget(m_btnNum);
-    hbox->addSpacing(10);
 
 //    m_btnStartRecord = new QPushButton;
 //    m_btnStartRecord->setFixedSize(TITLEBAR_ICON_WIDTH,TITLEBAR_ICON_HEIGHT);
@@ -47,7 +47,6 @@ void HTitlebarWidget::initUI(){
 //    m_btnStopRecord->setFlat(true);
 //    m_btnStopRecord->hide();
 //    hbox->addWidget(m_btnStopRecord);
-//    hbox->addSpacing(10);
 
     m_btnSnapshot = new QPushButton;
     m_btnSnapshot->setFixedSize(TITLEBAR_ICON_WIDTH,TITLEBAR_ICON_HEIGHT);
@@ -55,7 +54,6 @@ void HTitlebarWidget::initUI(){
     m_btnSnapshot->setIconSize(QSize(TITLEBAR_ICON_WIDTH,TITLEBAR_ICON_HEIGHT));
     m_btnSnapshot->setFlat(true);
     hbox->addWidget(m_btnSnapshot);
-    hbox->addSpacing(10);
 
     m_btnFullScreen = new QPushButton;
     m_btnFullScreen->setFixedSize(TITLEBAR_ICON_WIDTH,TITLEBAR_ICON_HEIGHT);
