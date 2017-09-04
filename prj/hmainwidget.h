@@ -59,12 +59,13 @@ public slots:
     void fold();
 
     void getCockInfo();
-    void onCockInfoReply(QNetworkReply* reply);
+    void onGetCockInfoReply(QNetworkReply* reply);
 
-    void reposCock(DsCockInfo ci);
-    void onCockReposReply(QNetworkReply* reply);
+    void postCockInfo(DsCockInfo ci);
+    void onPostCockInfoReply(QNetworkReply* reply);
 
     void undo();
+    void changeCockSource(int index, int svrid);
 
 private:
     HDsContext* m_ctx;
@@ -83,8 +84,8 @@ private:
 
     QRect m_rcSavedGeometry;
 
-    QNetworkAccessManager* m_NAMCockInfo;
-    QNetworkAccessManager* m_NAMCockRepos;
+    QNetworkAccessManager* m_NAM_GetCockInfo;
+    QNetworkAccessManager* m_NAM_PostCockInfo;
 };
 
 #endif // HMAINWIDGET_H

@@ -78,6 +78,8 @@ HDsContext::HDsContext()
     action  = 1;
     display_mode = DISPLAY_MODE_TIMER;
     frames = 25;
+    scale_mode = BIG_VIDEO_SCALE;
+    filter = 0;
 
     m_curTick = 0;
     m_lastTick = 0;
@@ -727,6 +729,22 @@ void HDsContext::initFont(std::string& path, int h){
     }
 }
 
+void HDsContext::fullscreen(int svrid, bool bFull){
+    DsSvrItem* item = getItem(svrid);
+    if (item){
+        item->mutex.lock();
+        if (bFull){
+            filter = svrid;
+            scale_mode = NONE_SCALE;
+        }else{
+            filter = 0;
+            scale_mode = BIG_VIDEO_SCALE;
+        }
+        item->tex_yuv.release();
+        item->mutex.unlock();
+    }
+}
+
 #include "hffmpeg.h"
 int HDsContext::push_video(int svrid, const av_picture* pic){
     if (action < 1)
@@ -735,6 +753,9 @@ int HDsContext::push_video(int svrid, const av_picture* pic){
     DsSvrItem* item = getItem(svrid);
     if (!item || item->bPause)
         return -2;
+
+    if (filter != 0 && filter != svrid)
+        return -3;
 
     m_curTick = (unsigned int)chsc_gettick();
 
@@ -756,9 +777,11 @@ int HDsContext::push_video(int svrid, const av_picture* pic){
             item->mutex.lock();
             if(!item->tex_yuv.data)
             {
-                if (BIG_VIDEO_SCALE && h > 720){
-                    item->tex_yuv.width = w >> 2;
-                    item->tex_yuv.height = h >> 2;
+                if (scale_mode == BIG_VIDEO_SCALE && h > 720){
+//                    item->tex_yuv.width = w >> 2;
+//                    item->tex_yuv.height = h >> 2;
+                    item->tex_yuv.width = m_tLayout.items[0].width() >> 2 << 2;
+                    item->tex_yuv.height = m_tLayout.items[0].height();
                 }else{
                     item->tex_yuv.width = w;
                     item->tex_yuv.height = h;
@@ -782,9 +805,7 @@ int HDsContext::push_video(int svrid, const av_picture* pic){
                 s_u = pic->data[2];
             }
 
-            if (BIG_VIDEO_SCALE && h > 720){
-                item->tex_yuv.width = w >> 2;
-                item->tex_yuv.height = h >> 2;
+            if (scale_mode == BIG_VIDEO_SCALE && h > 720){
                 SwsContext* pSwsCtx = sws_getContext(w,h,AV_PIX_FMT_YUV420P, item->tex_yuv.width,item->tex_yuv.height,AV_PIX_FMT_YUV420P, SWS_BICUBIC, NULL, NULL, NULL);
                 uint8_t* src_date[3];
                 src_date[0] = s_y;
@@ -864,6 +885,9 @@ int HDsContext::push_audio(int svrid, const av_pcmbuff* pcm){
     DsSvrItem* item = getItem(svrid);
     if (!item || item->bPause)
         return -2;
+
+    if (filter != 0 && filter != svrid)
+        return -3;
 
     // just cock window play audio
     if (svrid == 1){

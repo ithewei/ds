@@ -85,6 +85,12 @@ public slots:
     void onProgressChanged(int progress);
 
 protected:
+    virtual void drawVideo();
+    virtual void drawAudio();
+    virtual void drawSelectNum();
+    virtual void drawIcon();
+    virtual void drawTitle();
+    virtual void drawOutline();
     virtual void paintGL();
     void initUI();
     void initConnect();
@@ -140,13 +146,16 @@ public:
     void adjustPos(QRect& rc);
 
 signals:
-    void cockRepos(DsCockInfo ci);
+    void cockChanged(DsCockInfo ci);
     void undo();
 
 public slots:
     void onCockChanged();
 
 protected:
+    virtual void drawOutline();
+    virtual void drawTaskInfo();
+    virtual void drawCockInfo();
     virtual void paintGL();
     virtual void resizeEvent(QResizeEvent *e);
     virtual void mousePressEvent(QMouseEvent* e);
@@ -154,6 +163,7 @@ protected:
     virtual void mouseReleaseEvent(QMouseEvent *e);
 
     void reposCock(int index, QRect rc);
+    void stopCock(int index);
 
 private:
     std::vector<QRect> m_vecCocks;

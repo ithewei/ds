@@ -302,9 +302,126 @@ Texture* HGLWidget::getTexture(int type){
     return NULL;
 }
 
+void HGLWidget::drawVideo(){
+    DsSvrItem* item = g_dsCtx->getItem(svrid);
+    if (item){
+        item->mutex.lock();
+        if (item->tex_yuv.data && item->tex_yuv.width > 0 && item->tex_yuv.height > 0){
+            drawYUV(&item->tex_yuv);
+            m_nPreFrame = item->v_input;
+        }
+        item->mutex.unlock();
+    }
+}
+
+void HGLWidget::drawAudio(){
+    // draw sound average
+    DsSvrItem* item = g_dsCtx->getItem(svrid);
+    if (item){
+        DrawInfo di;
+        if (item->a_channels > 1){
+            di.left = width()-4 - AUDIO_WIDTH*2;
+            di.top = height()-2 - AUDIO_HEIGHT;
+            di.right = di.left + AUDIO_WIDTH;
+            di.bottom = di.top + AUDIO_HEIGHT;
+            di.color = 0x00FFFF80;
+            drawRect(&di, 1, true);
+
+            di.left += 1;
+            di.right -= 1;
+            di.bottom -= 1;
+            di.top = di.bottom - item->a_average[1] * AUDIO_HEIGHT / 65536;
+            di.color = 0xFFFF0080;
+            drawRect(&di, 1, true);
+        }
+
+        di.left = width()-2 - AUDIO_WIDTH;
+        di.top = height()-2 - AUDIO_HEIGHT;
+        di.right = di.left + AUDIO_WIDTH;
+        di.bottom = di.top + AUDIO_HEIGHT;
+        di.color = 0x00FFFF80;
+        drawRect(&di, 1, true);
+
+        di.left += 1;
+        di.right -= 1;
+        di.bottom -= 1;
+        di.top = di.bottom - item->a_average[0] * AUDIO_HEIGHT / 65536;
+        di.color = 0xFFFF0080;
+        drawRect(&di, 1, true);
+
+        item->bUpdateAverage = true;
+    }
+}
+
+void HGLWidget::drawSelectNum(){
+    DrawInfo di;
+    di.top = height()-48;
+    di.bottom = height()-1;
+    di.left = 1;
+    di.right = 48;
+    for (int i = 0; i < MAX_NUM_ICON; ++i){
+        if (g_dsCtx->m_preselect[i] == svrid){
+            drawTex(&HRcLoader::instance()->tex_numr[i], &di);
+            di.left += 48;
+            di.right += 48;
+            if (g_dsCtx->m_tCock.items[i].bAudio){
+                // draw sound icon
+                DrawInfo diAudio;
+                Texture *tex = getTexture(HAVE_AUDIO);
+                diAudio.right = width() - 1;
+                diAudio.top = 1;
+                diAudio.left = diAudio.right - 32 + 1;
+                diAudio.bottom = diAudio.top + 32 - 1;
+                drawTex(tex, &diAudio);
+            }
+        }
+    }
+}
+
+void HGLWidget::drawIcon(){
+    m_mutex.lock();
+    std::map<int,DrawInfo>::iterator iter = m_mapIcons.begin();
+    while (iter != m_mapIcons.end()){
+        Texture *tex = getTexture(iter->first);
+        DrawInfo di = iter->second;
+        if (tex){
+            drawTex(tex, &di);
+        }
+        ++iter;
+    }
+    m_mutex.unlock();
+}
+
+void HGLWidget::drawTitle(){
+    DsSvrItem* item = g_dsCtx->getItem(svrid);
+    if (item && item->title.length() > 0){
+        DrawInfo di;
+        di.left = 2;
+        di.top = 2;
+        di.color = m_titcolor;
+        drawStr(g_dsCtx->m_pFont, item->title.c_str(), &di);
+    }
+}
+
+void HGLWidget::drawOutline(){
+    DrawInfo di;
+    di.left = 0;
+    di.top = 0;
+    di.right = width() - 1;
+    di.bottom = height() - 1;
+    if (m_titlebar->isVisible()){
+        di.color = g_dsCtx->m_tInit.focus_outlinecolor;
+    }else{
+        di.color = m_outlinecolor;
+    }
+    drawRect(&di, 3);
+}
+
 void HGLWidget::paintGL(){
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
+
+    // drawVideo->drawAudio->drawSelectNum->drawTitle->drawOutline
 
     DrawInfo di;
     switch (m_status & MAJOR_STATUS_MASK) {
@@ -322,116 +439,26 @@ void HGLWidget::paintGL(){
         break;
     case PAUSE:
     case PLAYING:
-        DsSvrItem* item = g_dsCtx->getItem(svrid);
-        if (!item)
-            break;
         if (m_status & PLAY_VIDEO){
-            // draw yuv
-            item->mutex.lock();
-            if (item->tex_yuv.data && item->tex_yuv.width > 0 && item->tex_yuv.height > 0){
-                drawYUV(&item->tex_yuv);
-                m_nPreFrame = item->v_input;
-            }
-            item->mutex.unlock();
+            drawVideo();
         }
 
         if (m_status & PLAY_AUDIO){
             if (m_bDrawAudio){
-                // draw sound average
-                if (item->a_channels > 1){
-                    di.left = width()-4 - AUDIO_WIDTH*2;
-                    di.top = height()-2 - AUDIO_HEIGHT;
-                    di.right = di.left + AUDIO_WIDTH;
-                    di.bottom = di.top + AUDIO_HEIGHT;
-                    di.color = 0x00FFFF80;
-                    drawRect(&di, 1, true);
-
-                    di.left += 1;
-                    di.right -= 1;
-                    di.bottom -= 1;
-                    di.top = di.bottom - item->a_average[1] * AUDIO_HEIGHT / 65536;
-                    di.color = 0xFFFF0080;
-                    drawRect(&di, 1, true);
-                }
-
-                di.left = width()-2 - AUDIO_WIDTH;
-                di.top = height()-2 - AUDIO_HEIGHT;
-                di.right = di.left + AUDIO_WIDTH;
-                di.bottom = di.top + AUDIO_HEIGHT;
-                di.color = 0x00FFFF80;
-                drawRect(&di, 1, true);
-
-                di.left += 1;
-                di.right -= 1;
-                di.bottom -= 1;
-                di.top = di.bottom - item->a_average[0] * AUDIO_HEIGHT / 65536;
-                di.color = 0xFFFF0080;
-                drawRect(&di, 1, true);
-
-                item->bUpdateAverage = true;
+                drawAudio();
             }
         }
 
         // draw select num
-        di.top = height()-48;
-        di.bottom = height()-1;
-        di.left = 1;
-        di.right = 48;
-        for (int i = 0; i < MAX_NUM_ICON; ++i){
-            if (g_dsCtx->m_preselect[i] == svrid){
-                drawTex(&HRcLoader::instance()->tex_numr[i], &di);
-                di.left += 48;
-                di.right += 48;
-                if (g_dsCtx->m_tCock.items[i].bAudio){
-                    // draw sound icon
-                    DrawInfo diAudio;
-                    Texture *tex = getTexture(HAVE_AUDIO);
-                    diAudio.right = width() - 1;
-                    diAudio.top = 1;
-                    diAudio.left = diAudio.right - 32 + 1;
-                    diAudio.bottom = diAudio.top + 32 - 1;
-                    drawTex(tex, &diAudio);
-                }
-            }
-        }
+        drawSelectNum();
         break;
     }
 
-    // draw title
     if (m_bDrawTitle){
-        DsSvrItem* item = g_dsCtx->getItem(svrid);
-        if (item && item->title.length() > 0){
-            di.left = 2;
-            di.top = 2;
-            di.color = m_titcolor;
-            drawStr(g_dsCtx->m_pFont, item->title.c_str(), &di);
-        }
+        drawTitle();
     }
 
-    // draw icons
-    m_mutex.lock();
-    std::map<int,DrawInfo>::iterator iter = m_mapIcons.begin();
-    while (iter != m_mapIcons.end()){
-        Texture *tex = getTexture(iter->first);
-        di = iter->second;
-        if (tex){
-            drawTex(tex, &di);
-        }
-        ++iter;
-    }
-    m_mutex.unlock();
-
-    // draw outline
-    di.left = 0;
-    di.top = 0;
-    di.right = width() - 1;
-    di.bottom = height() - 1;
-    if (m_titlebar->isVisible()){
-        di.color = g_dsCtx->m_tInit.focus_outlinecolor;
-    }else{
-        di.color = m_outlinecolor;
-    }
-    drawRect(&di, 3);
+    drawOutline();
 }
 
 //===============================================================================
@@ -540,6 +567,53 @@ void HCockGLWidget::onCockChanged(){
     }
 }
 
+void HCockGLWidget::drawOutline(){
+    DrawInfo di;
+    di.left = 0;
+    di.top = 0;
+    di.right = width() - 1;
+    di.bottom = height() - 1;
+    di.color = m_outlinecolor;
+    drawRect(&di, 3);
+}
+
+void HCockGLWidget::drawTaskInfo(){
+    DrawInfo di;
+    if (g_dsCtx->m_pFont){
+        int oldSize = g_dsCtx->m_pFont->FaceSize();
+        g_dsCtx->m_pFont->FaceSize(32);
+        separator sept(g_dsCtx->m_strTaskInfo.c_str(), "\r\n");
+        di.top = 10;
+        di.left = 10;
+        di.color = g_dsCtx->m_tInit.infcolor;
+        for (int i = 0; i < sept.size(); ++i){
+            drawStr(g_dsCtx->m_pFont, sept[i], &di);
+            di.top += g_dsCtx->m_pFont->LineHeight() + 10;
+        }
+        g_dsCtx->m_pFont->FaceSize(oldSize);
+    }
+}
+
+void HCockGLWidget::drawCockInfo(){
+    DrawInfo di;
+    for (int i = 0; i < m_vecCocks.size(); ++i){
+        // draw cock NO.
+        di.left = m_vecCocks[i].left() + 1;
+        di.bottom = m_vecCocks[i].bottom() - 1;
+        di.top = di.bottom - 48 + 1;
+        di.right = di.left + 48 - 1;
+        drawTex(&HRcLoader::instance()->tex_numr[i], &di);
+
+        // draw cock outline
+        di.left = m_vecCocks[i].left();
+        di.top = m_vecCocks[i].top();
+        di.right = m_vecCocks[i].right();
+        di.bottom = m_vecCocks[i].bottom();
+        di.color = m_cockoutlinecolor;
+        drawRect(&di);
+    }
+}
+
 void HCockGLWidget::paintGL(){
     if (g_dsCtx->m_tInit.info){
         m_bDrawTitle = true;
@@ -551,40 +625,11 @@ void HCockGLWidget::paintGL(){
     HGLWidget::paintGL();
 
     if (g_dsCtx->m_tInit.info){
-        DrawInfo di;
-        // draw taskinfo
-        if (g_dsCtx->m_pFont){
-            int oldSize = g_dsCtx->m_pFont->FaceSize();
-            g_dsCtx->m_pFont->FaceSize(32);
-            separator sept(g_dsCtx->m_strTaskInfo.c_str(), "\r\n");
-            di.top = 10;
-            di.left = 10;
-            di.color = g_dsCtx->m_tInit.infcolor;
-            for (int i = 0; i < sept.size(); ++i){
-                drawStr(g_dsCtx->m_pFont, sept[i], &di);
-                di.top += g_dsCtx->m_pFont->LineHeight() + 10;
-            }
-            g_dsCtx->m_pFont->FaceSize(oldSize);
-        }
-
-        for (int i = 0; i < m_vecCocks.size(); ++i){
-            // draw cock NO.
-            di.left = m_vecCocks[i].left() + 1;
-            di.bottom = m_vecCocks[i].bottom() - 1;
-            di.top = di.bottom - 48 + 1;
-            di.right = di.left + 48 - 1;
-            drawTex(&HRcLoader::instance()->tex_numr[i], &di);
-
-            // draw cock outline
-            di.left = m_vecCocks[i].left();
-            di.top = m_vecCocks[i].top();
-            di.right = m_vecCocks[i].right();
-            di.bottom = m_vecCocks[i].bottom();
-            di.color = m_cockoutlinecolor;
-            drawRect(&di);
-        }
+        drawTaskInfo();
+        drawCockInfo();
     }
 
+    // draw focused cock outline
     if (m_titlebar->isVisible()){
         DrawInfo di;
         di.left = m_vecCocks[m_indexCock].left();
@@ -700,12 +745,7 @@ void HCockGLWidget::mouseReleaseEvent(QMouseEvent *e){
         if (m_wdgTrash->isVisible()){
             if (m_wdgTrash->geometry().contains(e->pos())){
                 // stop cock
-                DsEvent evt;
-                evt.type = DS_EVENT_STOP;
-                evt.dst_svrid = 1;
-                evt.dst_x = m_ptMousePressed.x();
-                evt.dst_y = m_ptMousePressed.y();
-                g_dsCtx->handle_event(evt);
+                stopCock(m_indexCock);
             }
         }else{
             // move cock
@@ -727,5 +767,21 @@ void HCockGLWidget::reposCock(int index, QRect rc){
     ci.items[index].w = rc.width() * scale_x;
     ci.items[index].h = rc.height() * scale_y;
 
-    emit cockRepos(ci);
+    emit cockChanged(ci);
+}
+
+void HCockGLWidget::stopCock(int index){
+//    DsEvent evt;
+//    evt.type = DS_EVENT_STOP;
+//    evt.dst_svrid = 1;
+//    evt.dst_x = m_ptMousePressed.x();
+//    evt.dst_y = m_ptMousePressed.y();
+//    g_dsCtx->handle_event(evt);
+
+    DsCockInfo ci = g_dsCtx->m_tCock;
+    if (ci.items[m_indexCock].iSvrid != 0){
+        ci.items[m_indexCock].iSvrid = 0;
+        ci.items[m_indexCock].bAudio = false;
+        emit cockChanged(ci);
+    }
 }

@@ -35,6 +35,7 @@
 #define DISPLAY_MODE_REALTIME      1  // realtime display
 #define DISPLAY_MODE_TIMER         2  // timer by fps
 
+#define NONE_SCALE                 0
 #define BIG_VIDEO_SCALE            1
 
 #include <QObject>
@@ -278,6 +279,14 @@ public:
         emit sigStop(svrid);
     }
 
+    void setFilter(int svrid){
+        filter = svrid;
+    }
+    void cancelFilter(){
+        filter = 0;
+    }
+    void fullscreen(int svrid, bool bFull);
+
 signals:
     void actionChanged(int action);
     void titleChanged(int svrid);
@@ -306,6 +315,8 @@ public:
     int action; // window show or hide
     int display_mode;
     int frames;
+    int scale_mode;
+    int filter;
 
     DsInitInfo m_tInit;
     DsLayoutInfo m_tLayout;

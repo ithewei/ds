@@ -1,8 +1,8 @@
 #include "hmainwidget.h"
 #include "hrcloader.h"
 
-const char* url_query_cockinfo = "http://localhost/transcoder/index.php?controller=channels&action=Daoboinfo";
-const char* url_repos_cock = "http://localhost/transcoder/index.php?controller=channels&action=Dragsave";
+const char* url_get_cockinfo = "http://localhost/transcoder/index.php?controller=channels&action=Daoboinfo";
+const char* url_post_cockinfo = "http://localhost/transcoder/index.php?controller=channels&action=Dragsave";
 
 HMainWidget::HMainWidget(HDsContext* ctx, QWidget *parent)
     : QWidget(parent)
@@ -41,7 +41,7 @@ void HMainWidget::initUI(){
             wdg->svrid = 1;
             m_mapGLWdg[1] = wdg;
             m_focusGLWdg = wdg;
-            QObject::connect( wdg, SIGNAL(cockRepos(DsCockInfo)), this, SLOT(reposCock(DsCockInfo)) );
+            QObject::connect( wdg, SIGNAL(cockChanged(DsCockInfo)), this, SLOT(postCockInfo(DsCockInfo)) );
             QObject::connect( wdg, SIGNAL(undo()), this, SLOT(undo()) );
         }else{
             wdg = new HGLWidget(this);
@@ -110,11 +110,11 @@ void HMainWidget::initConnect(){
         //timer_repaint.start(1000 / 20);
     }
 
-    m_NAMCockInfo = new QNetworkAccessManager(this);
-    QObject::connect( m_NAMCockInfo, SIGNAL(finished(QNetworkReply*)), this, SLOT(onCockInfoReply(QNetworkReply*)) );
+    m_NAM_GetCockInfo = new QNetworkAccessManager(this);
+    QObject::connect( m_NAM_GetCockInfo, SIGNAL(finished(QNetworkReply*)), this, SLOT(onGetCockInfoReply(QNetworkReply*)) );
 
-    m_NAMCockRepos = new QNetworkAccessManager(this);
-    QObject::connect( m_NAMCockRepos, SIGNAL(finished(QNetworkReply*)), this, SLOT(onCockReposReply(QNetworkReply*)) );
+    m_NAM_PostCockInfo = new QNetworkAccessManager(this);
+    QObject::connect( m_NAM_PostCockInfo, SIGNAL(finished(QNetworkReply*)), this, SLOT(onPostCockInfoReply(QNetworkReply*)) );
 }
 
 HGLWidget* HMainWidget::getGLWdgBySvrid(int svrid){
@@ -200,13 +200,15 @@ void HMainWidget::mouseReleaseEvent(QMouseEvent *event){
         if (m_dragSrcWdg != wdg){
             if (wdg->svrid == 1){
                 // pick cock's source
-                DsEvent evt;
-                evt.type = DS_EVENT_PICK;
-                evt.src_svrid = m_dragSrcWdg->svrid;
-                evt.dst_svrid = 1;
-                evt.dst_x = event->x() - wdg->x();
-                evt.dst_y = event->y() - wdg->y();
-                m_ctx->handle_event(evt);
+//                DsEvent evt;
+//                evt.type = DS_EVENT_PICK;
+//                evt.src_svrid = m_dragSrcWdg->svrid;
+//                evt.dst_svrid = 1;
+//                evt.dst_x = event->x() - wdg->x();
+//                evt.dst_y = event->y() - wdg->y();
+//                m_ctx->handle_event(evt);
+                int index = ((HCockGLWidget*)wdg)->getCockByPos(QPoint(event->x()-wdg->x(), event->y()-wdg->y()));
+                changeCockSource(index, m_dragSrcWdg->svrid);
             }else{
                 // exchange position
                 QRect rcSrc = m_dragSrcWdg->geometry();
@@ -327,6 +329,8 @@ void HMainWidget::onFullScreen(){
 
     pSender->setWindowFlags(Qt::Window);
     pSender->showFullScreen();
+
+    m_ctx->fullscreen(((HGLWidget*)pSender)->svrid, true);
 }
 
 void HMainWidget::onExitFullScreen(){
@@ -335,6 +339,8 @@ void HMainWidget::onExitFullScreen(){
     pSender->setWindowFlags(Qt::SubWindow);
     pSender->setGeometry(m_rcSavedGeometry);
     pSender->showNormal();
+
+    m_ctx->fullscreen(((HGLWidget*)pSender)->svrid, false);
 }
 
 void HMainWidget::onGLWdgClicked(){
@@ -348,14 +354,14 @@ void HMainWidget::onGLWdgClicked(){
 }
 
 void HMainWidget::getCockInfo(){
-    if (m_NAMCockInfo)
-        m_NAMCockInfo->get(QNetworkRequest(QUrl(url_query_cockinfo)));
+    if (m_NAM_GetCockInfo)
+        m_NAM_GetCockInfo->get(QNetworkRequest(QUrl(url_get_cockinfo)));
 }
 
 #include <QJsonDocument>
 #include <QJsonArray>
 #include <QJsonObject>
-void HMainWidget::onCockInfoReply(QNetworkReply* reply){
+void HMainWidget::onGetCockInfoReply(QNetworkReply* reply){
     QByteArray bytes = reply->readAll();
     qDebug(bytes.constData());
     QJsonDocument dom = QJsonDocument::fromJson(bytes);
@@ -387,8 +393,8 @@ void HMainWidget::onCockInfoReply(QNetworkReply* reply){
     reply->deleteLater();
 }
 
-void HMainWidget::reposCock(DsCockInfo ci){
-    if (m_NAMCockRepos){
+void HMainWidget::postCockInfo(DsCockInfo ci){
+    if (m_NAM_PostCockInfo){
         QJsonArray arr;
         for (int i = 0; i < ci.itemCnt; ++i){
             QJsonObject obj;
@@ -405,14 +411,25 @@ void HMainWidget::reposCock(DsCockInfo ci){
         doc.setArray(arr);
         QByteArray bytes = doc.toJson();
         qDebug(bytes.constData());
-        m_NAMCockRepos->post(QNetworkRequest(QUrl(url_repos_cock)), bytes);
+        m_NAM_PostCockInfo->post(QNetworkRequest(QUrl(url_post_cockinfo)), bytes);
     }
 }
 
-void HMainWidget::onCockReposReply(QNetworkReply* reply){
+void HMainWidget::onPostCockInfoReply(QNetworkReply* reply){
 
 }
 
 void HMainWidget::undo(){
-    reposCock(m_ctx->m_tCockUndo);
+    postCockInfo(m_ctx->m_tCockUndo);
+}
+
+void HMainWidget::changeCockSource(int index, int svrid){
+    DsCockInfo ci = m_ctx->m_tCock;
+    if (ci.items[index].iSvrid != svrid){
+        ci.items[index].iSvrid = svrid;
+        if (svrid == 0){
+            ci.items[index].bAudio = false;
+        }
+        postCockInfo(ci);
+    }
 }
