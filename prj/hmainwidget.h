@@ -26,11 +26,9 @@ public:
     explicit HMainWidget(HDsContext *ctx, QWidget *parent = nullptr);
     ~HMainWidget();
 
-public:
+protected:
     void initUI();
     void initConnect();
-
-protected:
     HGLWidget* getGLWdgByPos(int x, int y);
     HGLWidget* getGLWdgBySvrid(int svrid);
     virtual void keyPressEvent(QKeyEvent *event);
@@ -44,10 +42,8 @@ signals:
 public slots:
     void onTimerRepaint();
     void onActionChanged(int action);
-    void onTitleChanged(int svrid);
     void onvideoPushed(int svrid, bool bFirstFrame);
     void onAudioPushed(int svrid);
-    void onSourceChanged(int svrid, bool bSucceed);
     void onStop(int svrid);
     void onProgressNty(int svrid, int progress);
 

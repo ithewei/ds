@@ -267,7 +267,6 @@ public:
         DsSvrItem* item = getItem(svrid);
         if (item){
             item->title = title;
-            emit titleChanged(svrid);
         }
     }
     void stop(int svrid){
@@ -279,20 +278,12 @@ public:
         emit sigStop(svrid);
     }
 
-    void setFilter(int svrid){
-        filter = svrid;
-    }
-    void cancelFilter(){
-        filter = 0;
-    }
     void fullscreen(int svrid, bool bFull);
 
 signals:
     void actionChanged(int action);
-    void titleChanged(int svrid);
     void videoPushed(int svrid, bool bFirstFrame);
     void audioPushed(int svrid);
-    void sourceChanged(int svrid, bool bSucceed);
     void sigStop(int svrid);
     void quit();
     void cockChanged();

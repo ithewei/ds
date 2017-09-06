@@ -8,11 +8,10 @@ HMainWidget::HMainWidget(HDsContext* ctx, QWidget *parent)
     : QWidget(parent)
 {
     m_ctx = ctx;
+    m_focusGLWdg = NULL;
 
     initUI();
     initConnect();
-
-    setAttribute(Qt::WA_AcceptTouchEvents);
 }
 
 HMainWidget::~HMainWidget(){
@@ -40,11 +39,10 @@ void HMainWidget::initUI(){
             wdg = new HCockGLWidget(this);
             wdg->svrid = 1;
             m_mapGLWdg[1] = wdg;
-            m_focusGLWdg = wdg;
             QObject::connect( wdg, SIGNAL(cockChanged(DsCockInfo)), this, SLOT(postCockInfo(DsCockInfo)) );
             QObject::connect( wdg, SIGNAL(undo()), this, SLOT(undo()) );
         }else{
-            wdg = new HGLWidget(this);
+            wdg = new HGeneralGLWidget(this);
             wdg->svrid = 0;
         }
         wdg->setGeometry(m_ctx->m_tLayout.items[i]);
@@ -52,6 +50,7 @@ void HMainWidget::initUI(){
         wdg->setOutlineColor(m_ctx->m_tInit.outlinecolor);
         m_vecGLWdg.push_back(wdg);
     }
+    qDebug("");
 
     qDebug("screen_w=%d,screen_h=%d", width(), height());
 
@@ -86,10 +85,8 @@ void HMainWidget::initConnect(){
     setFocus(); // set key focus
 
     QObject::connect( m_ctx, SIGNAL(actionChanged(int)), this, SLOT(onActionChanged(int)) );
-    QObject::connect( m_ctx, SIGNAL(titleChanged(int)), this, SLOT(onTitleChanged(int)) );
     QObject::connect( m_ctx, SIGNAL(videoPushed(int,bool)), this, SLOT(onvideoPushed(int,bool)) );
     QObject::connect( m_ctx, SIGNAL(audioPushed(int)), this, SLOT(onAudioPushed(int)) );
-    QObject::connect( m_ctx, SIGNAL(sourceChanged(int,bool)), this, SLOT(onSourceChanged(int,bool)) );
     QObject::connect( m_ctx, SIGNAL(sigStop(int)), this, SLOT(onStop(int)) );
     QObject::connect( m_ctx, SIGNAL(quit()), this, SLOT(hide()) );
     QObject::connect( m_ctx, SIGNAL(sigProgressNty(int,int)), this, SLOT(onProgressNty(int,int)) );
@@ -249,16 +246,6 @@ void HMainWidget::onActionChanged(int action){
     }
 }
 
-void HMainWidget::onTitleChanged(int svrid){
-    qDebug("");
-
-    HGLWidget* wdg = getGLWdgBySvrid(svrid);
-    if (wdg == NULL)
-        return;
-
-    wdg->setTitle(m_ctx->getItem(svrid)->title.c_str());
-}
-
 void HMainWidget::onvideoPushed(int svrid, bool bFirstFrame){
     HGLWidget* wdg = getGLWdgBySvrid(svrid);
     if (wdg == NULL)
@@ -280,19 +267,6 @@ void HMainWidget::onAudioPushed(int svrid){
     wdg->setStatus(PLAYING | wdg->status(MINOR_STATUS_MASK) | PLAY_AUDIO, false);
 }
 
-void HMainWidget::onSourceChanged(int svrid, bool bSucceed){
-    qDebug("");
-
-    HGLWidget* wdg = getGLWdgBySvrid(svrid);
-    if (wdg == NULL)
-        return;
-
-    wdg->removeIcon(CHANGING);
-    if (!bSucceed){
-        //
-    }
-}
-
 void HMainWidget::onStop(int svrid){
     HGLWidget* wdg = getGLWdgBySvrid(svrid);
     if (wdg == NULL)
@@ -307,7 +281,7 @@ void HMainWidget::onProgressNty(int svrid, int progress){
     if (wdg == NULL)
         return;
 
-    wdg->setProgress(progress);
+    ((HGeneralGLWidget*)wdg)->setProgress(progress);
 }
 
 void HMainWidget::expand(){
@@ -346,11 +320,16 @@ void HMainWidget::onExitFullScreen(){
 void HMainWidget::onGLWdgClicked(){
     HGLWidget* pSender = (HGLWidget*)sender();
 
-    if (pSender != m_focusGLWdg && m_focusGLWdg->m_titlebar->isVisible()){
-        m_focusGLWdg->toggleToolWidgets();
+    if (m_focusGLWdg == pSender){
+        m_focusGLWdg->showToolWidgets(false);
+        m_focusGLWdg = NULL;
+    }else{
+        if (m_focusGLWdg){
+            m_focusGLWdg->showToolWidgets(false);
+        }
+        pSender->showToolWidgets(true);
+        m_focusGLWdg = pSender;
     }
-
-    m_focusGLWdg = pSender;
 }
 
 void HMainWidget::getCockInfo(){

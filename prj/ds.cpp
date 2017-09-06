@@ -25,10 +25,10 @@ void myLogHandler(QtMsgType type, const QMessageLogContext & ctx, const QString 
     char szLog[2048];
 
 #ifndef QT_NO_DEBUG
-    snprintf(szLog, 2048, "%s %s [%s:%u, %s]\n", szType, msg.toLocal8Bit().constData(), ctx.file, ctx.line, ctx.function);
+    snprintf(szLog, 2047, "%s %s [%s:%u, %s]\n", szType, msg.toLocal8Bit().constData(), ctx.file, ctx.line, ctx.function);
 #else
     if (msg.length() > 0){
-        snprintf(szLog, 2048, "%s %s\n", szType, msg.toLocal8Bit().constData());
+        snprintf(szLog, 2047, "%s %s\n", szType, msg.toLocal8Bit().constData());
     }
 #endif
 
@@ -39,7 +39,7 @@ void myLogHandler(QtMsgType type, const QMessageLogContext & ctx, const QString 
         fseek(fp, 0, SEEK_END);
         if (ftell(fp) > (2 << 20)){
             fclose(fp);
-            fopen(strLogFilePath.toLocal8Bit().data(), "w");
+            fp = fopen(strLogFilePath.toLocal8Bit().data(), "w");
         }
     }
 

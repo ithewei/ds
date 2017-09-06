@@ -55,16 +55,10 @@ public:
     void removeIcon(int type);
     Texture* getTexture(int type);
 
-    void setTitle(const char* title) {m_titlebar->setTitle(title);}
     void setTitleColor(int color) {m_titcolor = color;}
     void setOutlineColor(int color) {m_outlinecolor = color;}
 
-    void showTitlebar(bool bShow = true);
-    void showToolbar(bool bShow = true);
-    void toggleTitlebar();
-    void toggleToolbar();
-    virtual void toggleToolWidgets();
-    void setProgress(int progress) {m_toolbar->m_slider->setValue(progress);}
+    virtual void showToolWidgets(bool bShow = true);
 
 signals:
     void fullScreen();
@@ -75,25 +69,19 @@ public slots:
     void snapshot();
     void startRecord();
     void stopRecord();
-    void onNumSelected(int num);
-    void onNumCanceled(int num);
-    void showNumSelector();
 
     void onStart();
     void onPause();
     void onStop();
-    void onProgressChanged(int progress);
 
 protected:
     virtual void drawVideo();
     virtual void drawAudio();
-    virtual void drawSelectNum();
     virtual void drawIcon();
     virtual void drawTitle();
     virtual void drawOutline();
     virtual void paintGL();
-    void initUI();
-    void initConnect();
+
     virtual void mousePressEvent(QMouseEvent* event);
     virtual void mouseReleaseEvent(QMouseEvent* event);
     virtual void mouseMoveEvent(QMouseEvent* e);
@@ -103,11 +91,9 @@ public:
 
     bool m_bDrawTitle;
     bool m_bDrawAudio;
+    bool m_bShowTools;
 
-    HTitlebarWidget* m_titlebar;
-    HToolbarWidget*  m_toolbar;
     QLabel* m_snapshot;
-    HNumSelectWidget* m_numSelector;
 
     int m_titcolor;
     int m_outlinecolor;
@@ -116,10 +102,42 @@ public:
     int m_nPreFrame; // previous frame cnt;
 
     std::map<int ,DrawInfo> m_mapIcons; // type : DrawInfo
-    tmc_mutex_type m_mutex;
 
     ulong m_tmMousePressed;
     QPoint m_ptMousePressed;
+};
+
+class HGeneralGLWidget : public HGLWidget
+{
+    Q_OBJECT
+public:
+    HGeneralGLWidget(QWidget* parent = Q_NULLPTR);
+    virtual ~HGeneralGLWidget();
+
+    void showTitlebar(bool bShow = true);
+    void showToolbar(bool bShow = true);
+    virtual void showToolWidgets(bool bShow = true);
+    void setProgress(int progress) {m_toolbar->m_slider->setValue(progress);}
+
+public slots:
+    void onNumSelected(int num);
+    void onNumCanceled(int num);
+    void showNumSelector();
+
+    void onProgressChanged(int progress);
+
+protected:
+    void drawSelectNum();
+    void drawSound();
+    virtual void drawOutline();
+    virtual void paintGL();
+    void initUI();
+    void initConnect();
+
+public:
+    HTitlebarWidget* m_titlebar;
+    HToolbarWidget*  m_toolbar;
+    HNumSelectWidget* m_numSelector;
 };
 
 #include "hchangecolorwidget.h"
@@ -141,8 +159,9 @@ public:
     int getLocation(QPoint pt, QRect rc);
 
     int getCockByPos(QPoint pt);
-    void toggleTrash() {m_wdgTrash->setVisible(!m_wdgTrash->isVisible());}
-    virtual void toggleToolWidgets();
+    void showTitlebar(bool bShow = true);
+    void showToolbar(bool bShow = true);
+    virtual void showToolWidgets(bool bShow = true);
     void adjustPos(QRect& rc);
 
 signals:
@@ -153,6 +172,9 @@ public slots:
     void onCockChanged();
 
 protected:
+    void initUI();
+    void initConnect();
+
     virtual void drawOutline();
     virtual void drawTaskInfo();
     virtual void drawCockInfo();
@@ -171,6 +193,9 @@ private:
 
     int m_indexCock;
     int m_location;
+
+    HCockTitlebarWidget* m_titlebar;
+    HCockToolbarWidget*  m_toolbar;
 
     QLabel* m_labelDrag;
     HChangeColorWidget* m_wdgTrash;

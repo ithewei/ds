@@ -904,9 +904,10 @@ int HDsContext::push_audio(int svrid, const av_pcmbuff* pcm){
         a[1] = 0;
         for (int s = 0; s < samples; ++s){
             for (int c = 0; c < channels; ++c){
-                int n = c % 2;
-                a[n] += *src;
+                a[c % 2] += *src;
                 ++src;
+                if (!src)
+                    return -6;
             }
         }
         item->a_average[0] = a[0] / ((channels + 1) / 2) / samples;
@@ -943,12 +944,6 @@ void* thread_http_req(void* param){
     free(szReq);
     clt->close();
     clt->release();
-
-    if(strncmp(strRes.c_str(), "success", sizeof("success") - 1) == 0){
-        emit g_dsCtx->sourceChanged(1, true);
-    }else{
-        emit g_dsCtx->sourceChanged(1, false);
-    }
 
     pthread_exit(NULL);
 }

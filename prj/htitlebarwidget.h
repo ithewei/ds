@@ -12,18 +12,27 @@ class HTitlebarWidget : public QWidget
 public:
     explicit HTitlebarWidget(QWidget *parent = 0);
 
-signals:
-    void fullScreen();
-    void exitFullScreen();
-
-public slots:
-    void onFullScreen();
-    void onExitFullScreen();
-    void onStartRecord();
-    void onStopRecord();
+protected:
+    void initUI();
+    void initConnection();
+    virtual bool event(QEvent *e);
 
 public:
-    void setTitle(const char* title) {m_label->setText(title);}
+    QLabel* m_label;
+    QPushButton* m_btnFullScreen;
+    QPushButton* m_btnExitFullScreen;
+    QPushButton* m_btnSnapshot;
+    QPushButton* m_btnStartRecord;
+    QPushButton* m_btnStopRecord;
+
+    QPushButton* m_btnNum;
+};
+
+class HCockTitlebarWidget : public QWidget
+{
+    Q_OBJECT
+public:
+    explicit HCockTitlebarWidget(QWidget *parent = 0);
 
 protected:
     void initUI();
@@ -37,7 +46,6 @@ public:
     QPushButton* m_btnSnapshot;
     QPushButton* m_btnStartRecord;
     QPushButton* m_btnStopRecord;
-    QPushButton* m_btnNum;
 };
 
 #endif // HTITLEBARWIDGET_H

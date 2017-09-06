@@ -11,125 +11,22 @@ HGLWidget::HGLWidget(QWidget *parent)
 {
     m_bDrawTitle = true;
     m_bDrawAudio = true;
+    m_bShowTools = false;
 
     m_status = STOP;
     m_tmMousePressed = 0;
 
-    initUI();
-    initConnect();
+    m_snapshot = new QLabel(this);
+    m_snapshot->setStyleSheet("border:5px double #ADFF2F");
+    m_snapshot->hide();
 }
 
 HGLWidget::~HGLWidget(){
 
 }
 
-void HGLWidget::initUI(){
-    QVBoxLayout* vbox = new QVBoxLayout;
-    vbox->setMargin(2);
+void HGLWidget::showToolWidgets(bool bShow){
 
-    m_titlebar = new HTitlebarWidget;
-    m_titlebar->setFixedHeight(TITLE_BAR_HEIGHT);
-    m_titlebar->hide();
-    vbox->addWidget(m_titlebar);
-
-    vbox->addStretch();
-
-    m_toolbar = new HToolbarWidget;
-    m_toolbar->setFixedHeight(TOOL_BAR_HEIGHT);
-    m_toolbar->hide();
-    vbox->addWidget(m_toolbar);
-
-    setLayout(vbox);
-
-    m_snapshot = new QLabel(this);
-    m_snapshot->setStyleSheet("border:5px double #ADFF2F");
-    m_snapshot->hide();
-
-    m_numSelector = new HNumSelectWidget;
-    m_numSelector->setWindowFlags(Qt::Popup);
-    m_numSelector->setAttribute(Qt::WA_TranslucentBackground, true);
-    m_numSelector->hide();
-}
-
-void HGLWidget::initConnect(){
-    QObject::connect( m_titlebar, SIGNAL(fullScreen()), this, SIGNAL(fullScreen()) );
-    QObject::connect( m_titlebar, SIGNAL(exitFullScreen()), this, SIGNAL(exitFullScreen()) );
-    QObject::connect( m_titlebar->m_btnSnapshot, SIGNAL(clicked(bool)), this, SLOT(snapshot()) );
-    //QObject::connect( m_titlebar->m_btnStartRecord, SIGNAL(clicked(bool)), this, SLOT(startRecord()) );
-    //QObject::connect( m_titlebar->m_btnStopRecord, SIGNAL(clicked(bool)), this, SLOT(stopRecord()) );
-    QObject::connect( m_titlebar->m_btnNum, SIGNAL(clicked(bool)), this, SLOT(showNumSelector()) );
-
-    QObject::connect( m_toolbar, SIGNAL(sigStart()), this, SLOT(onStart()) );
-    QObject::connect( m_toolbar, SIGNAL(sigPause()), this, SLOT(onPause()) );
-    QObject::connect( m_toolbar, SIGNAL(sigStop()), this, SLOT(onStop()) );
-    QObject::connect( m_toolbar, SIGNAL(progressChanged(int)), this, SLOT(onProgressChanged(int)) );
-
-    QObject::connect( m_numSelector, SIGNAL(numSelected(int)), this, SLOT(onNumSelected(int)) );
-    QObject::connect( m_numSelector, SIGNAL(numCanceled(int)), this, SLOT(onNumCanceled(int)) );
-}
-
-void HGLWidget::showTitlebar(bool bShow){
-    if (bShow){
-        if ((m_status & MAJOR_STATUS_MASK) == PLAYING ||
-            (m_status & MAJOR_STATUS_MASK) == PAUSE){
-            DsSvrItem* item = g_dsCtx->getItem(svrid);
-            if (item){
-                m_titlebar->setTitle(item->title.c_str());
-            }
-            m_titlebar->show();
-        }
-    }else{
-        m_titlebar->hide();
-    }
-}
-
-void HGLWidget::showToolbar(bool bShow){
-    if (bShow){
-        if ((m_status & MAJOR_STATUS_MASK) == PLAYING ||
-            (m_status & MAJOR_STATUS_MASK) == PAUSE){
-
-            if ((m_status & MAJOR_STATUS_MASK) == PLAYING){
-                m_toolbar->m_btnStart->hide();
-                m_toolbar->m_btnPause->show();
-            }
-            if ((m_status & MAJOR_STATUS_MASK) == PAUSE){
-                m_toolbar->m_btnStart->show();
-                m_toolbar->m_btnPause->hide();
-            }
-
-            if (g_dsCtx->getItem(svrid)->src_type == SRC_TYPE_FILE){
-                m_toolbar->m_slider->show();
-                m_toolbar->show();
-            }
-            if (svrid == 1){
-                m_toolbar->m_slider->hide();
-                m_toolbar->show();
-            }
-        }
-    }else{
-        m_toolbar->hide();
-    }
-}
-
-void HGLWidget::toggleTitlebar(){
-    if (m_titlebar->isVisible()){
-        showTitlebar(false);
-    }else{
-        showTitlebar(true);
-    }
-}
-
-void HGLWidget::toggleToolbar(){
-    if (m_toolbar->isVisible()){
-        showToolbar(false);
-    }else{
-        showToolbar(true);
-    }
-}
-
-void HGLWidget::toggleToolWidgets(){
-    toggleTitlebar();
-    toggleToolbar();
 }
 
 void HGLWidget::onStart(){
@@ -167,14 +64,6 @@ void HGLWidget::onStop(){
 
     if (svrid != 1){// svrid=1 is cock,reserve
         svrid = 0;
-    }
-}
-
-void HGLWidget::onProgressChanged(int progress){
-    DsSvrItem* item = g_dsCtx->getItem(svrid);
-    if (item && item->ifcb){
-        qDebug("svrid=%d progress=%d ifservice_callback::e_service_cb_playratio", svrid, progress);
-        item->ifcb->onservice_callback(ifservice_callback::e_service_cb_playratio, libchar(), 0, 0, progress, NULL);
     }
 }
 
@@ -219,32 +108,6 @@ void HGLWidget::stopRecord(){
 
 }
 
-void HGLWidget::onNumSelected(int num){
-    //g_dsCtx->m_tCock.items[num - 1].iSvrid = svrid;
-    g_dsCtx->m_preselect[num-1] = svrid;
-}
-
-void HGLWidget::onNumCanceled(int num){
-    //g_dsCtx->m_tCock.items[num - 1].iSvrid = 0;
-    g_dsCtx->m_preselect[num-1] = 0;
-}
-
-void HGLWidget::showNumSelector(){
-    for (int i = 0; i < MAX_NUM_ICON; ++i){
-        if (g_dsCtx->m_preselect[i] == svrid){
-            m_numSelector->m_numSelects[i]->hide();
-            m_numSelector->m_numCancels[i]->show();
-        }else{
-            m_numSelector->m_numCancels[i]->hide();
-            m_numSelector->m_numSelects[i]->show();
-        }
-    }
-    int w = m_numSelector->width();
-    int h = m_numSelector->height();
-    m_numSelector->setGeometry((width()-w)/2+x(), (height()-h)/2+y(), w, h);
-    m_numSelector->show();
-}
-
 void HGLWidget::mousePressEvent(QMouseEvent* event){
     m_tmMousePressed = event->timestamp();
     m_ptMousePressed = event->pos();
@@ -253,7 +116,6 @@ void HGLWidget::mousePressEvent(QMouseEvent* event){
 
 void HGLWidget::mouseReleaseEvent(QMouseEvent* event){
     if ((event->timestamp() - m_tmMousePressed < 200)){
-        toggleToolWidgets();
         emit clicked();
     }
 
@@ -271,7 +133,6 @@ void HGLWidget::mouseMoveEvent(QMouseEvent* e){
 }
 
 void HGLWidget::addIcon(int type, int x, int y, int w, int h){
-    m_mutex.lock();
     if (m_mapIcons.find(type) == m_mapIcons.end()){
         DrawInfo di;
         di.left = x;
@@ -281,16 +142,13 @@ void HGLWidget::addIcon(int type, int x, int y, int w, int h){
         m_mapIcons[type] = di;
         update();
     }
-    m_mutex.lock();
 }
 
 void HGLWidget::removeIcon(int type){
-    m_mutex.lock();
     std::map<int,DrawInfo>::iterator iter = m_mapIcons.find(type);
     if (iter != m_mapIcons.end()){
         m_mapIcons.erase(iter);
     }
-    m_mutex.unlock();
 }
 
 Texture* HGLWidget::getTexture(int type){
@@ -353,33 +211,7 @@ void HGLWidget::drawAudio(){
     }
 }
 
-void HGLWidget::drawSelectNum(){
-    DrawInfo di;
-    di.top = height()-48;
-    di.bottom = height()-1;
-    di.left = 1;
-    di.right = 48;
-    for (int i = 0; i < MAX_NUM_ICON; ++i){
-        if (g_dsCtx->m_preselect[i] == svrid){
-            drawTex(&HRcLoader::instance()->tex_numr[i], &di);
-            di.left += 48;
-            di.right += 48;
-            if (g_dsCtx->m_tCock.items[i].bAudio){
-                // draw sound icon
-                DrawInfo diAudio;
-                Texture *tex = getTexture(HAVE_AUDIO);
-                diAudio.right = width() - 1;
-                diAudio.top = 1;
-                diAudio.left = diAudio.right - 32 + 1;
-                diAudio.bottom = diAudio.top + 32 - 1;
-                drawTex(tex, &diAudio);
-            }
-        }
-    }
-}
-
 void HGLWidget::drawIcon(){
-    m_mutex.lock();
     std::map<int,DrawInfo>::iterator iter = m_mapIcons.begin();
     while (iter != m_mapIcons.end()){
         Texture *tex = getTexture(iter->first);
@@ -389,7 +221,6 @@ void HGLWidget::drawIcon(){
         }
         ++iter;
     }
-    m_mutex.unlock();
 }
 
 void HGLWidget::drawTitle(){
@@ -409,11 +240,7 @@ void HGLWidget::drawOutline(){
     di.top = 0;
     di.right = width() - 1;
     di.bottom = height() - 1;
-    if (m_titlebar->isVisible()){
-        di.color = g_dsCtx->m_tInit.focus_outlinecolor;
-    }else{
-        di.color = m_outlinecolor;
-    }
+    di.color = m_outlinecolor;
     drawRect(&di, 3);
 }
 
@@ -421,7 +248,7 @@ void HGLWidget::paintGL(){
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
 
-    // drawVideo->drawAudio->drawSelectNum->drawTitle->drawOutline
+    // drawVideo->drawAudio->drawTitle->drawOutline
 
     DrawInfo di;
     switch (m_status & MAJOR_STATUS_MASK) {
@@ -448,9 +275,6 @@ void HGLWidget::paintGL(){
                 drawAudio();
             }
         }
-
-        // draw select num
-        drawSelectNum();
         break;
     }
 
@@ -461,6 +285,193 @@ void HGLWidget::paintGL(){
     drawOutline();
 }
 
+//<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+HGeneralGLWidget::HGeneralGLWidget(QWidget* parent)
+    : HGLWidget(parent)
+{
+    initUI();
+    initConnect();
+}
+
+HGeneralGLWidget::~HGeneralGLWidget(){
+
+}
+
+void HGeneralGLWidget::initUI(){
+    QVBoxLayout* vbox = new QVBoxLayout;
+    vbox->setMargin(2);
+
+    m_titlebar = new HTitlebarWidget;
+    m_titlebar->setFixedHeight(TITLE_BAR_HEIGHT);
+    m_titlebar->hide();
+    vbox->addWidget(m_titlebar);
+
+    vbox->addStretch();
+
+    m_toolbar = new HToolbarWidget;
+    m_toolbar->setFixedHeight(TOOL_BAR_HEIGHT);
+    m_toolbar->hide();
+    vbox->addWidget(m_toolbar);
+
+    setLayout(vbox);
+
+    m_numSelector = new HNumSelectWidget;
+    m_numSelector->setWindowFlags(Qt::Popup);
+    m_numSelector->setAttribute(Qt::WA_TranslucentBackground, true);
+    m_numSelector->hide();
+}
+
+void HGeneralGLWidget::initConnect(){
+    QObject::connect( m_titlebar->m_btnFullScreen, SIGNAL(clicked(bool)), this, SIGNAL(fullScreen()) );
+    QObject::connect( m_titlebar->m_btnExitFullScreen, SIGNAL(clicked(bool)), this, SIGNAL(exitFullScreen()) );
+    QObject::connect( m_titlebar->m_btnSnapshot, SIGNAL(clicked(bool)), this, SLOT(snapshot()) );
+    //QObject::connect( m_titlebar->m_btnStartRecord, SIGNAL(clicked(bool)), this, SLOT(startRecord()) );
+    //QObject::connect( m_titlebar->m_btnStopRecord, SIGNAL(clicked(bool)), this, SLOT(stopRecord()) );
+    QObject::connect( m_titlebar->m_btnNum, SIGNAL(clicked(bool)), this, SLOT(showNumSelector()) );
+
+    QObject::connect( m_toolbar->m_btnStart, SIGNAL(clicked(bool)), this, SLOT(onStart()) );
+    QObject::connect( m_toolbar->m_btnPause, SIGNAL(clicked(bool)), this, SLOT(onPause()) );
+    QObject::connect( m_toolbar, SIGNAL(progressChanged(int)), this, SLOT(onProgressChanged(int)) );
+
+    QObject::connect( m_numSelector, SIGNAL(numSelected(int)), this, SLOT(onNumSelected(int)) );
+    QObject::connect( m_numSelector, SIGNAL(numCanceled(int)), this, SLOT(onNumCanceled(int)) );
+}
+
+void HGeneralGLWidget::showTitlebar(bool bShow){
+    if (bShow){
+        DsSvrItem* item = g_dsCtx->getItem(svrid);
+        if (item){
+            m_titlebar->m_label->setText(item->title.c_str());
+        }
+        m_titlebar->show();
+    }else{
+        m_titlebar->hide();
+    }
+}
+
+void HGeneralGLWidget::showToolbar(bool bShow){
+    if (bShow){
+        if ((m_status & MAJOR_STATUS_MASK) == PLAYING){
+            m_toolbar->m_btnStart->hide();
+            m_toolbar->m_btnPause->show();
+        }
+        if ((m_status & MAJOR_STATUS_MASK) == PAUSE){
+            m_toolbar->m_btnStart->show();
+            m_toolbar->m_btnPause->hide();
+        }
+
+        if (g_dsCtx->getItem(svrid)->src_type == SRC_TYPE_FILE){
+            m_toolbar->m_slider->show();
+        }else{
+            m_toolbar->m_slider->hide();
+        }
+            m_toolbar->show();
+    }else{
+        m_toolbar->hide();
+    }
+}
+
+void HGeneralGLWidget::showToolWidgets(bool bShow){
+    HGLWidget::showToolWidgets(bShow);
+
+    if (bShow){
+        if (!(status(MAJOR_STATUS_MASK) == PAUSE || status(MAJOR_STATUS_MASK) == PLAYING))
+            return;
+    }
+
+    showTitlebar(bShow);
+    DsSvrItem* item = g_dsCtx->getItem(svrid);
+    if (item){
+        if (g_dsCtx->getItem(svrid)->src_type == SRC_TYPE_FILE){
+            showToolbar(bShow);
+        }
+    }
+}
+
+void HGeneralGLWidget::onNumSelected(int num){
+    g_dsCtx->m_preselect[num-1] = svrid;
+}
+
+void HGeneralGLWidget::onNumCanceled(int num){
+    g_dsCtx->m_preselect[num-1] = 0;
+}
+
+void HGeneralGLWidget::showNumSelector(){
+    for (int i = 0; i < MAX_NUM_ICON; ++i){
+        if (g_dsCtx->m_preselect[i] == svrid){
+            m_numSelector->m_numSelects[i]->hide();
+            m_numSelector->m_numCancels[i]->show();
+        }else{
+            m_numSelector->m_numCancels[i]->hide();
+            m_numSelector->m_numSelects[i]->show();
+        }
+    }
+    int w = m_numSelector->width();
+    int h = m_numSelector->height();
+    m_numSelector->setGeometry((width()-w)/2+x(), (height()-h)/2+y(), w, h);
+    m_numSelector->show();
+}
+
+void HGeneralGLWidget::onProgressChanged(int progress){
+    DsSvrItem* item = g_dsCtx->getItem(svrid);
+    if (item && item->ifcb){
+        qDebug("svrid=%d progress=%d ifservice_callback::e_service_cb_playratio", svrid, progress);
+        item->ifcb->onservice_callback(ifservice_callback::e_service_cb_playratio, libchar(), 0, 0, progress, NULL);
+    }
+}
+
+void HGeneralGLWidget::drawSelectNum(){
+    DrawInfo di;
+    di.top = height()-48;
+    di.bottom = height()-1;
+    di.left = 1;
+    di.right = 48;
+    for (int i = 0; i < MAX_NUM_ICON; ++i){
+        if (g_dsCtx->m_preselect[i] == svrid){
+            drawTex(&HRcLoader::instance()->tex_numr[i], &di);
+            di.left += 48;
+            di.right += 48;
+        }
+    }
+}
+
+void HGeneralGLWidget::drawSound(){
+    for (int i = 0; i < g_dsCtx->m_tCock.itemCnt; ++i){
+        if (g_dsCtx->m_tCock.items[i].iSvrid == svrid && g_dsCtx->m_tCock.items[i].bAudio){
+            DrawInfo diAudio;
+            Texture *tex = getTexture(HAVE_AUDIO);
+            diAudio.right = width() - 1;
+            diAudio.top = 1;
+            diAudio.left = diAudio.right - 32 + 1;
+            diAudio.bottom = diAudio.top + 32 - 1;
+            drawTex(tex, &diAudio);
+        }
+    }
+}
+
+void HGeneralGLWidget::drawOutline(){
+    DrawInfo di;
+    di.left = 0;
+    di.top = 0;
+    di.right = width() - 1;
+    di.bottom = height() - 1;
+    if (m_titlebar->isVisible()){
+        di.color = g_dsCtx->m_tInit.focus_outlinecolor;
+    }else{
+        di.color = m_outlinecolor;
+    }
+    drawRect(&di, 3);
+}
+
+void HGeneralGLWidget::paintGL(){
+    HGLWidget::paintGL();
+
+    drawSelectNum();
+    drawSound();
+}
+
+//>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
 //===============================================================================
 
 HCockGLWidget::HCockGLWidget(QWidget* parent)
@@ -469,8 +480,31 @@ HCockGLWidget::HCockGLWidget(QWidget* parent)
     m_cockoutlinecolor = 0xFFFFFFFF;
     m_cocktype = 0;
 
-    m_titlebar->m_btnNum->hide();
-    m_toolbar->m_btnUndo->show();
+    initUI();
+    initConnect();
+}
+
+HCockGLWidget::~HCockGLWidget(){
+
+}
+
+void HCockGLWidget::initUI(){
+    QVBoxLayout* vbox = new QVBoxLayout;
+    vbox->setMargin(2);
+
+    m_titlebar = new HCockTitlebarWidget;
+    m_titlebar->setFixedHeight(TITLE_BAR_HEIGHT);
+    m_titlebar->hide();
+    vbox->addWidget(m_titlebar);
+
+    vbox->addStretch();
+
+    m_toolbar = new HCockToolbarWidget;
+    m_toolbar->setFixedHeight(TOOL_BAR_HEIGHT);
+    m_toolbar->hide();
+    vbox->addWidget(m_toolbar);
+
+    setLayout(vbox);
 
     m_labelDrag = new QLabel(this);
     m_labelDrag->setStyleSheet("border:3px groove #FF8C00");
@@ -483,20 +517,56 @@ HCockGLWidget::HCockGLWidget(QWidget* parent)
     m_wdgTrash = new HChangeColorWidget(this);
     m_wdgTrash->setPixmap(HRcLoader::instance()->icon_trash);
     m_wdgTrash->hide();
+}
 
+void HCockGLWidget::initConnect(){
     QObject::connect( g_dsCtx, SIGNAL(cockChanged()), this, SLOT(onCockChanged()) );
+
+    QObject::connect( m_titlebar->m_btnFullScreen, SIGNAL(clicked(bool)), this, SIGNAL(fullScreen()) );
+    QObject::connect( m_titlebar->m_btnExitFullScreen, SIGNAL(clicked(bool)), this, SIGNAL(exitFullScreen()) );
+    QObject::connect( m_titlebar->m_btnSnapshot, SIGNAL(clicked(bool)), this, SLOT(snapshot()) );
+    //QObject::connect( m_titlebar->m_btnStartRecord, SIGNAL(clicked(bool)), this, SLOT(startRecord()) );
+    //QObject::connect( m_titlebar->m_btnStopRecord, SIGNAL(clicked(bool)), this, SLOT(stopRecord()) );
+
+    QObject::connect( m_toolbar->m_btnStart, SIGNAL(clicked(bool)), this, SLOT(onStart()) );
+    QObject::connect( m_toolbar->m_btnPause, SIGNAL(clicked(bool)), this, SLOT(onPause()) );
     QObject::connect( m_toolbar->m_btnUndo, SIGNAL(clicked(bool)), this, SIGNAL(undo()) );
-
-    setAttribute(Qt::WA_AcceptTouchEvents);
 }
 
-HCockGLWidget::~HCockGLWidget(){
-
+void HCockGLWidget::showTitlebar(bool bShow){
+    if (bShow){
+        DsSvrItem* item = g_dsCtx->getItem(svrid);
+        if (item){
+            m_titlebar->m_label->setText(item->title.c_str());
+        }
+        m_titlebar->show();
+    }else{
+        m_titlebar->hide();
+    }
 }
 
-void HCockGLWidget::toggleToolWidgets(){
-    HGLWidget::toggleToolWidgets();
-    toggleTrash();
+void HCockGLWidget::showToolbar(bool bShow){
+    if (bShow){
+        if ((m_status & MAJOR_STATUS_MASK) == PLAYING){
+            m_toolbar->m_btnStart->hide();
+            m_toolbar->m_btnPause->show();
+        }
+        if ((m_status & MAJOR_STATUS_MASK) == PAUSE){
+            m_toolbar->m_btnStart->show();
+            m_toolbar->m_btnPause->hide();
+        }
+        m_toolbar->show();
+    }else{
+        m_toolbar->hide();
+    }
+}
+
+void HCockGLWidget::showToolWidgets(bool bShow){
+    HGLWidget::showToolWidgets(bShow);
+
+    showTitlebar(bShow);
+    showToolbar(bShow);
+    m_wdgTrash->setVisible(bShow);
 }
 
 #define LOCATION_PADDING    32

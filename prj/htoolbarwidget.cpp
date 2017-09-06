@@ -46,15 +46,6 @@ void HToolbarWidget::initUI(){
 //    hbox->addWidget(m_btnStop);
 //    hbox->setAlignment(m_btnStop, Qt::AlignLeft);
 
-    m_btnUndo = new QPushButton;
-    m_btnUndo->setFixedSize(TOOLBAR_ICON_WIDTH,TOOLBAR_ICON_HEIGHT);
-    m_btnUndo->setIcon(QIcon(HRcLoader::instance()->icon_undo));
-    m_btnUndo->setIconSize(QSize(TOOLBAR_ICON_WIDTH,TOOLBAR_ICON_HEIGHT));
-    m_btnUndo->setFlat(true);
-    m_btnUndo->hide();
-    hbox->addWidget(m_btnUndo);
-    hbox->setAlignment(m_btnUndo, Qt::AlignLeft);
-
     m_slider = new QSlider;
     m_slider->setOrientation(Qt::Horizontal);
     m_slider->setRange(0,100);
@@ -104,9 +95,11 @@ void HToolbarWidget::initUI(){
 }
 
 void HToolbarWidget::initConnection(){
-    QObject::connect( m_btnStart, SIGNAL(clicked(bool)), this, SLOT(onStart()) );
-    QObject::connect( m_btnPause, SIGNAL(clicked(bool)), this, SLOT(onPause()) );
-    //QObject::connect( m_btnStop, SIGNAL(clicked(bool)), this, SLOT(onStop()) );
+    QObject::connect( m_btnStart, SIGNAL(clicked(bool)), m_btnStart, SLOT(hide()) );
+    QObject::connect( m_btnStart, SIGNAL(clicked(bool)), m_btnPause, SLOT(show()) );
+
+    QObject::connect( m_btnPause, SIGNAL(clicked(bool)), m_btnPause, SLOT(hide()) );
+    QObject::connect( m_btnPause, SIGNAL(clicked(bool)), m_btnStart, SLOT(show()) );
 
     QObject::connect( m_slider, SIGNAL(actionTriggered(int)), this, SLOT(onSlider(int)) );
     QObject::connect( m_slider, SIGNAL(sliderReleased()), this, SLOT(onSlider()) );
@@ -125,25 +118,6 @@ bool HToolbarWidget::event(QEvent *e){
     }
 }
 
-void HToolbarWidget::onStart(){
-    m_btnStart->hide();
-    m_btnPause->show();
-
-    emit sigStart();
-}
-
-void HToolbarWidget::onPause(){
-    m_btnStart->show();
-    m_btnPause->hide();
-
-    emit sigPause();
-}
-
-void HToolbarWidget::onStop(){
-    //m_btnStop->setEnabled(false);
-    emit sigStop();
-}
-
 void HToolbarWidget::onSlider(){
     emit progressChanged(m_slider->value());
 }
@@ -153,5 +127,84 @@ void HToolbarWidget::onSlider(int action){
         action == QAbstractSlider::SliderPageStepSub){
         qDebug("slider = %d", m_slider->value());
         emit progressChanged(m_slider->value());
+    }
+}
+
+//<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+HCockToolbarWidget::HCockToolbarWidget(QWidget *parent) : QWidget(parent)
+{
+    initUI();
+    initConnection();
+}
+
+void HCockToolbarWidget::initUI(){
+    setAutoFillBackground(true);
+    QPalette pal = palette();
+    pal.setColor(QPalette::Background, QColor(105,105,105,204));
+    pal.setColor(QPalette::Foreground, QColor(255,255,255));
+    setPalette(pal);
+
+    QHBoxLayout* hbox = new QHBoxLayout;
+
+    hbox->setMargin(1);
+    hbox->setSpacing(10);
+
+    m_btnStart = new QPushButton;
+    m_btnStart->setFixedSize(TOOLBAR_ICON_WIDTH,TOOLBAR_ICON_HEIGHT);
+    m_btnStart->setIcon(QIcon(HRcLoader::instance()->icon_start));
+    m_btnStart->setIconSize(QSize(TOOLBAR_ICON_WIDTH,TOOLBAR_ICON_HEIGHT));
+    m_btnStart->setFlat(true);
+    m_btnStart->hide();
+    hbox->addWidget(m_btnStart);
+    hbox->setAlignment(m_btnStart, Qt::AlignLeft);
+
+    m_btnPause = new QPushButton;
+    m_btnPause->setFixedSize(TOOLBAR_ICON_WIDTH,TOOLBAR_ICON_HEIGHT);
+    m_btnPause->setIcon(QIcon(HRcLoader::instance()->icon_pause));
+    m_btnPause->setIconSize(QSize(TOOLBAR_ICON_WIDTH,TOOLBAR_ICON_HEIGHT));
+    m_btnPause->setFlat(true);
+    m_btnPause->show();
+    hbox->addWidget(m_btnPause);
+    hbox->setAlignment(m_btnPause, Qt::AlignLeft);
+
+//    m_btnStop = new QPushButton;
+//    m_btnStop->setFixedSize(TOOLBAR_ICON_WIDTH,TOOLBAR_ICON_HEIGHT);
+//    m_btnStop->setIcon(QIcon(HRcLoader::instance()->icon_stop));
+//    m_btnStop->setIconSize(QSize(TOOLBAR_ICON_WIDTH,TOOLBAR_ICON_HEIGHT));
+//    m_btnStop->setFlat(true);
+//    hbox->addWidget(m_btnStop);
+//    hbox->setAlignment(m_btnStop, Qt::AlignLeft);
+
+    m_btnUndo = new QPushButton;
+    m_btnUndo->setFixedSize(TOOLBAR_ICON_WIDTH,TOOLBAR_ICON_HEIGHT);
+    m_btnUndo->setIcon(QIcon(HRcLoader::instance()->icon_undo));
+    m_btnUndo->setIconSize(QSize(TOOLBAR_ICON_WIDTH,TOOLBAR_ICON_HEIGHT));
+    m_btnUndo->setFlat(true);
+    hbox->addWidget(m_btnUndo);
+    hbox->setAlignment(m_btnUndo, Qt::AlignLeft);
+
+    hbox->addStretch();
+
+    setLayout(hbox);
+}
+
+void HCockToolbarWidget::initConnection(){
+    QObject::connect( m_btnStart, SIGNAL(clicked(bool)), m_btnStart, SLOT(hide()) );
+    QObject::connect( m_btnStart, SIGNAL(clicked(bool)), m_btnPause, SLOT(show()) );
+
+    QObject::connect( m_btnPause, SIGNAL(clicked(bool)), m_btnPause, SLOT(hide()) );
+    QObject::connect( m_btnPause, SIGNAL(clicked(bool)), m_btnStart, SLOT(show()) );
+}
+
+#include <QEvent>
+bool HCockToolbarWidget::event(QEvent *e){
+    switch (e->type()){
+    case QEvent::MouseButtonPress:
+    case QEvent::MouseButtonRelease:
+    case QEvent::MouseButtonDblClick:
+    case QEvent::MouseMove:
+        return true;
+    default:
+        return QWidget::event(e);
     }
 }
