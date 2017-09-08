@@ -26,7 +26,7 @@ void* HDsContext::thread_gui(void* param){
     int sh = QApplication::desktop()->height();
 
     QSplashScreen* splash = new QSplashScreen;
-    splash->setWindowFlags(Qt::Window | Qt::FramelessWindowHint);
+    splash->setWindowFlags(Qt::Window | Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint);
     splash->setGeometry(0,0,sw,sh);
     splash->setStyleSheet("background-color: black");
 
@@ -46,14 +46,12 @@ void* HDsContext::thread_gui(void* param){
     splash->showMessage("Creating main UI...", Qt::AlignCenter, Qt::white);
     progress->setValue(50);
     app.processEvents();
+
     HMainWidget* mainwdg = new HMainWidget(pObj);
-    mainwdg->hide();
 
     splash->showMessage("Loading completed!", Qt::AlignCenter, Qt::white);
     progress->setValue(100);
     app.processEvents();
-    splash->finish(mainwdg);
-    delete splash;
 
 //    mainwdg->setAttribute(Qt::WA_QuitOnClose,true);
 //    app.connect( &app,  SIGNAL(lastWindowClosed()),  &app,  SLOT(quit()));
@@ -61,6 +59,9 @@ void* HDsContext::thread_gui(void* param){
 
     qDebug("mainwdg create succeed");
     pObj->m_mutex.unlock();
+
+    splash->finish(mainwdg);
+    delete splash;
 
     app.exec();
 
@@ -343,9 +344,9 @@ int HDsContext::parse_layout_xml(const char* xml_file){
     }
     m_tLayout.itemCnt = i;
 
-    // last is cock window
-    m_tLayout.cockW = m_tLayout.items[m_tLayout.itemCnt-1].width();
-    m_tLayout.cockH = m_tLayout.items[m_tLayout.itemCnt-1].height();
+    // last is comb window
+    m_tLayout.combW = m_tLayout.items[m_tLayout.itemCnt-1].width();
+    m_tLayout.combH = m_tLayout.items[m_tLayout.itemCnt-1].height();
 
     return 0;
 }
@@ -389,7 +390,7 @@ int HDsContext::parse_layout_xml(const char* xml_file){
     </body>
 </cocktail>
  */
-int HDsContext::parse_cock_xml(const char* xml){
+int HDsContext::parse_comb_xml(const char* xml){
     qDebug(xml);
 
     ook::xml_element root;
@@ -407,7 +408,7 @@ int HDsContext::parse_cock_xml(const char* xml){
 
     ook::xml_parser::enum_childen(head, NULL);
     const ook::xml_element * e;
-    DsCockInfo ci;
+    DsCombInfo ci;
     while(1)
     {
         e = ook::xml_parser::enum_childen(head, "param");
@@ -461,16 +462,16 @@ int HDsContext::parse_cock_xml(const char* xml){
             break;
     }
 
-    for (int i = 0; i < MAXNUM_COCK; ++i){
+    for (int i = 0; i < MAXNUM_COMB; ++i){
         m_preselect[i] = ci.items[i].iSvrid;
     }
 
-    if (memcmp(&m_tCock, &m_tCockUndo, sizeof(DsCockInfo)) != 0){
-        m_tCockUndo = m_tCock;
+    if (memcmp(&m_tComb, &m_tCombUndo, sizeof(DsCombInfo)) != 0){
+        m_tCombUndo = m_tComb;
     }
-    m_tCock = ci;
+    m_tComb = ci;
 
-    emit cockChanged();
+    emit combChanged();
 
     return 0;
 }
@@ -889,7 +890,7 @@ int HDsContext::push_audio(int svrid, const av_pcmbuff* pcm){
     if (filter != 0 && filter != svrid)
         return -3;
 
-    // just cock window play audio
+    // just comb window play audio
     if (svrid == 1){
         m_audioPlay->pushAudio((av_pcmbuff*)pcm);
     }
@@ -951,12 +952,12 @@ void* thread_http_req(void* param){
 void HDsContext::handle_event(DsEvent& event){
     qDebug("");
 
-    // scale cock x y
+    // scale comb x y
     int x = event.dst_x;
     int y = event.dst_y;
-    if (x != -1 && y != -1 && m_tLayout.cockW && m_tLayout.cockH){
-        x *= (double)m_tCock.width / (double)m_tLayout.cockW;
-        y *= (double)m_tCock.height / (double)m_tLayout.cockH;
+    if (x != -1 && y != -1 && m_tLayout.combW && m_tLayout.combH){
+        x *= (double)m_tComb.width / (double)m_tLayout.combW;
+        y *= (double)m_tComb.height / (double)m_tLayout.combH;
     }
 
     char* szReq = (char*)malloc(512); // 在调用线程中注意释放

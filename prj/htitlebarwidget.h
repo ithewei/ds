@@ -28,11 +28,11 @@ public:
     QPushButton* m_btnNum;
 };
 
-class HCockTitlebarWidget : public QWidget
+class HCombTitlebarWidget : public QWidget
 {
     Q_OBJECT
 public:
-    explicit HCockTitlebarWidget(QWidget *parent = 0);
+    explicit HCombTitlebarWidget(QWidget *parent = 0);
 
 protected:
     void initUI();

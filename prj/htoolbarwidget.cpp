@@ -27,7 +27,6 @@ void HToolbarWidget::initUI(){
     m_btnStart->setFlat(true);
     m_btnStart->hide();
     hbox->addWidget(m_btnStart);
-    hbox->setAlignment(m_btnStart, Qt::AlignLeft);
 
     m_btnPause = new QPushButton;
     m_btnPause->setFixedSize(TOOLBAR_ICON_WIDTH,TOOLBAR_ICON_HEIGHT);
@@ -36,7 +35,6 @@ void HToolbarWidget::initUI(){
     m_btnPause->setFlat(true);
     m_btnPause->show();
     hbox->addWidget(m_btnPause);
-    hbox->setAlignment(m_btnPause, Qt::AlignLeft);
 
 //    m_btnStop = new QPushButton;
 //    m_btnStop->setFixedSize(TOOLBAR_ICON_WIDTH,TOOLBAR_ICON_HEIGHT);
@@ -44,7 +42,6 @@ void HToolbarWidget::initUI(){
 //    m_btnStop->setIconSize(QSize(TOOLBAR_ICON_WIDTH,TOOLBAR_ICON_HEIGHT));
 //    m_btnStop->setFlat(true);
 //    hbox->addWidget(m_btnStop);
-//    hbox->setAlignment(m_btnStop, Qt::AlignLeft);
 
     m_slider = new QSlider;
     m_slider->setOrientation(Qt::Horizontal);
@@ -87,9 +84,9 @@ void HToolbarWidget::initUI(){
                             "}"
                             );
     hbox->addWidget(m_slider);
-    hbox->setStretchFactor(m_slider, 1);
+    //hbox->setStretchFactor(m_slider, 1);
 
-    hbox->addStretch();
+    hbox->addSpacing(10);
 
     setLayout(hbox);
 }
@@ -131,13 +128,13 @@ void HToolbarWidget::onSlider(int action){
 }
 
 //<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-HCockToolbarWidget::HCockToolbarWidget(QWidget *parent) : QWidget(parent)
+HCombToolbarWidget::HCombToolbarWidget(QWidget *parent) : QWidget(parent)
 {
     initUI();
     initConnection();
 }
 
-void HCockToolbarWidget::initUI(){
+void HCombToolbarWidget::initUI(){
     setAutoFillBackground(true);
     QPalette pal = palette();
     pal.setColor(QPalette::Background, QColor(105,105,105,204));
@@ -156,7 +153,6 @@ void HCockToolbarWidget::initUI(){
     m_btnStart->setFlat(true);
     m_btnStart->hide();
     hbox->addWidget(m_btnStart);
-    hbox->setAlignment(m_btnStart, Qt::AlignLeft);
 
     m_btnPause = new QPushButton;
     m_btnPause->setFixedSize(TOOLBAR_ICON_WIDTH,TOOLBAR_ICON_HEIGHT);
@@ -165,7 +161,6 @@ void HCockToolbarWidget::initUI(){
     m_btnPause->setFlat(true);
     m_btnPause->show();
     hbox->addWidget(m_btnPause);
-    hbox->setAlignment(m_btnPause, Qt::AlignLeft);
 
 //    m_btnStop = new QPushButton;
 //    m_btnStop->setFixedSize(TOOLBAR_ICON_WIDTH,TOOLBAR_ICON_HEIGHT);
@@ -173,7 +168,43 @@ void HCockToolbarWidget::initUI(){
 //    m_btnStop->setIconSize(QSize(TOOLBAR_ICON_WIDTH,TOOLBAR_ICON_HEIGHT));
 //    m_btnStop->setFlat(true);
 //    hbox->addWidget(m_btnStop);
-//    hbox->setAlignment(m_btnStop, Qt::AlignLeft);
+
+    hbox->addStretch();
+
+    m_btnText = new QPushButton;
+    m_btnText->setFixedSize(TOOLBAR_ICON_WIDTH,TOOLBAR_ICON_HEIGHT);
+    m_btnText->setIcon(QIcon(HRcLoader::instance()->icon_text));
+    m_btnText->setIconSize(QSize(TOOLBAR_ICON_WIDTH,TOOLBAR_ICON_HEIGHT));
+    m_btnText->setFlat(true);
+    hbox->addWidget(m_btnText);
+
+    m_btnTime = new QPushButton;
+    m_btnTime->setFixedSize(TOOLBAR_ICON_WIDTH,TOOLBAR_ICON_HEIGHT);
+    m_btnTime->setIcon(QIcon(HRcLoader::instance()->icon_time));
+    m_btnTime->setIconSize(QSize(TOOLBAR_ICON_WIDTH,TOOLBAR_ICON_HEIGHT));
+    m_btnTime->setFlat(true);
+    hbox->addWidget(m_btnTime);
+
+    m_btnExpre = new QPushButton;
+    m_btnExpre->setFixedSize(TOOLBAR_ICON_WIDTH,TOOLBAR_ICON_HEIGHT);
+    m_btnExpre->setIcon(QIcon(HRcLoader::instance()->icon_expre));
+    m_btnExpre->setIconSize(QSize(TOOLBAR_ICON_WIDTH,TOOLBAR_ICON_HEIGHT));
+    m_btnExpre->setFlat(true);
+    hbox->addWidget(m_btnExpre);
+
+    m_btnOK = new QPushButton;
+    m_btnOK->setFixedSize(TOOLBAR_ICON_WIDTH,TOOLBAR_ICON_HEIGHT);
+    m_btnOK->setIcon(QIcon(HRcLoader::instance()->icon_ok));
+    m_btnOK->setIconSize(QSize(TOOLBAR_ICON_WIDTH,TOOLBAR_ICON_HEIGHT));
+    m_btnOK->setFlat(true);
+    hbox->addWidget(m_btnOK);
+
+    m_btnTrash = new QPushButton;
+    m_btnTrash->setFixedSize(TOOLBAR_ICON_WIDTH,TOOLBAR_ICON_HEIGHT);
+    m_btnTrash->setIcon(QIcon(HRcLoader::instance()->icon_trash));
+    m_btnTrash->setIconSize(QSize(TOOLBAR_ICON_WIDTH,TOOLBAR_ICON_HEIGHT));
+    m_btnTrash->setFlat(true);
+    hbox->addWidget(m_btnTrash);
 
     m_btnUndo = new QPushButton;
     m_btnUndo->setFixedSize(TOOLBAR_ICON_WIDTH,TOOLBAR_ICON_HEIGHT);
@@ -181,14 +212,11 @@ void HCockToolbarWidget::initUI(){
     m_btnUndo->setIconSize(QSize(TOOLBAR_ICON_WIDTH,TOOLBAR_ICON_HEIGHT));
     m_btnUndo->setFlat(true);
     hbox->addWidget(m_btnUndo);
-    hbox->setAlignment(m_btnUndo, Qt::AlignLeft);
-
-    hbox->addStretch();
 
     setLayout(hbox);
 }
 
-void HCockToolbarWidget::initConnection(){
+void HCombToolbarWidget::initConnection(){
     QObject::connect( m_btnStart, SIGNAL(clicked(bool)), m_btnStart, SLOT(hide()) );
     QObject::connect( m_btnStart, SIGNAL(clicked(bool)), m_btnPause, SLOT(show()) );
 
@@ -197,7 +225,7 @@ void HCockToolbarWidget::initConnection(){
 }
 
 #include <QEvent>
-bool HCockToolbarWidget::event(QEvent *e){
+bool HCombToolbarWidget::event(QEvent *e){
     switch (e->type()){
     case QEvent::MouseButtonPress:
     case QEvent::MouseButtonRelease:

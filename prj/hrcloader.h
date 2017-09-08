@@ -38,7 +38,12 @@ public:
     QPixmap icon_numb[MAX_NUM_ICON];
     QPixmap icon_numr[MAX_NUM_ICON];
     QPixmap icon_trash;
+    QPixmap icon_trash_big;
     QPixmap icon_undo;
+    QPixmap icon_expre;
+    QPixmap icon_ok;
+    QPixmap icon_text;
+    QPixmap icon_time;
 
     Texture tex_sound;
     Texture tex_numr[MAX_NUM_ICON];

@@ -2,7 +2,7 @@
 #define HDSCONTEXT_H
 
 #define MAXNUM_LAYOUT   8
-#define MAXNUM_COCK     8
+#define MAXNUM_COMB     8
 
 #define DIRECTOR_MAX_SERVS		   16
 #define DIRECTOR_MAX_ITEMS   		6
@@ -74,16 +74,16 @@ struct DsLayoutInfo{
     int height;
     QRect items[MAXNUM_LAYOUT];
     int itemCnt;
-    int cockW;
-    int cockH;
+    int combW;
+    int combH;
 
     DsLayoutInfo(){
         width = 0;
         height = 0;
         itemCnt = 0;
 
-        cockW = 0;
-        cockH = 0;
+        combW = 0;
+        combH = 0;
     }
 };
 
@@ -113,7 +113,7 @@ struct HRect{
     }
 };
 
-struct DsCockItem{
+struct DsCombItem{
     int x;
     int y;
     int w;
@@ -122,7 +122,7 @@ struct DsCockItem{
     int  iSvrid;
     bool bAudio;
 
-    DsCockItem(){
+    DsCombItem(){
         x = 0;
         y = 0;
         w = 0;
@@ -132,14 +132,14 @@ struct DsCockItem{
     }
 };
 
-struct DsCockInfo{
+struct DsCombInfo{
     int width;
     int height;
 
-    DsCockItem items[MAXNUM_COCK];
+    DsCombItem items[MAXNUM_COMB];
     int itemCnt;
 
-    DsCockInfo(){
+    DsCombInfo(){
         width = 0;
         height = 0;
         itemCnt = 0;
@@ -239,7 +239,7 @@ public:
 public:
     int parse_init_xml(const char* xml);
     int parse_layout_xml(const char* xml_file);
-    int parse_cock_xml(const char* xml);
+    int parse_comb_xml(const char* xml);
     int parse_taskinfo_xml(const char* xml);
 
     void initImg(std::string& path);
@@ -286,7 +286,7 @@ signals:
     void audioPushed(int svrid);
     void sigStop(int svrid);
     void quit();
-    void cockChanged();
+    void combChanged();
     void sigProgressNty(int svrid, int progress);
 
 public slots:
@@ -311,9 +311,9 @@ public:
 
     DsInitInfo m_tInit;
     DsLayoutInfo m_tLayout;
-    DsCockInfo m_tCock;
-    DsCockInfo m_tCockUndo;
-    int m_preselect[MAXNUM_COCK];
+    DsCombInfo m_tComb;
+    DsCombInfo m_tCombUndo;
+    int m_preselect[MAXNUM_COMB];
 
     std::string img_path;
     std::string ttf_path;

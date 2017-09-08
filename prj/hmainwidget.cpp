@@ -1,8 +1,8 @@
 #include "hmainwidget.h"
 #include "hrcloader.h"
 
-const char* url_get_cockinfo = "http://localhost/transcoder/index.php?controller=channels&action=Daoboinfo";
-const char* url_post_cockinfo = "http://localhost/transcoder/index.php?controller=channels&action=Dragsave";
+const char* url_get_combinfo = "http://localhost/transcoder/index.php?controller=channels&action=Daoboinfo";
+const char* url_post_combinfo = "http://localhost/transcoder/index.php?controller=channels&action=Dragsave";
 
 HMainWidget::HMainWidget(HDsContext* ctx, QWidget *parent)
     : QWidget(parent)
@@ -20,7 +20,8 @@ HMainWidget::~HMainWidget(){
 
 void HMainWidget::initUI(){
     qDebug("");
-    setWindowFlags(Qt::Window | Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint);
+    setWindowFlags(Qt::Window | Qt::FramelessWindowHint | Qt::CustomizeWindowHint);
+    setWindowTitle("Anystreaming Director");
     if (m_ctx->m_tLayout.width == 0 || m_ctx->m_tLayout.height == 0){
        m_ctx->m_tLayout.width  = QApplication::desktop()->width();
        m_ctx->m_tLayout.height = QApplication::desktop()->height();
@@ -32,14 +33,14 @@ void HMainWidget::initUI(){
     setPalette(pal);
 
     for (int i = 0; i < m_ctx->m_tLayout.itemCnt; ++i){
-        // last is cock window,svrid = 1
+        // last is comb window,svrid = 1
 
         HGLWidget* wdg;
         if (i == m_ctx->m_tLayout.itemCnt - 1){
-            wdg = new HCockGLWidget(this);
+            wdg = new HCombGLWidget(this);
             wdg->svrid = 1;
             m_mapGLWdg[1] = wdg;
-            QObject::connect( wdg, SIGNAL(cockChanged(DsCockInfo)), this, SLOT(postCockInfo(DsCockInfo)) );
+            QObject::connect( wdg, SIGNAL(combChanged(DsCombInfo)), this, SLOT(postCombInfo(DsCombInfo)) );
             QObject::connect( wdg, SIGNAL(undo()), this, SLOT(undo()) );
         }else{
             wdg = new HGeneralGLWidget(this);
@@ -50,7 +51,6 @@ void HMainWidget::initUI(){
         wdg->setOutlineColor(m_ctx->m_tInit.outlinecolor);
         m_vecGLWdg.push_back(wdg);
     }
-    qDebug("");
 
     qDebug("screen_w=%d,screen_h=%d", width(), height());
 
@@ -90,7 +90,7 @@ void HMainWidget::initConnect(){
     QObject::connect( m_ctx, SIGNAL(sigStop(int)), this, SLOT(onStop(int)) );
     QObject::connect( m_ctx, SIGNAL(quit()), this, SLOT(hide()) );
     QObject::connect( m_ctx, SIGNAL(sigProgressNty(int,int)), this, SLOT(onProgressNty(int,int)) );
-    //QObject::connect( m_ctx, SIGNAL(cockChanged()), this, SLOT(getCockInfo()) );
+    //QObject::connect( m_ctx, SIGNAL(combChanged()), this, SLOT(getCombInfo()) );
 
     for (int i = 0; i < m_vecGLWdg.size(); ++i){
         QObject::connect( m_vecGLWdg[i], SIGNAL(fullScreen()), this, SLOT(onFullScreen()) );
@@ -107,11 +107,11 @@ void HMainWidget::initConnect(){
         //timer_repaint.start(1000 / 20);
     }
 
-    m_NAM_GetCockInfo = new QNetworkAccessManager(this);
-    QObject::connect( m_NAM_GetCockInfo, SIGNAL(finished(QNetworkReply*)), this, SLOT(onGetCockInfoReply(QNetworkReply*)) );
+    m_NAM_GetCombInfo = new QNetworkAccessManager(this);
+    QObject::connect( m_NAM_GetCombInfo, SIGNAL(finished(QNetworkReply*)), this, SLOT(onGetCombInfoReply(QNetworkReply*)) );
 
-    m_NAM_PostCockInfo = new QNetworkAccessManager(this);
-    QObject::connect( m_NAM_PostCockInfo, SIGNAL(finished(QNetworkReply*)), this, SLOT(onPostCockInfoReply(QNetworkReply*)) );
+    m_NAM_PostCombInfo = new QNetworkAccessManager(this);
+    QObject::connect( m_NAM_PostCombInfo, SIGNAL(finished(QNetworkReply*)), this, SLOT(onPostCombInfoReply(QNetworkReply*)) );
 }
 
 HGLWidget* HMainWidget::getGLWdgBySvrid(int svrid){
@@ -196,7 +196,7 @@ void HMainWidget::mouseReleaseEvent(QMouseEvent *event){
 
         if (m_dragSrcWdg != wdg){
             if (wdg->svrid == 1){
-                // pick cock's source
+                // pick comb's source
 //                DsEvent evt;
 //                evt.type = DS_EVENT_PICK;
 //                evt.src_svrid = m_dragSrcWdg->svrid;
@@ -204,8 +204,9 @@ void HMainWidget::mouseReleaseEvent(QMouseEvent *event){
 //                evt.dst_x = event->x() - wdg->x();
 //                evt.dst_y = event->y() - wdg->y();
 //                m_ctx->handle_event(evt);
-                int index = ((HCockGLWidget*)wdg)->getCockByPos(QPoint(event->x()-wdg->x(), event->y()-wdg->y()));
-                changeCockSource(index, m_dragSrcWdg->svrid);
+                HCombGLWidget::TargetInfo target = ((HCombGLWidget*)wdg)->getTargetByPos(
+                            QPoint(event->x()-wdg->x(), event->y()-wdg->y()), HCombGLWidget::SCREEN);
+                changeCombSource(target.index, m_dragSrcWdg->svrid);
             }else{
                 // exchange position
                 QRect rcSrc = m_dragSrcWdg->geometry();
@@ -332,15 +333,15 @@ void HMainWidget::onGLWdgClicked(){
     }
 }
 
-void HMainWidget::getCockInfo(){
-    if (m_NAM_GetCockInfo)
-        m_NAM_GetCockInfo->get(QNetworkRequest(QUrl(url_get_cockinfo)));
+void HMainWidget::getCombInfo(){
+    if (m_NAM_GetCombInfo)
+        m_NAM_GetCombInfo->get(QNetworkRequest(QUrl(url_get_combinfo)));
 }
 
 #include <QJsonDocument>
 #include <QJsonArray>
 #include <QJsonObject>
-void HMainWidget::onGetCockInfoReply(QNetworkReply* reply){
+void HMainWidget::onGetCombInfoReply(QNetworkReply* reply){
     QByteArray bytes = reply->readAll();
     qDebug(bytes.constData());
     QJsonDocument dom = QJsonDocument::fromJson(bytes);
@@ -361,8 +362,8 @@ void HMainWidget::onGetCockInfoReply(QNetworkReply* reply){
                         QJsonValue v = obj.value("v");
                         iV = v.toInt();
                     }
-                    g_dsCtx->m_tCock.items[i].iSvrid = iID;
-                    g_dsCtx->m_tCock.items[i].bAudio = iV;
+                    g_dsCtx->m_tComb.items[i].iSvrid = iID;
+                    g_dsCtx->m_tComb.items[i].bAudio = iV;
                     qDebug("id=%d a=%d", iID, iV);
                 }
             }
@@ -372,12 +373,12 @@ void HMainWidget::onGetCockInfoReply(QNetworkReply* reply){
     reply->deleteLater();
 }
 
-void HMainWidget::postCockInfo(DsCockInfo ci){
-    if (m_NAM_PostCockInfo){
+void HMainWidget::postCombInfo(DsCombInfo ci){
+    if (m_NAM_PostCombInfo){
         QJsonArray arr;
         for (int i = 0; i < ci.itemCnt; ++i){
             QJsonObject obj;
-            DsCockItem* item = &ci.items[i];
+            DsCombItem* item = &ci.items[i];
             obj.insert("x", item->x);
             obj.insert("y", item->y);
             obj.insert("w", item->w);
@@ -390,25 +391,25 @@ void HMainWidget::postCockInfo(DsCockInfo ci){
         doc.setArray(arr);
         QByteArray bytes = doc.toJson();
         qDebug(bytes.constData());
-        m_NAM_PostCockInfo->post(QNetworkRequest(QUrl(url_post_cockinfo)), bytes);
+        m_NAM_PostCombInfo->post(QNetworkRequest(QUrl(url_post_combinfo)), bytes);
     }
 }
 
-void HMainWidget::onPostCockInfoReply(QNetworkReply* reply){
+void HMainWidget::onPostCombInfoReply(QNetworkReply* reply){
 
 }
 
 void HMainWidget::undo(){
-    postCockInfo(m_ctx->m_tCockUndo);
+    postCombInfo(m_ctx->m_tCombUndo);
 }
 
-void HMainWidget::changeCockSource(int index, int svrid){
-    DsCockInfo ci = m_ctx->m_tCock;
+void HMainWidget::changeCombSource(int index, int svrid){
+    DsCombInfo ci = m_ctx->m_tComb;
     if (ci.items[index].iSvrid != svrid){
         ci.items[index].iSvrid = svrid;
         if (svrid == 0){
             ci.items[index].bAudio = false;
         }
-        postCockInfo(ci);
+        postCombInfo(ci);
     }
 }

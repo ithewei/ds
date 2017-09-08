@@ -240,7 +240,7 @@ DSSHARED_EXPORT int liboper(int media_type, int data_type, int opt, void* param,
                 }
             }else if(dsc->action == OOK_FOURCC('L', 'O', 'U', 'T')){
                 qDebug("svrid=%d OOK_FOURCC('L', 'O', 'U', 'T')", svrid);
-                g_dsCtx->parse_cock_xml((const char *)dsc->ptr);
+                g_dsCtx->parse_comb_xml((const char *)dsc->ptr);
             }else if (dsc->action == OOK_FOURCC('S', 'R', 'C', 'L')){
                 qDebug("svrid=%d OOK_FOURCC('S', 'R', 'C', 'L')", svrid);
                 if (strcmp((const char*)dsc->ptr, "file") == 0){

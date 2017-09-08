@@ -54,14 +54,14 @@ public slots:
     void expand();
     void fold();
 
-    void getCockInfo();
-    void onGetCockInfoReply(QNetworkReply* reply);
+    void getCombInfo();
+    void onGetCombInfoReply(QNetworkReply* reply);
 
-    void postCockInfo(DsCockInfo ci);
-    void onPostCockInfoReply(QNetworkReply* reply);
+    void postCombInfo(DsCombInfo ci);
+    void onPostCombInfoReply(QNetworkReply* reply);
 
     void undo();
-    void changeCockSource(int index, int svrid);
+    void changeCombSource(int index, int svrid);
 
 private:
     HDsContext* m_ctx;
@@ -80,8 +80,8 @@ private:
 
     QRect m_rcSavedGeometry;
 
-    QNetworkAccessManager* m_NAM_GetCockInfo;
-    QNetworkAccessManager* m_NAM_PostCockInfo;
+    QNetworkAccessManager* m_NAM_GetCombInfo;
+    QNetworkAccessManager* m_NAM_PostCombInfo;
 };
 
 #endif // HMAINWIDGET_H

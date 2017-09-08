@@ -32,11 +32,11 @@ public:
     QSlider* m_slider;
 };
 
-class HCockToolbarWidget : public QWidget
+class HCombToolbarWidget : public QWidget
 {
     Q_OBJECT
 public:
-    explicit HCockToolbarWidget(QWidget *parent = 0);
+    explicit HCombToolbarWidget(QWidget *parent = 0);
 
 protected:
     void initUI();
@@ -47,6 +47,13 @@ public:
     QPushButton* m_btnStart;
     QPushButton* m_btnPause;
     QPushButton* m_btnStop;
+
+    QPushButton* m_btnText;
+    QPushButton* m_btnTime;
+    QPushButton* m_btnExpre;
+
+    QPushButton* m_btnOK;
+    QPushButton* m_btnTrash;
     QPushButton* m_btnUndo;
 };
 

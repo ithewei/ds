@@ -1,5 +1,4 @@
 #include "hrcloader.h"
-#include "tga.h"
 #include "hdsctx.h"
 
 HRcLoader* HRcLoader::s_rcLoader = NULL;
@@ -92,8 +91,28 @@ void HRcLoader::loadIcon(){
     icon_trash.load(strImg.c_str());
 
     strImg = g_dsCtx->img_path;
+    strImg += "trash_big.png";
+    icon_trash_big.load(strImg.c_str());
+
+    strImg = g_dsCtx->img_path;
     strImg += "undo.png";
     icon_undo.load(strImg.c_str());
+
+    strImg = g_dsCtx->img_path;
+    strImg += "expre.png";
+    icon_expre.load(strImg.c_str());
+
+    strImg = g_dsCtx->img_path;
+    strImg += "ok.png";
+    icon_ok.load(strImg.c_str());
+
+    strImg = g_dsCtx->img_path;
+    strImg += "text.png";
+    icon_text.load(strImg.c_str());
+
+    strImg = g_dsCtx->img_path;
+    strImg += "time.png";
+    icon_time.load(strImg.c_str());
 }
 
 void HRcLoader::loadTexture(){

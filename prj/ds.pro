@@ -38,7 +38,8 @@ SOURCES += \
     hffmpeg.cpp \
     hchangecolorwidget.cpp \
     hnumselectwidget.cpp \
-    qglwidgetimpl.cpp
+    qglwidgetimpl.cpp \
+    hexprewidget.cpp
 
 HEADERS += \
         ds.h \
@@ -54,7 +55,8 @@ HEADERS += \
     hffmpeg.h \
     hchangecolorwidget.h \
     hnumselectwidget.h \
-    qglwidgetimpl.h
+    qglwidgetimpl.h \
+    hexprewidget.h
 
 unix {
     target.path = /usr/lib

@@ -96,13 +96,13 @@ bool HTitlebarWidget::event(QEvent *e){
 
 //<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
-HCockTitlebarWidget::HCockTitlebarWidget(QWidget *parent) : QWidget(parent)
+HCombTitlebarWidget::HCombTitlebarWidget(QWidget *parent) : QWidget(parent)
 {
     initUI();
     initConnection();
 }
 
-void HCockTitlebarWidget::initUI(){
+void HCombTitlebarWidget::initUI(){
 
     setAutoFillBackground(true);
     QPalette pal = palette();
@@ -161,7 +161,7 @@ void HCockTitlebarWidget::initUI(){
     setLayout(hbox);
 }
 
-void HCockTitlebarWidget::initConnection(){
+void HCombTitlebarWidget::initConnection(){
     QObject::connect( m_btnFullScreen, SIGNAL(clicked()), m_btnFullScreen, SLOT(hide()) );
     QObject::connect( m_btnFullScreen, SIGNAL(clicked()), m_btnExitFullScreen, SLOT(show()) );
 
@@ -169,7 +169,7 @@ void HCockTitlebarWidget::initConnection(){
     QObject::connect( m_btnExitFullScreen, SIGNAL(clicked()), m_btnFullScreen, SLOT(show()) );
 }
 
-bool HCockTitlebarWidget::event(QEvent *e){
+bool HCombTitlebarWidget::event(QEvent *e){
     switch (e->type()){
     case QEvent::MouseButtonPress:
     case QEvent::MouseButtonRelease:

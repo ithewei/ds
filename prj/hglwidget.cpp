@@ -62,7 +62,7 @@ void HGLWidget::onStop(){
     m_mapIcons.clear();
     m_nPreFrame = 0;
 
-    if (svrid != 1){// svrid=1 is cock,reserve
+    if (svrid != 1){// svrid=1 is comb,reserve
         svrid = 0;
     }
 }
@@ -124,7 +124,7 @@ void HGLWidget::mouseReleaseEvent(QMouseEvent* event){
 
 void HGLWidget::mouseMoveEvent(QMouseEvent* e){
     // add delay to prevent misopration
-    if ((e->timestamp() - m_tmMousePressed < 200)){
+    if ((e->timestamp() - m_tmMousePressed < 100)){
         e->accept();
         return;
     }
@@ -315,10 +315,9 @@ void HGeneralGLWidget::initUI(){
 
     setLayout(vbox);
 
-    m_numSelector = new HNumSelectWidget;
+    m_numSelector = new HNumSelectWidget(this);
     m_numSelector->setWindowFlags(Qt::Popup);
     m_numSelector->setAttribute(Qt::WA_TranslucentBackground, true);
-    m_numSelector->hide();
 }
 
 void HGeneralGLWidget::initConnect(){
@@ -436,8 +435,8 @@ void HGeneralGLWidget::drawSelectNum(){
 }
 
 void HGeneralGLWidget::drawSound(){
-    for (int i = 0; i < g_dsCtx->m_tCock.itemCnt; ++i){
-        if (g_dsCtx->m_tCock.items[i].iSvrid == svrid && g_dsCtx->m_tCock.items[i].bAudio){
+    for (int i = 0; i < g_dsCtx->m_tComb.itemCnt; ++i){
+        if (g_dsCtx->m_tComb.items[i].iSvrid == svrid && g_dsCtx->m_tComb.items[i].bAudio){
             DrawInfo diAudio;
             Texture *tex = getTexture(HAVE_AUDIO);
             diAudio.right = width() - 1;
@@ -466,40 +465,42 @@ void HGeneralGLWidget::drawOutline(){
 void HGeneralGLWidget::paintGL(){
     HGLWidget::paintGL();
 
-    drawSelectNum();
-    drawSound();
+    if (status(MAJOR_STATUS_MASK) == PLAYING || status(MAJOR_STATUS_MASK) == PAUSE){
+        drawSelectNum();
+        drawSound();
+    }
 }
 
 //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
-//===============================================================================
+//<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
-HCockGLWidget::HCockGLWidget(QWidget* parent)
+HCombGLWidget::HCombGLWidget(QWidget* parent)
     : HGLWidget(parent)
 {
-    m_cockoutlinecolor = 0xFFFFFFFF;
-    m_cocktype = 0;
+    m_bMouseMoving = false;
+    m_combtype = UNKNOW;
 
     initUI();
     initConnect();
 }
 
-HCockGLWidget::~HCockGLWidget(){
+HCombGLWidget::~HCombGLWidget(){
 
 }
 
-void HCockGLWidget::initUI(){
+void HCombGLWidget::initUI(){
     QVBoxLayout* vbox = new QVBoxLayout;
     vbox->setMargin(2);
 
-    m_titlebar = new HCockTitlebarWidget;
+    m_titlebar = new HCombTitlebarWidget;
     m_titlebar->setFixedHeight(TITLE_BAR_HEIGHT);
     m_titlebar->hide();
     vbox->addWidget(m_titlebar);
 
     vbox->addStretch();
 
-    m_toolbar = new HCockToolbarWidget;
+    m_toolbar = new HCombToolbarWidget;
     m_toolbar->setFixedHeight(TOOL_BAR_HEIGHT);
     m_toolbar->hide();
     vbox->addWidget(m_toolbar);
@@ -510,17 +511,20 @@ void HCockGLWidget::initUI(){
     m_labelDrag->setStyleSheet("border:3px groove #FF8C00");
     m_labelDrag->hide();
 
-    m_labelResize = new QLabel(this);
-    m_labelResize->setStyleSheet("border:3px groove #FF8C00");
-    m_labelResize->hide();
+    m_labelAdd = new QLabel(this);
+    m_labelAdd->setStyleSheet("border:3px dashed white");
+    m_labelAdd->hide();
 
     m_wdgTrash = new HChangeColorWidget(this);
-    m_wdgTrash->setPixmap(HRcLoader::instance()->icon_trash);
+    m_wdgTrash->setPixmap(HRcLoader::instance()->icon_trash_big);
     m_wdgTrash->hide();
+
+    m_wdgExpre = new HExpreWidget(this);
+    m_wdgExpre->setWindowFlags(Qt::Popup);
 }
 
-void HCockGLWidget::initConnect(){
-    QObject::connect( g_dsCtx, SIGNAL(cockChanged()), this, SLOT(onCockChanged()) );
+void HCombGLWidget::initConnect(){
+    QObject::connect( g_dsCtx, SIGNAL(combChanged()), this, SLOT(onCombChanged()) );
 
     QObject::connect( m_titlebar->m_btnFullScreen, SIGNAL(clicked(bool)), this, SIGNAL(fullScreen()) );
     QObject::connect( m_titlebar->m_btnExitFullScreen, SIGNAL(clicked(bool)), this, SIGNAL(exitFullScreen()) );
@@ -531,9 +535,14 @@ void HCockGLWidget::initConnect(){
     QObject::connect( m_toolbar->m_btnStart, SIGNAL(clicked(bool)), this, SLOT(onStart()) );
     QObject::connect( m_toolbar->m_btnPause, SIGNAL(clicked(bool)), this, SLOT(onPause()) );
     QObject::connect( m_toolbar->m_btnUndo, SIGNAL(clicked(bool)), this, SIGNAL(undo()) );
+    QObject::connect( m_toolbar->m_btnTrash, SIGNAL(clicked(bool)), this, SLOT(onTrash()) );
+    QObject::connect( m_toolbar->m_btnExpre, SIGNAL(clicked(bool)), this, SLOT(showExpre()) );
+    QObject::connect( m_toolbar->m_btnOK, SIGNAL(clicked(bool)), this, SLOT(onOK()) );
+
+    QObject::connect( m_wdgExpre, SIGNAL(expreSelected(QString&)), this, SLOT(onExpreSelected(QString&)) );
 }
 
-void HCockGLWidget::showTitlebar(bool bShow){
+void HCombGLWidget::showTitlebar(bool bShow){
     if (bShow){
         DsSvrItem* item = g_dsCtx->getItem(svrid);
         if (item){
@@ -545,7 +554,7 @@ void HCockGLWidget::showTitlebar(bool bShow){
     }
 }
 
-void HCockGLWidget::showToolbar(bool bShow){
+void HCombGLWidget::showToolbar(bool bShow){
     if (bShow){
         if ((m_status & MAJOR_STATUS_MASK) == PLAYING){
             m_toolbar->m_btnStart->hide();
@@ -561,7 +570,7 @@ void HCockGLWidget::showToolbar(bool bShow){
     }
 }
 
-void HCockGLWidget::showToolWidgets(bool bShow){
+void HCombGLWidget::showToolWidgets(bool bShow){
     HGLWidget::showToolWidgets(bShow);
 
     showTitlebar(bShow);
@@ -569,37 +578,79 @@ void HCockGLWidget::showToolWidgets(bool bShow){
     m_wdgTrash->setVisible(bShow);
 }
 
+void HCombGLWidget::onTargetChanged(){
+    if (m_labelAdd->isVisible()){
+        if (m_target.type == LABEL_ADD)
+            m_labelAdd->setStyleSheet("border:3px dashed red");
+        else
+            m_labelAdd->setStyleSheet("border:3px dashed white");
+    }
+}
+
 #define LOCATION_PADDING    32
-int HCockGLWidget::getLocation(QPoint pt, QRect rc){
-    int l = NotIn;
+int HCombGLWidget::getLocation(QPoint pt, QRect rc){
+    int loc = NotIn;
     if (rc.contains(pt)){
          if (pt.x() - rc.left() < LOCATION_PADDING)
-             l |= Left;
+             loc |= Left;
          if (rc.right() - pt.x() < LOCATION_PADDING)
-             l |= Right;
+             loc |= Right;
          if (pt.y() - rc.top() < LOCATION_PADDING)
-             l |= Top;
+             loc |= Top;
          if (rc.bottom() - pt.y() < LOCATION_PADDING)
-             l |= Bottom;
-         return l == NotIn ? Center : l;
+             loc |= Bottom;
+         return loc == NotIn ? Center : loc;
     }
 
     return NotIn;
 }
 
-int HCockGLWidget::getCockByPos(QPoint pt){
-    int index = 0;
-    for (int i = 1; i < m_vecCocks.size(); ++i){
-        if (m_vecCocks[i].contains(pt)){
-            index = i;
-            break;
+HCombGLWidget::TargetInfo HCombGLWidget::getTargetByPos(QPoint pt, TRAGET_TYPE type){
+    TargetInfo ti;
+
+    // 优先顺序: STOPWATCH > TIME > TEXT > PICTURE > SCREEN
+
+    if (type == ALL){
+        if (m_labelAdd->isVisible() && m_labelAdd->geometry().contains(pt)){
+            ti.type = LABEL_ADD;
+            ti.index = 0;
+            ti.location = getLocation(pt, m_labelAdd->geometry());
+            return ti;
         }
     }
 
-    return index;
+    if (type == ALL || type == STOPWATCH){
+
+    }
+
+    if (type == ALL || type == TIME){
+
+    }
+
+    if (type == ALL || type == TEXT){
+
+    }
+
+    if (type == ALL || type == PICTURE){
+
+    }
+
+    if (type == ALL || type == SCREEN){
+            // sub screen > main screen
+        for (int i = m_vecScreens.size()-1; i >= 0; --i){
+            if (m_vecScreens[i].contains(pt)){
+                ti.type = SCREEN;
+                ti.index = i;
+                ti.location = getLocation(pt, m_vecScreens[i]);
+                return ti;
+            }
+        }
+    }
+
+    return ti;
 }
 
-void HCockGLWidget::adjustPos(QRect &rc){
+void HCombGLWidget::adjustPos(QRect &rc){
     int x = rc.x();
     int y = rc.y();
     int w = rc.width();
@@ -616,28 +667,78 @@ void HCockGLWidget::adjustPos(QRect &rc){
     rc.setRect(x,y,w,h);
 }
 
-void HCockGLWidget::onCockChanged(){
+void HCombGLWidget::onCombChanged(){
     // scale
-    double scale_x = (double)width() / (double)g_dsCtx->m_tCock.width;
-    double scale_y = (double)height() / (double)g_dsCtx->m_tCock.height;
-    m_vecCocks.clear();
-    for (int i = 0; i < g_dsCtx->m_tCock.itemCnt; ++i){
-        int x = g_dsCtx->m_tCock.items[i].x * scale_x + 0.5;
-        int y = g_dsCtx->m_tCock.items[i].y * scale_y + 0.5;
-        int w = g_dsCtx->m_tCock.items[i].w * scale_x + 0.5;
-        int h = g_dsCtx->m_tCock.items[i].h * scale_y + 0.5;
+    double scale_x = (double)width() / (double)g_dsCtx->m_tComb.width;
+    double scale_y = (double)height() / (double)g_dsCtx->m_tComb.height;
+    m_vecScreens.clear();
+    for (int i = 0; i < g_dsCtx->m_tComb.itemCnt; ++i){
+        int x = g_dsCtx->m_tComb.items[i].x * scale_x + 0.5;
+        int y = g_dsCtx->m_tComb.items[i].y * scale_y + 0.5;
+        int w = g_dsCtx->m_tComb.items[i].w * scale_x + 0.5;
+        int h = g_dsCtx->m_tComb.items[i].h * scale_y + 0.5;
         QRect rc(x,y,w,h);
-        m_vecCocks.push_back(rc);
+        m_vecScreens.push_back(rc);
     }
 
-    if (m_vecCocks[0].width() > width()-10 && m_vecCocks[0].height() > height()-10){
-        m_cocktype = PIP;
-    }else{
-        m_cocktype = TILED;
+    // add comb_type for PIP not move main screen
+    if (m_vecScreens.size() > 0){
+        if (m_vecScreens[0].width() > width()-10 && m_vecScreens[0].height() > height()-10){
+            m_combtype = PIP;
+        }else{
+            m_combtype = TILED;
+        }
     }
 }
 
-void HCockGLWidget::drawOutline(){
+void HCombGLWidget::onTrash(){
+    if (m_target.type == LABEL_ADD){
+        m_labelAdd->hide();
+    }else if (m_target.type == SCREEN){
+        stopComb(m_target.index);
+    }
+}
+
+void HCombGLWidget::onOK(){
+    if (m_labelAdd->isVisible()){
+        m_labelAdd->hide();
+        //...
+    }
+}
+
+void HCombGLWidget::showExpre(){
+    int w = EXPRE_ICON_WIDTH * 4 + 57;
+    int h = EXPRE_ICON_HEIGHT * 3 + 22;
+    m_wdgExpre->setGeometry(x() + (width() - w)/2, m_toolbar->y() + y() - h, w, h);
+    m_wdgExpre->show();
+}
+
+#define EXPRE_MAX_WIDTH     360
+#define EXPRE_MAX_HEIGHT    360
+void HCombGLWidget::onExpreSelected(QString& filepath){
+    m_pixmapAdd.load(filepath);
+    if (m_pixmapAdd.isNull())
+        return;
+
+    QPixmap pixmap = m_pixmapAdd;
+    int w = pixmap.width();
+    int h = pixmap.height();
+    if (w > EXPRE_MAX_WIDTH || h > EXPRE_MAX_HEIGHT){
+        w = EXPRE_MAX_WIDTH;
+        h = EXPRE_MAX_HEIGHT;
+        pixmap = pixmap.scaled(QSize(w,h));
+    }
+
+    m_labelAdd->setGeometry((width()-w)/2, (height()-h)/2, w, h);
+    m_labelAdd->setPixmap(pixmap);
+    m_labelAdd->show();
+
+    m_target.type = LABEL_ADD;
+    m_target.index = 0;
+    onTargetChanged();
+}
+
+void HCombGLWidget::drawOutline(){
     DrawInfo di;
     di.left = 0;
     di.top = 0;
@@ -647,7 +748,7 @@ void HCockGLWidget::drawOutline(){
     drawRect(&di, 3);
 }
 
-void HCockGLWidget::drawTaskInfo(){
+void HCombGLWidget::drawTaskInfo(){
     DrawInfo di;
     if (g_dsCtx->m_pFont){
         int oldSize = g_dsCtx->m_pFont->FaceSize();
@@ -664,27 +765,27 @@ void HCockGLWidget::drawTaskInfo(){
     }
 }
 
-void HCockGLWidget::drawCockInfo(){
+void HCombGLWidget::drawCombInfo(){
     DrawInfo di;
-    for (int i = 0; i < m_vecCocks.size(); ++i){
-        // draw cock NO.
-        di.left = m_vecCocks[i].left() + 1;
-        di.bottom = m_vecCocks[i].bottom() - 1;
+    for (int i = 0; i < m_vecScreens.size(); ++i){
+        // draw comb NO.
+        di.left = m_vecScreens[i].left() + 1;
+        di.bottom = m_vecScreens[i].bottom() - 1;
         di.top = di.bottom - 48 + 1;
         di.right = di.left + 48 - 1;
         drawTex(&HRcLoader::instance()->tex_numr[i], &di);
 
-        // draw cock outline
-        di.left = m_vecCocks[i].left();
-        di.top = m_vecCocks[i].top();
-        di.right = m_vecCocks[i].right();
-        di.bottom = m_vecCocks[i].bottom();
-        di.color = m_cockoutlinecolor;
+        // draw comb outline
+        di.left = m_vecScreens[i].left();
+        di.top = m_vecScreens[i].top();
+        di.right = m_vecScreens[i].right();
+        di.bottom = m_vecScreens[i].bottom();
+        di.color = m_outlinecolor;
         drawRect(&di);
     }
 }
 
-void HCockGLWidget::paintGL(){
+void HCombGLWidget::paintGL(){
     if (g_dsCtx->m_tInit.info){
         m_bDrawTitle = true;
         m_bDrawAudio = true;
@@ -696,151 +797,185 @@ void HCockGLWidget::paintGL(){
 
     if (g_dsCtx->m_tInit.info){
         drawTaskInfo();
-        drawCockInfo();
+        drawCombInfo();
     }
 
-    // draw focused cock outline
+    // draw focused target outline
     if (m_titlebar->isVisible()){
         DrawInfo di;
-        di.left = m_vecCocks[m_indexCock].left();
-        di.top = m_vecCocks[m_indexCock].top();
-        di.right = m_vecCocks[m_indexCock].right();
-        di.bottom = m_vecCocks[m_indexCock].bottom();
-        di.color = g_dsCtx->m_tInit.focus_outlinecolor;
+        if (m_target.type == SCREEN){
+            di.left = m_vecScreens[m_target.index].left();
+            di.top = m_vecScreens[m_target.index].top();
+            di.right = m_vecScreens[m_target.index].right();
+            di.bottom = m_vecScreens[m_target.index].bottom();
+            di.color = g_dsCtx->m_tInit.focus_outlinecolor;
+        }
         drawRect(&di, 3);
     }
 }
 
-void HCockGLWidget::resizeEvent(QResizeEvent *e){
-    onCockChanged();
+void HCombGLWidget::resizeEvent(QResizeEvent *e){
     m_wdgTrash->setGeometry(width()-128-1, height()/2-64, 128, 128);
+
+    onCombChanged();
 
     HGLWidget::resizeEvent(e);
 }
 
-void HCockGLWidget::mousePressEvent(QMouseEvent* e){
+void HCombGLWidget::mousePressEvent(QMouseEvent* e){
     HGLWidget::mousePressEvent(e);
 
-    m_indexCock = getCockByPos(e->pos());
-    m_location = getLocation(e->pos(), m_vecCocks[m_indexCock]);
+    m_target = getTargetByPos(e->pos());
+    onTargetChanged();
 }
 
-void HCockGLWidget::mouseMoveEvent(QMouseEvent *e){
+void HCombGLWidget::mouseMoveEvent(QMouseEvent *e){
     HGLWidget::mouseMoveEvent(e);
     if (e->isAccepted())
         return;
 
-    if (!QRect(0,0,width(),height()).contains(e->pos())){
+    if (!rect().contains(e->pos())){
         e->accept();
         return;
     }
 
-    if (m_location & Center){
-        // move cock
-        if (status(MAJOR_STATUS_MASK) == PLAYING && !m_labelDrag->isVisible()){
-            QRect rc = m_vecCocks[m_indexCock];
-            if (m_wdgTrash->isVisible()){
-                m_labelDrag->setFixedSize(DRAG_WIDTH, DRAG_HEIGHT);
-                m_labelDrag->setPixmap(grab(rc).scaled(DRAG_WIDTH, DRAG_HEIGHT));
-            }else{
-                if (m_indexCock == 0 && m_cocktype == PIP) // main cock can not move
-                    return;
-
-                m_labelDrag->setFixedSize(rc.size());
-                m_labelDrag->setPixmap(grab(rc));
-            }
-            m_labelDrag->show();
-        }
-
-        if (m_labelDrag->isVisible()){
-            int w = m_labelDrag->width();
-            int h = m_labelDrag->height();
-            QRect rc(e->x()-w/2, e->y()-h/2, w, h);
-
-            if (m_wdgTrash->isVisible()){
-                if (m_wdgTrash->geometry().contains(e->pos())){
-                    m_wdgTrash->changeColor(QColor(255, 0, 0, 128));
-                }else{
-                    m_wdgTrash->changeColor(Qt::transparent);
-                }
-            }else{
-                adjustPos(rc);
-            }
-            m_labelDrag->setGeometry(rc);
-        }
-    }else{
-        // resize cock
-        if (m_indexCock == 0 && m_cocktype == PIP) // main cock can not resize
+    if (!m_bMouseMoving){
+        m_bMouseMoving = true;
+        // moveBegin
+        if (m_target.type == LABEL_ADD){
             return;
+        }else if (m_target.type == SCREEN){
+            if (!(status(MAJOR_STATUS_MASK) == PLAYING || status(MAJOR_STATUS_MASK) == PAUSE))
+                return;
 
-        if (status(MAJOR_STATUS_MASK) == PLAYING && !m_labelResize->isVisible()){
-            m_pixmapCock = grab(m_vecCocks[m_indexCock]);
-            m_labelResize->setGeometry(m_vecCocks[m_indexCock]);
-            m_labelResize->show();
-        }
-        if (m_labelResize->isVisible()){
-            QRect rc = m_labelResize->geometry();
-            if (m_location & Left){
-                if (e->x() < rc.right() - 2*LOCATION_PADDING)
-                    rc.setLeft(e->x());
-            }else if (m_location & Right){
-                if (e->x() > rc.left() + 2*LOCATION_PADDING)
-                rc.setRight(e->x());
+            QRect rc = m_vecScreens[m_target.index];
+            m_pixmapDrag = grab(rc);
+            m_labelDrag->setGeometry(rc);
+            m_labelDrag->setPixmap(m_pixmapDrag);
+            m_labelDrag->show();
+
+            if (m_target.index == 0){
+                if (m_wdgTrash->isVisible()){
+                    m_labelDrag->setGeometry(0,0,DRAG_WIDTH,DRAG_HEIGHT);
+                    m_labelDrag->setPixmap(m_pixmapDrag.scaled(DRAG_WIDTH,DRAG_HEIGHT));
+                }else{
+                    m_labelDrag->hide();
+                }
             }
-            if (m_location & Top){
-                if (e->y() < rc.bottom() - 2*LOCATION_PADDING)
-                    rc.setTop(e->y());
-            }else if (m_location & Bottom){
-                if (e->y() > rc.top() + 2*LOCATION_PADDING)
-                    rc.setBottom(e->y());
-            }
-            m_labelResize->setGeometry(rc);
-            m_labelResize->setPixmap(m_pixmapCock.scaled(rc.size()));
         }
-    }
-}
-
-void HCockGLWidget::mouseReleaseEvent(QMouseEvent *e){
-    HGLWidget::mouseReleaseEvent(e);
-
-    if (m_labelResize->isVisible()){
-        m_labelResize->hide();
-        // resize cock
-        reposCock(m_indexCock, m_labelResize->geometry());
     }
 
     if (m_labelDrag->isVisible()){
-        m_labelDrag->hide();
+        QRect rc = m_labelDrag->geometry();
 
-        if (m_wdgTrash->isVisible()){
-            if (m_wdgTrash->geometry().contains(e->pos())){
-                // stop cock
-                stopCock(m_indexCock);
-            }
+        if (m_target.location & Center){
+            // move
+            int w = m_labelDrag->width();
+            int h = m_labelDrag->height();
+            rc.setRect(e->x()-w/2, e->y()-h/2, w, h);
+            adjustPos(rc);
         }else{
-            // move cock
-            reposCock(m_indexCock ,m_labelDrag->geometry());
+            // resize
+            if (m_target.location & Left){
+                if (e->x() < rc.right() - 2*LOCATION_PADDING)
+                    rc.setLeft(e->x());
+            }else if (m_target.location & Right){
+                if (e->x() > rc.left() + 2*LOCATION_PADDING)
+                rc.setRight(e->x());
+            }
+            if (m_target.location & Top){
+                if (e->y() < rc.bottom() - 2*LOCATION_PADDING)
+                    rc.setTop(e->y());
+            }else if (m_target.location & Bottom){
+                if (e->y() > rc.top() + 2*LOCATION_PADDING)
+                    rc.setBottom(e->y());
+            }
+            m_labelDrag->setPixmap(m_pixmapDrag.scaled(rc.size()));
+        }
+
+        m_labelDrag->setGeometry(rc);
+    }
+
+    if (m_target.type == LABEL_ADD){
+        if (m_labelAdd->isVisible()){
+            QRect rc = m_labelAdd->geometry();
+
+            if (m_target.location & Center){
+                // move
+                int w = m_labelAdd->width();
+                int h = m_labelAdd->height();
+                rc.setRect(e->x()-w/2, e->y()-h/2, w, h);
+                adjustPos(rc);
+            }else{
+                // resize
+                if (m_target.location & Left){
+                    if (e->x() < rc.right() - 2*LOCATION_PADDING)
+                        rc.setLeft(e->x());
+                }else if (m_target.location & Right){
+                    if (e->x() > rc.left() + 2*LOCATION_PADDING)
+                    rc.setRight(e->x());
+                }
+                if (m_target.location & Top){
+                    if (e->y() < rc.bottom() - 2*LOCATION_PADDING)
+                        rc.setTop(e->y());
+                }else if (m_target.location & Bottom){
+                    if (e->y() > rc.top() + 2*LOCATION_PADDING)
+                        rc.setBottom(e->y());
+                }
+                m_labelAdd->setPixmap(m_pixmapAdd.scaled(rc.size()));
+            }
+
+            m_labelAdd->setGeometry(rc);
+        }
+    }
+
+    if (m_wdgTrash->isVisible()){
+        if (m_wdgTrash->geometry().contains(e->pos())){
+            m_wdgTrash->changeColor(QColor(255, 0, 0, 128));
+        }else{
+            m_wdgTrash->changeColor(Qt::transparent);
         }
     }
 }
 
-void HCockGLWidget::reposCock(int index, QRect rc){
-    if (rc == m_vecCocks[index])
+void HCombGLWidget::mouseReleaseEvent(QMouseEvent *e){
+    HGLWidget::mouseReleaseEvent(e);
+
+    if (m_bMouseMoving){
+        m_bMouseMoving = false;
+        // moveEnd
+
+        m_labelDrag->hide();
+
+        if (m_wdgTrash->isVisible() && m_wdgTrash->geometry().contains(e->pos())){
+            onTrash();
+        }
+
+        if (m_target.type == SCREEN){
+            if (m_target.index == 0 && m_combtype == PIP)
+                return; // main screen not move or resize
+            reposComb(m_target.index, m_labelDrag->geometry());
+        }
+    }
+}
+
+void HCombGLWidget::reposComb(int index, QRect rc){
+    if (rc == m_vecScreens[index])
         return;
 
-    DsCockInfo ci = g_dsCtx->m_tCock;
+    DsCombInfo ci = g_dsCtx->m_tComb;
 
-    double scale_x = (double)g_dsCtx->m_tCock.width / (double)width();
-    double scale_y = (double)g_dsCtx->m_tCock.height / (double)height();
+    double scale_x = (double)g_dsCtx->m_tComb.width / (double)width();
+    double scale_y = (double)g_dsCtx->m_tComb.height / (double)height();
     ci.items[index].x = rc.x() * scale_x;
     ci.items[index].y = rc.y() * scale_y;
     ci.items[index].w = rc.width() * scale_x;
     ci.items[index].h = rc.height() * scale_y;
 
-    emit cockChanged(ci);
+    emit combChanged(ci);
 }
 
-void HCockGLWidget::stopCock(int index){
+void HCombGLWidget::stopComb(int index){
 //    DsEvent evt;
 //    evt.type = DS_EVENT_STOP;
 //    evt.dst_svrid = 1;
@@ -848,10 +983,11 @@ void HCockGLWidget::stopCock(int index){
 //    evt.dst_y = m_ptMousePressed.y();
 //    g_dsCtx->handle_event(evt);
 
-    DsCockInfo ci = g_dsCtx->m_tCock;
-    if (ci.items[m_indexCock].iSvrid != 0){
-        ci.items[m_indexCock].iSvrid = 0;
-        ci.items[m_indexCock].bAudio = false;
-        emit cockChanged(ci);
+    DsCombInfo ci = g_dsCtx->m_tComb;
+    if (ci.items[index].iSvrid != 0){
+        ci.items[index].iSvrid = 0;
+        ci.items[index].bAudio = false;
+        emit combChanged(ci);
     }
 }
+//>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>

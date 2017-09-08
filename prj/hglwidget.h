@@ -140,13 +140,33 @@ public:
     HNumSelectWidget* m_numSelector;
 };
 
+
+//<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 #include "hchangecolorwidget.h"
-class HCockGLWidget : public HGLWidget
+#include "hexprewidget.h"
+
+struct PictureInfo{
+    QRect rc;
+};
+
+struct TextInfo{
+    QRect rc;
+};
+
+struct TimeInfo{
+    QRect rc;
+};
+
+struct StopwatchInfo{
+    QRect rc;
+};
+
+class HCombGLWidget : public HGLWidget
 {
     Q_OBJECT
 public:
-    HCockGLWidget(QWidget* parent = Q_NULLPTR);
-    ~HCockGLWidget();
+    HCombGLWidget(QWidget* parent = Q_NULLPTR);
+    ~HCombGLWidget();
 
     enum LOCATION{
         NotIn = 0,
@@ -158,18 +178,55 @@ public:
     };
     int getLocation(QPoint pt, QRect rc);
 
-    int getCockByPos(QPoint pt);
+    enum COMB_TYPE{
+        UNKNOW = 0,
+        PIP = 1, //pic in pic 画中画，主画面不能移动和缩放
+        TILED = 2, // //平铺，不分主画面和子画面，都能移动和缩放
+    };
+
+    enum TRAGET_TYPE{
+        NONE = 0,
+
+        SCREEN = 1,
+        PICTURE = 2,
+        TEXT = 3,
+        TIME = 4,
+        STOPWATCH = 5,
+
+        LABEL_ADD = 100,
+
+        ALL = 0xFF,
+    };
+
+    struct TargetInfo{
+        TRAGET_TYPE type;
+        int         index;
+        int         location;
+
+        TargetInfo(){
+            type = NONE;
+            index = 0;
+            location = Center;
+        }
+    };
+
+    TargetInfo getTargetByPos(QPoint pt, TRAGET_TYPE type = ALL);
     void showTitlebar(bool bShow = true);
     void showToolbar(bool bShow = true);
     virtual void showToolWidgets(bool bShow = true);
     void adjustPos(QRect& rc);
+    void onTargetChanged();
 
 signals:
-    void cockChanged(DsCockInfo ci);
+    void combChanged(DsCombInfo ci);
     void undo();
 
 public slots:
-    void onCockChanged();
+    void onCombChanged();
+    void onTrash();
+    void onOK();
+    void showExpre();
+    void onExpreSelected(QString& filepath);
 
 protected:
     void initUI();
@@ -177,38 +234,38 @@ protected:
 
     virtual void drawOutline();
     virtual void drawTaskInfo();
-    virtual void drawCockInfo();
+    virtual void drawCombInfo();
     virtual void paintGL();
     virtual void resizeEvent(QResizeEvent *e);
     virtual void mousePressEvent(QMouseEvent* e);
     virtual void mouseMoveEvent(QMouseEvent *e);
     virtual void mouseReleaseEvent(QMouseEvent *e);
 
-    void reposCock(int index, QRect rc);
-    void stopCock(int index);
+    void reposComb(int index, QRect rc);
+    void stopComb(int index);
 
 private:
-    std::vector<QRect> m_vecCocks;
-    int m_cockoutlinecolor;
+    COMB_TYPE m_combtype;
 
-    int m_indexCock;
-    int m_location;
+    std::vector<QRect> m_vecScreens;
+    std::vector<PictureInfo> m_vecPictures;
+    std::vector<TextInfo> m_vecTexts;
+    std::vector<TimeInfo> m_vecTimes;
+    std::vector<StopwatchInfo> m_vecStopwatchs;
 
-    HCockTitlebarWidget* m_titlebar;
-    HCockToolbarWidget*  m_toolbar;
+    TargetInfo m_target;
 
+    bool m_bMouseMoving;
+    HCombTitlebarWidget* m_titlebar;
+    HCombToolbarWidget*  m_toolbar;
     QLabel* m_labelDrag;
+    QPixmap m_pixmapDrag;
     HChangeColorWidget* m_wdgTrash;
 
-    QLabel* m_labelResize;
-    QPixmap m_pixmapCock;
-
-    enum COCK_TYPE{
-        PIP = 1,
-        TILED = 2,
-    };
-
-    int m_cocktype;
+    HExpreWidget* m_wdgExpre;
+    QLabel* m_labelAdd;
+    QPixmap m_pixmapAdd;
 };
+//>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
 #endif // HGLWIDGET_H
