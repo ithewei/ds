@@ -3,7 +3,53 @@
 #include "hmainwidget.h"
 
 HDsContext* g_dsCtx = NULL;
+HMainWidget* g_mainWdg = NULL;
 const char* url_handle_event = "http://127.0.0.1/transcoder/index.php?controller=channels&action=srcchange";
+
+void myLogHandler(QtMsgType type, const QMessageLogContext & ctx, const QString & msg){
+    char szType[16];
+    switch (type) {
+    case QtDebugMsg:
+        strcpy(szType, "Debug");
+        break;
+    case QtInfoMsg:
+        strcpy(szType, "Info");
+        break;
+    case QtWarningMsg:
+        strcpy(szType, "Warning");
+        break;
+    case QtCriticalMsg:
+        strcpy(szType, "Critical");
+        break;
+    case QtFatalMsg:
+        strcpy(szType, "Fatal");
+    }
+    char szLog[2048];
+
+#ifndef QT_NO_DEBUG
+    snprintf(szLog, 2047, "%s %s [%s:%u, %s]\n", szType, msg.toLocal8Bit().constData(), ctx.file, ctx.line, ctx.function);
+#else
+    if (msg.length() > 0){
+        snprintf(szLog, 2047, "%s %s\n", szType, msg.toLocal8Bit().constData());
+    }
+#endif
+
+    QString strLogFilePath = QCoreApplication::applicationDirPath() + "/ds.log";
+
+    FILE* fp = fopen(strLogFilePath.toLocal8Bit().data(), "a");
+    if (fp){
+        fseek(fp, 0, SEEK_END);
+        if (ftell(fp) > (2 << 20)){
+            fclose(fp);
+            fp = fopen(strLogFilePath.toLocal8Bit().data(), "w");
+        }
+    }
+
+    if (fp){
+        fwrite(szLog, 1, strlen(szLog), fp);
+        fclose(fp);
+    }
+}
 
 #include <QSplashScreen>
 #include <QProgressBar>
@@ -17,6 +63,8 @@ void* HDsContext::thread_gui(void* param){
     HDsContext* pObj = (HDsContext*)param;
     int argc = 0;
     QApplication app(argc, NULL);
+
+    qInstallMessageHandler(myLogHandler);
 
     QFont font = QApplication::font();
     font.setPointSize(18);
@@ -42,30 +90,28 @@ void* HDsContext::thread_gui(void* param){
     progress->setValue(10);
     app.processEvents();
     HRcLoader::instance()->loadIcon();
+    HNetwork::instance();
 
     splash->showMessage("Creating main UI...", Qt::AlignCenter, Qt::white);
     progress->setValue(50);
     app.processEvents();
 
-    HMainWidget* mainwdg = new HMainWidget(pObj);
+    g_mainWdg = new HMainWidget(pObj);
 
     splash->showMessage("Loading completed!", Qt::AlignCenter, Qt::white);
     progress->setValue(100);
     app.processEvents();
 
-//    mainwdg->setAttribute(Qt::WA_QuitOnClose,true);
-//    app.connect( &app,  SIGNAL(lastWindowClosed()),  &app,  SLOT(quit()));
-//    app.connect( pObj,  SIGNAL(quit()),  &app,  SLOT(quit()));
-
     qDebug("mainwdg create succeed");
     pObj->m_mutex.unlock();
 
-    splash->finish(mainwdg);
+    splash->finish(g_mainWdg);
     delete splash;
 
     app.exec();
 
     HRcLoader::exitInstance();
+    HNetwork::exitInstance();
 
 #ifdef linux
     pthread_exit(NULL);
@@ -319,7 +365,7 @@ int HDsContext::parse_layout_xml(const char* xml_file){
             break;
         ook::xml_parser::enum_childen(item, NULL);
         const ook::xml_element * e;
-        HRect hrc;
+        int x,y,w,h;
         while(1)
         {
             e = ook::xml_parser::enum_childen(item, "param");
@@ -328,15 +374,15 @@ int HDsContext::parse_layout_xml(const char* xml_file){
             const std::string & n = e->get_attribute("n");
             const std::string & v = e->get_attribute("v");
             if(n == "w")
-                hrc.w = atoi(v.c_str());
+                w = atoi(v.c_str());
             else if(n == "h")
-                hrc.h = atoi(v.c_str());
+                h = atoi(v.c_str());
             else if(n == "x")
-                hrc.x = atoi(v.c_str());
+                x = atoi(v.c_str());
             else if(n == "y")
-                hrc.y = atoi(v.c_str());
+                y = atoi(v.c_str());
         }
-        m_tLayout.items[i].setRect(hrc.x, hrc.y, hrc.w, hrc.h);
+        m_tLayout.items[i].setRect(x, y, w, h);
 
         ++i;
         if(i >= MAXNUM_LAYOUT)
@@ -408,7 +454,7 @@ int HDsContext::parse_comb_xml(const char* xml){
 
     ook::xml_parser::enum_childen(head, NULL);
     const ook::xml_element * e;
-    DsCombInfo ci;
+    DsScreenInfo ci;
     while(1)
     {
         e = ook::xml_parser::enum_childen(head, "param");
@@ -436,6 +482,7 @@ int HDsContext::parse_comb_xml(const char* xml){
 
         ook::xml_parser::enum_childen(item, NULL);
         const ook::xml_element * e;
+        int x,y,w,h,a,u;
         while(1)
         {
             e = ook::xml_parser::enum_childen(item, "param");
@@ -444,29 +491,32 @@ int HDsContext::parse_comb_xml(const char* xml){
             const std::string & n = e->get_attribute("n");
             const std::string & v = e->get_attribute("v");
             if(n == "w")
-                ci.items[ci.itemCnt].w = atoi(v.c_str());
+                w = atoi(v.c_str());
             else if(n == "h")
-                ci.items[ci.itemCnt].h = atoi(v.c_str());
+                h = atoi(v.c_str());
             else if(n == "x")
-                ci.items[ci.itemCnt].x = atoi(v.c_str());
+                x = atoi(v.c_str());
             else if(n == "y")
-                ci.items[ci.itemCnt].y = atoi(v.c_str());
+                y = atoi(v.c_str());
             else if(n == "a")
-                ci.items[ci.itemCnt].bAudio = atoi(v.c_str());
+                a = atoi(v.c_str());
             else if(n == "u")
-                ci.items[ci.itemCnt].iSvrid = atoi(v.c_str());;
+                u = atoi(v.c_str());
         }
+        ci.items[ci.itemCnt].rc.setRect(x,y,w,h);
+        ci.items[ci.itemCnt].a = a;
+        ci.items[ci.itemCnt].v = u;
 
         ++ci.itemCnt;
-        if(ci.itemCnt >= 8)
+        if(ci.itemCnt >= MAXNUM_COMB_SCREEN)
             break;
     }
 
-    for (int i = 0; i < MAXNUM_COMB; ++i){
-        m_preselect[i] = ci.items[i].iSvrid;
+    for (int i = 0; i < MAXNUM_COMB_SCREEN; ++i){
+        m_preselect[i] = ci.items[i].v;
     }
 
-    if (memcmp(&m_tComb, &m_tCombUndo, sizeof(DsCombInfo)) != 0){
+    if (memcmp(&m_tComb, &m_tCombUndo, sizeof(DsScreenInfo)) != 0){
         m_tCombUndo = m_tComb;
     }
     m_tComb = ci;

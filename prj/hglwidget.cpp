@@ -9,12 +9,10 @@
 HGLWidget::HGLWidget(QWidget *parent)
     : QGLWidgetImpl(parent)
 {
-    m_bDrawTitle = true;
-    m_bDrawAudio = true;
-    m_bShowTools = false;
-
     m_status = STOP;
     m_tmMousePressed = 0;
+
+    m_bDrawInfo = true;
 
     m_snapshot = new QLabel(this);
     m_snapshot->setStyleSheet("border:5px double #ADFF2F");
@@ -271,14 +269,14 @@ void HGLWidget::paintGL(){
         }
 
         if (m_status & PLAY_AUDIO){
-            if (m_bDrawAudio){
+            if (m_bDrawInfo){
                 drawAudio();
             }
         }
         break;
     }
 
-    if (m_bDrawTitle){
+    if (m_bDrawInfo){
         drawTitle();
     }
 
@@ -323,6 +321,7 @@ void HGeneralGLWidget::initUI(){
 void HGeneralGLWidget::initConnect(){
     QObject::connect( m_titlebar->m_btnFullScreen, SIGNAL(clicked(bool)), this, SIGNAL(fullScreen()) );
     QObject::connect( m_titlebar->m_btnExitFullScreen, SIGNAL(clicked(bool)), this, SIGNAL(exitFullScreen()) );
+    QObject::connect( m_titlebar->m_btnDrawInfo, SIGNAL(clicked(bool)), this, SLOT(toggleDrawInfo()) );
     QObject::connect( m_titlebar->m_btnSnapshot, SIGNAL(clicked(bool)), this, SLOT(snapshot()) );
     //QObject::connect( m_titlebar->m_btnStartRecord, SIGNAL(clicked(bool)), this, SLOT(startRecord()) );
     //QObject::connect( m_titlebar->m_btnStopRecord, SIGNAL(clicked(bool)), this, SLOT(stopRecord()) );
@@ -436,7 +435,7 @@ void HGeneralGLWidget::drawSelectNum(){
 
 void HGeneralGLWidget::drawSound(){
     for (int i = 0; i < g_dsCtx->m_tComb.itemCnt; ++i){
-        if (g_dsCtx->m_tComb.items[i].iSvrid == svrid && g_dsCtx->m_tComb.items[i].bAudio){
+        if (g_dsCtx->m_tComb.items[i].v == svrid && g_dsCtx->m_tComb.items[i].a){
             DrawInfo diAudio;
             Texture *tex = getTexture(HAVE_AUDIO);
             diAudio.right = width() - 1;
@@ -474,7 +473,6 @@ void HGeneralGLWidget::paintGL(){
 //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
 //<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-
 HCombGLWidget::HCombGLWidget(QWidget* parent)
     : HGLWidget(parent)
 {
@@ -490,6 +488,21 @@ HCombGLWidget::~HCombGLWidget(){
 }
 
 void HCombGLWidget::initUI(){
+    m_labelDrag = new QLabel(this);
+    m_labelDrag->setStyleSheet("border:3px groove #FF8C00");
+    m_labelDrag->hide();
+
+    m_labelAdd = new QLabel(this);
+    m_labelAdd->setStyleSheet("border:3px dashed white");
+    m_labelAdd->hide();
+
+    m_wdgTrash = new HChangeColorWidget(this);
+    m_wdgTrash->setPixmap(HRcLoader::instance()->icon_trash_big);
+    m_wdgTrash->hide();
+
+    m_wdgExpre = new HExpreWidget(this);
+    m_wdgExpre->setWindowFlags(Qt::Popup);
+
     QVBoxLayout* vbox = new QVBoxLayout;
     vbox->setMargin(2);
 
@@ -506,38 +519,27 @@ void HCombGLWidget::initUI(){
     vbox->addWidget(m_toolbar);
 
     setLayout(vbox);
-
-    m_labelDrag = new QLabel(this);
-    m_labelDrag->setStyleSheet("border:3px groove #FF8C00");
-    m_labelDrag->hide();
-
-    m_labelAdd = new QLabel(this);
-    m_labelAdd->setStyleSheet("border:3px dashed white");
-    m_labelAdd->hide();
-
-    m_wdgTrash = new HChangeColorWidget(this);
-    m_wdgTrash->setPixmap(HRcLoader::instance()->icon_trash_big);
-    m_wdgTrash->hide();
-
-    m_wdgExpre = new HExpreWidget(this);
-    m_wdgExpre->setWindowFlags(Qt::Popup);
 }
 
 void HCombGLWidget::initConnect(){
     QObject::connect( g_dsCtx, SIGNAL(combChanged()), this, SLOT(onCombChanged()) );
+    QObject::connect( HNetwork::instance(), SIGNAL(overlayChanged()), this, SLOT(onOverlayChanged()) );
 
     QObject::connect( m_titlebar->m_btnFullScreen, SIGNAL(clicked(bool)), this, SIGNAL(fullScreen()) );
     QObject::connect( m_titlebar->m_btnExitFullScreen, SIGNAL(clicked(bool)), this, SIGNAL(exitFullScreen()) );
+    QObject::connect( m_titlebar->m_btnDrawInfo, SIGNAL(clicked(bool)), this, SLOT(toggleDrawInfo()) );
     QObject::connect( m_titlebar->m_btnSnapshot, SIGNAL(clicked(bool)), this, SLOT(snapshot()) );
     //QObject::connect( m_titlebar->m_btnStartRecord, SIGNAL(clicked(bool)), this, SLOT(startRecord()) );
     //QObject::connect( m_titlebar->m_btnStopRecord, SIGNAL(clicked(bool)), this, SLOT(stopRecord()) );
 
     QObject::connect( m_toolbar->m_btnStart, SIGNAL(clicked(bool)), this, SLOT(onStart()) );
     QObject::connect( m_toolbar->m_btnPause, SIGNAL(clicked(bool)), this, SLOT(onPause()) );
-    QObject::connect( m_toolbar->m_btnUndo, SIGNAL(clicked(bool)), this, SIGNAL(undo()) );
+    QObject::connect( m_toolbar->m_btnUndo, SIGNAL(clicked(bool)), this, SLOT(onUndo()) );
     QObject::connect( m_toolbar->m_btnTrash, SIGNAL(clicked(bool)), this, SLOT(onTrash()) );
     QObject::connect( m_toolbar->m_btnExpre, SIGNAL(clicked(bool)), this, SLOT(showExpre()) );
     QObject::connect( m_toolbar->m_btnOK, SIGNAL(clicked(bool)), this, SLOT(onOK()) );
+    QObject::connect( m_toolbar->m_btnText, SIGNAL(clicked(bool)), this, SLOT(showText()) );
+    QObject::connect( m_toolbar->m_btnTime, SIGNAL(clicked(bool)), this, SLOT(showTime()) );
 
     QObject::connect( m_wdgExpre, SIGNAL(expreSelected(QString&)), this, SLOT(onExpreSelected(QString&)) );
 }
@@ -580,7 +582,7 @@ void HCombGLWidget::showToolWidgets(bool bShow){
 
 void HCombGLWidget::onTargetChanged(){
     if (m_labelAdd->isVisible()){
-        if (m_target.type == LABEL_ADD)
+        if (isTemporary(m_target.type))
             m_labelAdd->setStyleSheet("border:3px dashed red");
         else
             m_labelAdd->setStyleSheet("border:3px dashed white");
@@ -608,13 +610,15 @@ int HCombGLWidget::getLocation(QPoint pt, QRect rc){
 HCombGLWidget::TargetInfo HCombGLWidget::getTargetByPos(QPoint pt, TRAGET_TYPE type){
     TargetInfo ti;
 
-    // 优先顺序: STOPWATCH > TIME > TEXT > PICTURE > SCREEN
+    // 优先顺序: TEMPORARY > OVERLAY > SCREEN
+    // STOPWATCH > TIME > TEXT > PICTURE
+    // SUB_SCREEN > MAIN_SCREEN
 
-    if (type == ALL){
+    if (type == ALL || type == TEMPORARY){
         if (m_labelAdd->isVisible() && m_labelAdd->geometry().contains(pt)){
             ti.type = LABEL_ADD;
-            ti.index = 0;
-            ti.location = getLocation(pt, m_labelAdd->geometry());
+            ti.id = 0;
+            ti.rc = m_labelAdd->geometry();
             return ti;
         }
     }
@@ -628,20 +632,36 @@ HCombGLWidget::TargetInfo HCombGLWidget::getTargetByPos(QPoint pt, TRAGET_TYPE t
     }
 
     if (type == ALL || type == TEXT){
-
+        for (int i = m_vecTexts.size()-1; i >=0; --i){
+            if (m_vecTexts[i].contains(pt)){
+                ti.type = TEXT;
+                ti.id = i;
+                ti.rc = m_vecTexts[i];
+                return ti;
+            }
+        }
     }
 
     if (type == ALL || type == PICTURE){
-
+        for (int i = m_vecPictures.size()-1; i >=0; --i){
+            if (m_vecPictures[i].contains(pt)){
+                ti.type = PICTURE;
+                ti.id = i;
+                ti.rc = m_vecPictures[i];
+                return ti;
+            }
+        }
     }
 
     if (type == ALL || type == SCREEN){
-            // sub screen > main screen
         for (int i = m_vecScreens.size()-1; i >= 0; --i){
             if (m_vecScreens[i].contains(pt)){
-                ti.type = SCREEN;
-                ti.index = i;
-                ti.location = getLocation(pt, m_vecScreens[i]);
+                if (i == 0 && m_combtype == PIP)
+                    ti.type = MAIN_SCREEN;
+                else
+                    ti.type = SUB_SCREEN;
+                ti.id = i;
+                ti.rc = m_vecScreens[i];
                 return ti;
             }
         }
@@ -650,7 +670,7 @@ HCombGLWidget::TargetInfo HCombGLWidget::getTargetByPos(QPoint pt, TRAGET_TYPE t
     return ti;
 }
 
-void HCombGLWidget::adjustPos(QRect &rc){
+QRect HCombGLWidget::adjustPos(QRect rc){
     int x = rc.x();
     int y = rc.y();
     int w = rc.width();
@@ -664,26 +684,41 @@ void HCombGLWidget::adjustPos(QRect &rc){
     if (rc.bottom() >= height())
         y = height()-h;
 
-    rc.setRect(x,y,w,h);
+    return QRect(x,y,w,h);
+}
+
+QRect HCombGLWidget::scaleToOrigin(QRect rc){
+    if (width() == 0 || height() == 0)
+        return rc;
+    int x = rc.x() * g_dsCtx->m_tComb.width / width();
+    int w = rc.width() * g_dsCtx->m_tComb.width / width();
+    int y = rc.y() * g_dsCtx->m_tComb.height / height();
+    int h = rc.height() * g_dsCtx->m_tComb.height / height();
+    return QRect(x,y,w,h);
+}
+
+QRect HCombGLWidget::scaleToDraw(QRect rc){
+    if (g_dsCtx->m_tComb.width == 0 || g_dsCtx->m_tComb.height == 0)
+        return rc;
+
+    int x = rc.x() * width() / g_dsCtx->m_tComb.width;
+    int w = rc.width() * width() / g_dsCtx->m_tComb.width;
+    int y = rc.y() * height() / g_dsCtx->m_tComb.height;
+    int h = rc.height() * height() / g_dsCtx->m_tComb.height;
+    return QRect(x,y,w,h);
 }
 
 void HCombGLWidget::onCombChanged(){
-    // scale
-    double scale_x = (double)width() / (double)g_dsCtx->m_tComb.width;
-    double scale_y = (double)height() / (double)g_dsCtx->m_tComb.height;
     m_vecScreens.clear();
     for (int i = 0; i < g_dsCtx->m_tComb.itemCnt; ++i){
-        int x = g_dsCtx->m_tComb.items[i].x * scale_x + 0.5;
-        int y = g_dsCtx->m_tComb.items[i].y * scale_y + 0.5;
-        int w = g_dsCtx->m_tComb.items[i].w * scale_x + 0.5;
-        int h = g_dsCtx->m_tComb.items[i].h * scale_y + 0.5;
-        QRect rc(x,y,w,h);
+        QRect rc = g_dsCtx->m_tComb.items[i].rc;
+        rc = scaleToDraw(rc);
         m_vecScreens.push_back(rc);
     }
 
     // add comb_type for PIP not move main screen
     if (m_vecScreens.size() > 0){
-        if (m_vecScreens[0].width() > width()-10 && m_vecScreens[0].height() > height()-10){
+        if ((m_vecScreens[0].width() > width()-10) && (m_vecScreens[0].height() > height()-10)){
             m_combtype = PIP;
         }else{
             m_combtype = TILED;
@@ -691,30 +726,60 @@ void HCombGLWidget::onCombChanged(){
     }
 }
 
+void HCombGLWidget::onOverlayChanged(){
+    m_vecPictures.clear();
+    std::vector<PictureItem>& pics = HNetwork::instance()->m_vecPictures;
+    for (int i = 0; i < pics.size(); ++i){
+        m_vecPictures.push_back(scaleToDraw(pics[i].rc));
+    }
+
+    m_vecTexts.clear();
+    std::vector<TextItem>& texts = HNetwork::instance()->m_vecTexts;
+    for (int i = 0; i < texts.size(); ++i){
+        m_vecTexts.push_back(scaleToDraw(texts[i].rc));
+    }
+}
+
+void HCombGLWidget::onUndo(){
+    HNetwork::instance()->postScreenInfo(g_dsCtx->m_tCombUndo);
+}
+
 void HCombGLWidget::onTrash(){
-    if (m_target.type == LABEL_ADD){
+    if (isTemporary(m_target.type)){
         m_labelAdd->hide();
-    }else if (m_target.type == SCREEN){
-        stopComb(m_target.index);
+    }else if (isScreen(m_target.type)){
+        stopComb(m_target.id);
     }
 }
 
 void HCombGLWidget::onOK(){
     if (m_labelAdd->isVisible()){
         m_labelAdd->hide();
-        //...
+
+        QRect rc = m_labelAdd->geometry();
+        m_itemPicture.rc = scaleToOrigin(rc);
+        HNetwork::instance()->overlayPicture(m_itemPicture);
     }
 }
 
 void HCombGLWidget::showExpre(){
-    int w = EXPRE_ICON_WIDTH * 4 + 57;
-    int h = EXPRE_ICON_HEIGHT * 3 + 22;
+    int w = m_wdgExpre->width();
+    int h = m_wdgExpre->height();
     m_wdgExpre->setGeometry(x() + (width() - w)/2, m_toolbar->y() + y() - h, w, h);
     m_wdgExpre->show();
 }
 
-#define EXPRE_MAX_WIDTH     360
-#define EXPRE_MAX_HEIGHT    360
+#include <QFontDialog>
+void HCombGLWidget::showText(){
+
+}
+
+void HCombGLWidget::showTime(){
+
+}
+
+#define EXPRE_MAX_WIDTH     256
+#define EXPRE_MAX_HEIGHT    256
 void HCombGLWidget::onExpreSelected(QString& filepath){
     m_pixmapAdd.load(filepath);
     if (m_pixmapAdd.isNull())
@@ -733,8 +798,9 @@ void HCombGLWidget::onExpreSelected(QString& filepath){
     m_labelAdd->setPixmap(pixmap);
     m_labelAdd->show();
 
+    m_itemPicture.src = filepath;
     m_target.type = LABEL_ADD;
-    m_target.index = 0;
+    m_target.id = 0;
     onTargetChanged();
 }
 
@@ -765,7 +831,7 @@ void HCombGLWidget::drawTaskInfo(){
     }
 }
 
-void HCombGLWidget::drawCombInfo(){
+void HCombGLWidget::drawScreenInfo(){
     DrawInfo di;
     for (int i = 0; i < m_vecScreens.size(); ++i){
         // draw comb NO.
@@ -785,31 +851,53 @@ void HCombGLWidget::drawCombInfo(){
     }
 }
 
-void HCombGLWidget::paintGL(){
-    if (g_dsCtx->m_tInit.info){
-        m_bDrawTitle = true;
-        m_bDrawAudio = true;
-    }else{
-        m_bDrawTitle = false;
-        m_bDrawAudio = false;
+void HCombGLWidget::drawPictureInfo(){
+    DrawInfo di;
+    for (int i = 0; i < m_vecPictures.size(); ++i){
+        // draw picture outline
+        di.left = m_vecPictures[i].left();
+        di.top = m_vecPictures[i].top();
+        di.right = m_vecPictures[i].right();
+        di.bottom = m_vecPictures[i].bottom();
+        di.color = m_outlinecolor;
+        drawRect(&di);
     }
+}
+
+void HCombGLWidget::drawTextInfo(){
+    DrawInfo di;
+    for (int i = 0; i < m_vecTexts.size(); ++i){
+        // draw text outline
+        di.left = m_vecTexts[i].left();
+        di.top = m_vecTexts[i].top();
+        di.right = m_vecTexts[i].right();
+        di.bottom = m_vecTexts[i].bottom();
+        di.color = m_outlinecolor;
+        drawRect(&di);
+    }
+}
+
+void HCombGLWidget::paintGL(){
     HGLWidget::paintGL();
 
     if (g_dsCtx->m_tInit.info){
         drawTaskInfo();
-        drawCombInfo();
+    }
+
+    if (m_bDrawInfo){
+        drawScreenInfo();
+        drawPictureInfo();
+        drawTextInfo();
     }
 
     // draw focused target outline
-    if (m_titlebar->isVisible()){
+    if (isScreen(m_target.type) || isOverlay(m_target.type)){
         DrawInfo di;
-        if (m_target.type == SCREEN){
-            di.left = m_vecScreens[m_target.index].left();
-            di.top = m_vecScreens[m_target.index].top();
-            di.right = m_vecScreens[m_target.index].right();
-            di.bottom = m_vecScreens[m_target.index].bottom();
-            di.color = g_dsCtx->m_tInit.focus_outlinecolor;
-        }
+        di.left = m_target.rc.x();
+        di.top = m_target.rc.y();
+        di.right = m_target.rc.right();
+        di.bottom = m_target.rc.bottom();
+        di.color = g_dsCtx->m_tInit.focus_outlinecolor;
         drawRect(&di, 3);
     }
 }
@@ -818,6 +906,7 @@ void HCombGLWidget::resizeEvent(QResizeEvent *e){
     m_wdgTrash->setGeometry(width()-128-1, height()/2-64, 128, 128);
 
     onCombChanged();
+    onOverlayChanged();
 
     HGLWidget::resizeEvent(e);
 }
@@ -826,6 +915,7 @@ void HCombGLWidget::mousePressEvent(QMouseEvent* e){
     HGLWidget::mousePressEvent(e);
 
     m_target = getTargetByPos(e->pos());
+    m_location = getLocation(e->pos(), m_target.rc);
     onTargetChanged();
 }
 
@@ -842,19 +932,21 @@ void HCombGLWidget::mouseMoveEvent(QMouseEvent *e){
     if (!m_bMouseMoving){
         m_bMouseMoving = true;
         // moveBegin
-        if (m_target.type == LABEL_ADD){
+        if (isTemporary(m_target.type)){
             return;
-        }else if (m_target.type == SCREEN){
-            if (!(status(MAJOR_STATUS_MASK) == PLAYING || status(MAJOR_STATUS_MASK) == PAUSE))
-                return;
+        }else if (isScreen(m_target.type) || m_target.type == PICTURE){
+            if (isScreen(m_target.type)){
+                m_pixmapDrag = grab(m_target.rc);
+            }else if (m_target.type == PICTURE){
+                QString src = HNetwork::instance()->m_vecPictures[m_target.id].src;
+                m_pixmapDrag.load(src);
+            }
 
-            QRect rc = m_vecScreens[m_target.index];
-            m_pixmapDrag = grab(rc);
-            m_labelDrag->setGeometry(rc);
-            m_labelDrag->setPixmap(m_pixmapDrag);
+            m_labelDrag->setGeometry(m_target.rc);
+            m_labelDrag->setPixmap(m_pixmapDrag.scaled(m_labelDrag->size()));
             m_labelDrag->show();
 
-            if (m_target.index == 0){
+            if (m_target.type == MAIN_SCREEN){
                 if (m_wdgTrash->isVisible()){
                     m_labelDrag->setGeometry(0,0,DRAG_WIDTH,DRAG_HEIGHT);
                     m_labelDrag->setPixmap(m_pixmapDrag.scaled(DRAG_WIDTH,DRAG_HEIGHT));
@@ -868,25 +960,25 @@ void HCombGLWidget::mouseMoveEvent(QMouseEvent *e){
     if (m_labelDrag->isVisible()){
         QRect rc = m_labelDrag->geometry();
 
-        if (m_target.location & Center){
+        if (m_location & Center){
             // move
             int w = m_labelDrag->width();
             int h = m_labelDrag->height();
             rc.setRect(e->x()-w/2, e->y()-h/2, w, h);
-            adjustPos(rc);
+            rc = adjustPos(rc);
         }else{
             // resize
-            if (m_target.location & Left){
+            if (m_location & Left){
                 if (e->x() < rc.right() - 2*LOCATION_PADDING)
                     rc.setLeft(e->x());
-            }else if (m_target.location & Right){
+            }else if (m_location & Right){
                 if (e->x() > rc.left() + 2*LOCATION_PADDING)
                 rc.setRight(e->x());
             }
-            if (m_target.location & Top){
+            if (m_location & Top){
                 if (e->y() < rc.bottom() - 2*LOCATION_PADDING)
                     rc.setTop(e->y());
-            }else if (m_target.location & Bottom){
+            }else if (m_location & Bottom){
                 if (e->y() > rc.top() + 2*LOCATION_PADDING)
                     rc.setBottom(e->y());
             }
@@ -900,25 +992,25 @@ void HCombGLWidget::mouseMoveEvent(QMouseEvent *e){
         if (m_labelAdd->isVisible()){
             QRect rc = m_labelAdd->geometry();
 
-            if (m_target.location & Center){
+            if (m_location & Center){
                 // move
                 int w = m_labelAdd->width();
                 int h = m_labelAdd->height();
                 rc.setRect(e->x()-w/2, e->y()-h/2, w, h);
-                adjustPos(rc);
+                rc = adjustPos(rc);
             }else{
                 // resize
-                if (m_target.location & Left){
+                if (m_location & Left){
                     if (e->x() < rc.right() - 2*LOCATION_PADDING)
                         rc.setLeft(e->x());
-                }else if (m_target.location & Right){
+                }else if (m_location & Right){
                     if (e->x() > rc.left() + 2*LOCATION_PADDING)
                     rc.setRight(e->x());
                 }
-                if (m_target.location & Top){
+                if (m_location & Top){
                     if (e->y() < rc.bottom() - 2*LOCATION_PADDING)
                         rc.setTop(e->y());
-                }else if (m_target.location & Bottom){
+                }else if (m_location & Bottom){
                     if (e->y() > rc.top() + 2*LOCATION_PADDING)
                         rc.setBottom(e->y());
                 }
@@ -951,11 +1043,13 @@ void HCombGLWidget::mouseReleaseEvent(QMouseEvent *e){
             onTrash();
         }
 
-        if (m_target.type == SCREEN){
-            if (m_target.index == 0 && m_combtype == PIP)
+        if (isScreen(m_target.type)){
+            if (m_target.type == MAIN_SCREEN)
                 return; // main screen not move or resize
-            reposComb(m_target.index, m_labelDrag->geometry());
+            reposComb(m_target.id, m_labelDrag->geometry());
         }
+
+        m_target.type = NONE;
     }
 }
 
@@ -963,16 +1057,9 @@ void HCombGLWidget::reposComb(int index, QRect rc){
     if (rc == m_vecScreens[index])
         return;
 
-    DsCombInfo ci = g_dsCtx->m_tComb;
-
-    double scale_x = (double)g_dsCtx->m_tComb.width / (double)width();
-    double scale_y = (double)g_dsCtx->m_tComb.height / (double)height();
-    ci.items[index].x = rc.x() * scale_x;
-    ci.items[index].y = rc.y() * scale_y;
-    ci.items[index].w = rc.width() * scale_x;
-    ci.items[index].h = rc.height() * scale_y;
-
-    emit combChanged(ci);
+    DsScreenInfo si = g_dsCtx->m_tComb;
+    si.items[index].rc = scaleToOrigin(rc);
+    HNetwork::instance()->postScreenInfo(si);
 }
 
 void HCombGLWidget::stopComb(int index){
@@ -983,11 +1070,11 @@ void HCombGLWidget::stopComb(int index){
 //    evt.dst_y = m_ptMousePressed.y();
 //    g_dsCtx->handle_event(evt);
 
-    DsCombInfo ci = g_dsCtx->m_tComb;
-    if (ci.items[index].iSvrid != 0){
-        ci.items[index].iSvrid = 0;
-        ci.items[index].bAudio = false;
-        emit combChanged(ci);
+    DsScreenInfo si = g_dsCtx->m_tComb;
+    if (si.items[index].v != 0){
+        si.items[index].v = 0;
+        si.items[index].a = false;
+        HNetwork::instance()->postScreenInfo(si);
     }
 }
 //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>

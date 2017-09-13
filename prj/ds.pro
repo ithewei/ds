@@ -39,7 +39,8 @@ SOURCES += \
     hchangecolorwidget.cpp \
     hnumselectwidget.cpp \
     qglwidgetimpl.cpp \
-    hexprewidget.cpp
+    hexprewidget.cpp \
+    hnetwork.cpp
 
 HEADERS += \
         ds.h \
@@ -56,7 +57,9 @@ HEADERS += \
     hchangecolorwidget.h \
     hnumselectwidget.h \
     qglwidgetimpl.h \
-    hexprewidget.h
+    hexprewidget.h \
+    hnetwork.h \
+    ds_def.h
 
 unix {
     target.path = /usr/lib

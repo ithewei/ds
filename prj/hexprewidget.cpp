@@ -1,9 +1,33 @@
 #include "hexprewidget.h"
+#include "hrcloader.h"
+#include "hdsctx.h"
 
 #define CATEGORY_INDEX  Qt::UserRole + 100
 #define EXPRE_FILEPATH  Qt::UserRole + 200
 
-const char* dir_expre = "/var/www/transcoder/Upload/";
+const char* dir_upload = "/var/www/transcoder/Upload/";
+
+#include <QDir>
+bool delDir(const QString &path)
+{
+    if (path.isEmpty()){
+        return false;
+    }
+    QDir dir(path);
+    if(!dir.exists()){
+        return true;
+    }
+    dir.setFilter(QDir::AllEntries | QDir::NoDotAndDotDot); //设置过滤
+    QFileInfoList fileList = dir.entryInfoList(); // 获取所有的文件信息
+    foreach (QFileInfo file, fileList){ //遍历文件信息
+        if (file.isFile()){ // 是文件，删除
+            file.dir().remove(file.fileName());
+        }else{ // 递归删除
+            delDir(file.absoluteFilePath());
+        }
+    }
+    return dir.rmpath(dir.absolutePath()); // 删除文件夹
+}
 
 HExpreWidget::HExpreWidget(QWidget *parent) : QWidget(parent)
 {
@@ -14,17 +38,26 @@ HExpreWidget::HExpreWidget(QWidget *parent) : QWidget(parent)
 #include <QBoxLayout>
 #include <QDirIterator>
 #include <QScrollBar>
-void HExpreWidget::initList(QListWidget* list, const char* dir){
+void HExpreWidget::initList(QListWidget* list, QString dir){
     list->setMovement(QListView::Static);
     list->setViewMode(QListView::IconMode);
     list->setIconSize(QSize(EXPRE_ICON_WIDTH,EXPRE_ICON_HEIGHT));
     list->setMinimumSize(EXPRE_ICON_WIDTH,EXPRE_ICON_HEIGHT);
     list->setFlow(QListView::LeftToRight);
     list->setSpacing(5);
+    list->setFixedWidth(EXPRE_WIDTH-2);
 
-    QString filepath = dir_expre;
+    QString filepath = dir_upload;
     filepath += dir;
     QDirIterator iter(filepath, QDir::Files);
+
+    QListWidgetItem* item = new QListWidgetItem;
+    item->setIcon(HRcLoader::instance()->icon_add);
+    item->setSizeHint(QSize(EXPRE_ICON_WIDTH, EXPRE_ICON_HEIGHT));
+    item->setBackgroundColor(QColor(255,255,0,128));
+    item->setData(EXPRE_FILEPATH,filepath);
+    list->addItem(item);
+
     while (iter.hasNext()){
         QString file = iter.next();
         QPixmap pixmap;
@@ -92,72 +125,192 @@ void HExpreWidget::initList(QListWidget* list, const char* dir){
                                            );
 }
 
+#include <QJsonDocument>
+#include <QJsonArray>
+#include <QJsonObject>
+void HExpreWidget::readConf(){
+    QString strFile = dir_upload;
+    strFile += "conf.json";
+
+    FILE* fp = fopen(strFile.toLocal8Bit().constData(), "r");
+    if (!fp)
+        return;
+
+    fseek(fp, 0, SEEK_END);
+    int len = ftell(fp);
+    fseek(fp, 0, SEEK_SET);
+    char* data = (char*)malloc(len+1);
+    memset(data,0,len+1);
+    fread(data, 1, len, fp);
+    fclose(fp);
+
+    QByteArray bytes(data, strlen(data));
+    qDebug(bytes.constData());
+    QJsonParseError err;
+    QJsonDocument dom = QJsonDocument::fromJson(bytes, &err);
+    qDebug("err: code=%d offset=%d", err.error, err.offset);
+    if (!dom.isNull()){
+        if (dom.isObject()){
+            QJsonObject obj = dom.object();
+            if (obj.contains("maxindex")){
+                m_conf.maxindex = obj.value("maxindex").toInt();
+            }
+
+            if (obj.contains("record")){
+                QJsonValue record = obj.value("record");
+                if (record.isArray()){
+                    QJsonArray arr = record.toArray();
+                    m_conf.records.clear();
+                    for (int i = 0; i < arr.size(); ++i){
+                        QJsonValue val = arr[i];
+                        if (val.isObject()){
+                            QJsonObject obj = val.toObject();
+                            ExpreRecord record;
+                            if (obj.contains("id")){
+                                record.id = obj.value("id").toInt();
+                            }
+                            if (obj.contains("label")){
+                                record.label = obj.value("label").toString();
+                            }
+
+                            if (obj.contains("dir")){
+                                record.dir = obj.value("dir").toString();
+                            }
+
+                            m_conf.records.push_back(record);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    free(data);
+}
+
+void HExpreWidget::writeConf(){
+    QJsonArray arr;
+    std::list<ExpreRecord>::iterator iter = m_conf.records.begin();
+    m_conf.maxindex = 0;
+    for (int i = 0; iter != m_conf.records.end(); ++i, ++iter){
+        ExpreRecord record = *iter;
+        QJsonObject obj;
+        obj.insert("id", record.id);
+        obj.insert("label", record.label);
+        obj.insert("dir", record.dir);
+        arr.push_back(obj);
+
+        if (m_conf.maxindex < record.id)
+            m_conf.maxindex = record.id;
+    }
+
+    QJsonObject obj;
+    obj.insert("maxindex", m_conf.maxindex);
+    obj.insert("record", arr);
+
+    QJsonDocument dom;
+    dom.setObject(obj);
+
+    QByteArray bytes = dom.toJson();
+
+    QString strFile = dir_upload;
+    strFile += "conf.json";
+
+    FILE* fp = fopen(strFile.toLocal8Bit().constData(), "w");
+    if (!fp)
+        return;
+
+    fwrite(bytes.data(),1, bytes.length(), fp);
+    fclose(fp);
+}
+
+void HExpreWidget::genUI(){
+    m_listCategory->clear();
+    for (int i = m_stack->count()-1; i >=0; --i){
+        m_stack->removeWidget(m_stack->widget(i));
+    }
+
+    std::list<ExpreRecord>::iterator iter = m_conf.records.begin();
+    for (int i = 0; iter != m_conf.records.end(); ++i, ++iter){
+        ExpreRecord record = *iter;
+
+        QListWidgetItem* item = new QListWidgetItem;
+        item->setSizeHint(QSize(CATEGORY_WIDTH, CATEGORY_HEIGHT));
+        item->setBackgroundColor(QColor(128,128,128));
+        item->setTextColor(QColor(255,255,255));
+        item->setTextAlignment(Qt::AlignCenter);
+        item->setText(record.label);
+        item->setData(CATEGORY_INDEX, i);
+        m_listCategory->addItem(item);
+
+        QListWidget* list = new QListWidget;
+        m_stack->addWidget(list);
+        initList(list, record.dir);
+    }
+
+    m_listCategory->setCurrentRow(0);
+    m_stack->setCurrentIndex(0);
+}
+
 void HExpreWidget::initUI(){
+    setFixedSize(QSize(EXPRE_WIDTH, EXPRE_HEIGHT));
+    setStyleSheet("background-color: white");
+
     QVBoxLayout* vbox = new QVBoxLayout;
     vbox->setMargin(1);
 
     m_stack = new QStackedWidget;
 
-    m_listExpre = new QListWidget;
-    m_stack->addWidget(m_listExpre);
-    initList(m_listExpre, "expression");
-
-    m_listCartoonCN = new QListWidget;
-    m_stack->addWidget(m_listCartoonCN);
-    initList(m_listCartoonCN, "cartoon_cn");
-    m_listCartoonCN->hide();
-
-    m_listCartoonEN = new QListWidget;
-    m_stack->addWidget(m_listCartoonEN);
-    initList(m_listCartoonEN, "cartoon_en");
-    m_listCartoonEN->hide();
-
     vbox->addWidget(m_stack);
 
+    QHBoxLayout* hbox = new QHBoxLayout;
+    hbox->setMargin(1);
+
     m_listCategory = new QListWidget;
+    m_listCategory->setStyleSheet("background-color: white; border: 0px");
     m_listCategory->setMovement(QListView::Static);
-//    m_listCategory->setViewMode(QListView::IconMode);
-//    m_listCategory->setIconSize(QSize(CATEGORY_WIDTH,CATEGORY_HEIGHT));
     m_listCategory->setMinimumSize(QSize(CATEGORY_WIDTH,CATEGORY_HEIGHT));
-    m_listCategory->setFixedHeight(CATEGORY_HEIGHT+2);
+    m_listCategory->setFixedSize(CATEGORY_WIDTH*3.5, CATEGORY_HEIGHT);
     m_listCategory->setFlow(QListView::LeftToRight);
 
-    QListWidgetItem* item = new QListWidgetItem;
-    item->setSizeHint(QSize(CATEGORY_WIDTH, CATEGORY_HEIGHT));
-    item->setBackgroundColor(QColor(128,128,128));
-    item->setTextColor(QColor(255,255,255));
-    item->setTextAlignment(Qt::AlignCenter);
-    item->setText("常用表情");
-    item->setData(CATEGORY_INDEX, 0);
-    m_listCategory->addItem(item);
-    item->setSelected(true);
+    hbox->addWidget(m_listCategory);
+    hbox->setAlignment(m_listCategory, Qt::AlignLeft);
 
-    item = new QListWidgetItem;
-    item->setSizeHint(QSize(CATEGORY_WIDTH, CATEGORY_HEIGHT));
-    item->setBackgroundColor(QColor(128,128,128));
-    item->setTextColor(QColor(255,255,255));
-    item->setTextAlignment(Qt::AlignCenter);
-    item->setText("卡通中文");
-    item->setData(CATEGORY_INDEX, 1);
-    m_listCategory->addItem(item);
+    hbox->addStretch();
 
-    item = new QListWidgetItem;
-    item->setSizeHint(QSize(CATEGORY_WIDTH, CATEGORY_HEIGHT));
-    item->setBackgroundColor(QColor(128,128,128));
-    item->setTextColor(QColor(255,255,255));
-    item->setTextAlignment(Qt::AlignCenter);
-    item->setText("卡通英文");
-    item->setData(CATEGORY_INDEX, 2);
-    m_listCategory->addItem(item);
+    m_btnMkdir = new QPushButton;
+    m_btnMkdir->setFixedSize(CATEGORY_HEIGHT,CATEGORY_HEIGHT);
+    m_btnMkdir->setIcon(QIcon(HRcLoader::instance()->icon_mkdir));
+    m_btnMkdir->setIconSize(QSize(CATEGORY_HEIGHT,CATEGORY_HEIGHT));
+    m_btnMkdir->setFlat(true);
+    hbox->addWidget(m_btnMkdir);
 
-    vbox->addWidget(m_listCategory);
-    vbox->setAlignment(m_listCategory, Qt::AlignBottom);
+    m_btnRmdir = new QPushButton;
+    m_btnRmdir->setFixedSize(CATEGORY_HEIGHT,CATEGORY_HEIGHT);
+    m_btnRmdir->setIcon(QIcon(HRcLoader::instance()->icon_rmdir));
+    m_btnRmdir->setIconSize(QSize(CATEGORY_HEIGHT,CATEGORY_HEIGHT));
+    m_btnRmdir->setFlat(true);
+    hbox->addWidget(m_btnRmdir);
+
+    vbox->addLayout(hbox);
 
     setLayout(vbox);
+
+    readConf();
+    genUI();
+
+    m_fileDlg = new QFileDialog(this);
+    m_fileDlg->setFileMode(QFileDialog::AnyFile);
+    m_fileDlg->setViewMode(QFileDialog::Detail);
+    m_fileDlg->setDirectory("");
+    m_fileDlg->setWindowTitle(tr("导入图片"));
+    m_fileDlg->setNameFilter("Image files(*.png *.jpg *.bmp *.tga)");
 }
 
 void HExpreWidget::initConnect(){
     QObject::connect(m_listCategory, SIGNAL(itemClicked(QListWidgetItem*)), this, SLOT(onSelectCategory(QListWidgetItem*)) );
+    QObject::connect(m_btnMkdir, SIGNAL(clicked(bool)), this, SLOT(onMkdir()) );
+    QObject::connect(m_btnRmdir, SIGNAL(clicked(bool)), this, SLOT(onRmdir()) );
 }
 
 void HExpreWidget::onSelectCategory(QListWidgetItem* item){
@@ -170,8 +323,122 @@ void HExpreWidget::onSelectExpre(QListWidgetItem* item){
     QString filepath = item->data(EXPRE_FILEPATH).toString();
     qDebug(filepath.toLocal8Bit().constData());
 
-    hide();
+    QFileInfo file(filepath);
+    if (!file.exists())
+        return;
 
-    emit expreSelected(filepath);
+    if (file.isFile()){
+        hide();
+        emit expreSelected(filepath);
+    }else if(file.isDir()){
+        onAdd(filepath);
+    }
 }
 
+#include <QMessageBox>
+#include <QInputDialog>
+void HExpreWidget::onMkdir(){
+    QString label = QInputDialog::getText(this, tr("新建分类"), tr("请输入一个分类名称："));
+    if (label.length() == 0)
+        return;
+
+    qDebug(label.toLocal8Bit().constData());
+
+    std::list<ExpreRecord>::iterator iter = m_conf.records.begin();
+    for (int i = 0; iter != m_conf.records.end(); ++i, ++iter){
+        ExpreRecord record = *iter;
+        if (label == record.label){
+            QMessageBox::information(this, tr("新建分类"), tr("已存在相同的分类名，新建分类失败！"));
+            return;
+        }
+    }
+
+    int allocid;
+    if (m_conf.maxindex == m_conf.records.size()){
+        m_conf.maxindex++;
+        allocid = m_conf.maxindex;
+    }else{
+        for (int i = 1; i < m_conf.maxindex; ++i){
+            bool b = true;
+            std::list<ExpreRecord>::iterator iter = m_conf.records.begin();
+            for (;iter != m_conf.records.end();++iter){
+                ExpreRecord record = *iter;
+                if (record.id == i){
+                    b = false;
+                    break;
+                }
+            }
+            if (b){
+                allocid = i;
+                break;
+            }
+        }
+    }
+
+    char dir[16];
+    snprintf(dir, 16, "%02d", allocid);
+
+    QDir(dir_upload).mkdir(dir);
+
+    ExpreRecord record;
+    record.id = allocid;
+    record.label = label;
+    record.dir = dir;
+    m_conf.records.push_back(record);
+
+    writeConf();
+    genUI();
+}
+
+void HExpreWidget::onRmdir(){
+    QListWidgetItem* item = m_listCategory->currentItem();
+    if (!item)
+        return;
+
+    QString label = item->text();
+
+    char info[256];
+    snprintf(info, 256, "确定删除分类《%s》及其下的所有图片吗？", label.toLocal8Bit().constData());
+    if (QMessageBox::question(this, tr("删除分类"), info) ==  QMessageBox::Yes){
+        std::list<ExpreRecord>::iterator iter = m_conf.records.begin();
+        for (int i = 0; iter != m_conf.records.end(); ++i, ++iter){
+            ExpreRecord record = *iter;
+            if (label == record.label){
+                QString dir = dir_upload;
+                dir += record.dir;
+                delDir(dir);
+                m_conf.records.erase(iter);
+                break;
+            }
+        }
+
+        writeConf();
+        genUI();
+    }
+}
+
+#include <QFileDialog>
+#include <QTimer>
+void HExpreWidget::onAdd(QString& str){
+    qDebug("bbbbbbbbbbbbbbbbbbbbbbbb");
+    m_fileDlg->setVisible(true);
+    m_fileDlg->setWindowModality(Qt::ApplicationModal);
+    QTimer::singleShot(300, (QObject*)g_mainWdg, SLOT(show()) );
+    qDebug("ccccccccccccccccccccccccccc");
+    if (m_fileDlg->exec() == QDialog::Accepted){
+        qDebug("aaaaaaaaaaaaaaaaaaaaaaaaa");
+        QStringList files = m_fileDlg->selectedFiles();
+        for (int i = 0; i < files.size(); ++i){
+            QFileInfo file(files.at(i));
+            QString newfile(str);
+            newfile += "/";
+            newfile += file.fileName();
+            QFile::copy(files.at(i), newfile);
+        }
+
+        genUI();
+        show();
+    }
+
+    qDebug("eeeeeeeeeeeeeeeeeeeeeeee");
+}

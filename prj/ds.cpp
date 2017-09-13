@@ -4,57 +4,11 @@
 #define VERSION 6
 #define RELEASEINFO "6.0 @ 20170712"
 
-void myLogHandler(QtMsgType type, const QMessageLogContext & ctx, const QString & msg){
-    char szType[16];
-    switch (type) {
-    case QtDebugMsg:
-        strcpy(szType, "Debug");
-        break;
-    case QtInfoMsg:
-        strcpy(szType, "Info");
-        break;
-    case QtWarningMsg:
-        strcpy(szType, "Warning");
-        break;
-    case QtCriticalMsg:
-        strcpy(szType, "Critical");
-        break;
-    case QtFatalMsg:
-        strcpy(szType, "Fatal");
-    }
-    char szLog[2048];
-
-#ifndef QT_NO_DEBUG
-    snprintf(szLog, 2047, "%s %s [%s:%u, %s]\n", szType, msg.toLocal8Bit().constData(), ctx.file, ctx.line, ctx.function);
-#else
-    if (msg.length() > 0){
-        snprintf(szLog, 2047, "%s %s\n", szType, msg.toLocal8Bit().constData());
-    }
-#endif
-
-    QString strLogFilePath = QCoreApplication::applicationDirPath() + "/ds.log";
-
-    FILE* fp = fopen(strLogFilePath.toLocal8Bit().data(), "a");
-    if (fp){
-        fseek(fp, 0, SEEK_END);
-        if (ftell(fp) > (2 << 20)){
-            fclose(fp);
-            fp = fopen(strLogFilePath.toLocal8Bit().data(), "w");
-        }
-    }
-
-    if (fp){
-        fwrite(szLog, 1, strlen(szLog), fp);
-        fclose(fp);
-    }
-}
-
 DSSHARED_EXPORT int libversion()    { return VERSION; }
 DSSHARED_EXPORT int libchar()       { return OOK_FOURCC('D', 'I', 'R', 'C'); }
-DSSHARED_EXPORT int libtrace(int t) {  qInstallMessageHandler(myLogHandler); return t; }
+DSSHARED_EXPORT int libtrace(int t) { return t; }
 
 DSSHARED_EXPORT int libinit(const char* xml, void* task, void** ctx){
-    qInstallMessageHandler(myLogHandler);
     qDebug("libinit version=%d,%s", VERSION, RELEASEINFO);
 
     if(!xml || !task || !ctx)

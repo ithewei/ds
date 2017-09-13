@@ -54,14 +54,7 @@ public slots:
     void expand();
     void fold();
 
-    void getCombInfo();
-    void onGetCombInfoReply(QNetworkReply* reply);
-
-    void postCombInfo(DsCombInfo ci);
-    void onPostCombInfoReply(QNetworkReply* reply);
-
-    void undo();
-    void changeCombSource(int index, int svrid);
+    void changeScreenSource(int index, int svrid);
 
 private:
     HDsContext* m_ctx;
@@ -79,9 +72,6 @@ private:
     QTimer timer_repaint;
 
     QRect m_rcSavedGeometry;
-
-    QNetworkAccessManager* m_NAM_GetCombInfo;
-    QNetworkAccessManager* m_NAM_PostCombInfo;
 };
 
 #endif // HMAINWIDGET_H

@@ -66,6 +66,7 @@ signals:
     void clicked();
 
 public slots:
+    void toggleDrawInfo() {m_bDrawInfo = !m_bDrawInfo;}
     void snapshot();
     void startRecord();
     void stopRecord();
@@ -89,9 +90,7 @@ protected:
 public:
     int svrid;
 
-    bool m_bDrawTitle;
-    bool m_bDrawAudio;
-    bool m_bShowTools;
+    bool m_bDrawInfo;
 
     QLabel* m_snapshot;
 
@@ -145,29 +144,11 @@ public:
 #include "hchangecolorwidget.h"
 #include "hexprewidget.h"
 
-struct PictureInfo{
-    QRect rc;
-};
-
-struct TextInfo{
-    QRect rc;
-};
-
-struct TimeInfo{
-    QRect rc;
-};
-
-struct StopwatchInfo{
-    QRect rc;
-};
-
+#include "hnetwork.h"
 class HCombGLWidget : public HGLWidget
 {
     Q_OBJECT
 public:
-    HCombGLWidget(QWidget* parent = Q_NULLPTR);
-    ~HCombGLWidget();
-
     enum LOCATION{
         NotIn = 0,
         Left = 0x01,
@@ -188,53 +169,79 @@ public:
         NONE = 0,
 
         SCREEN = 1,
-        PICTURE = 2,
-        TEXT = 3,
-        TIME = 4,
-        STOPWATCH = 5,
+        MAIN_SCREEN,
+        SUB_SCREEN,
+        SCREEN_END = 9,
 
-        LABEL_ADD = 100,
+        OVERLAY = 10,
+        PICTURE,
+        TEXT,
+        TIME,
+        STOPWATCH,
+        OVERLAY_END = 99,
+
+        TEMPORARY = 100,
+        LABEL_ADD,
+        TEMPORARY_END = 199,
 
         ALL = 0xFF,
     };
+    inline bool isScreen(TRAGET_TYPE type){
+        return type > SCREEN && type < SCREEN_END;
+    }
+
+    inline bool isOverlay(TRAGET_TYPE type){
+        return type > OVERLAY && type < OVERLAY_END;
+    }
+
+    inline bool isTemporary(TRAGET_TYPE type){
+        return type > TEMPORARY && type < TEMPORARY_END;
+    }
 
     struct TargetInfo{
         TRAGET_TYPE type;
-        int         index;
-        int         location;
+        int         id; // for SCREEN is index, for OVERLAY is id, for TEMPORARY is index
+        QRect       rc;
 
         TargetInfo(){
             type = NONE;
-            index = 0;
-            location = Center;
+            id = 0;
         }
     };
+
+    HCombGLWidget(QWidget* parent = Q_NULLPTR);
+    ~HCombGLWidget();
 
     TargetInfo getTargetByPos(QPoint pt, TRAGET_TYPE type = ALL);
     void showTitlebar(bool bShow = true);
     void showToolbar(bool bShow = true);
     virtual void showToolWidgets(bool bShow = true);
-    void adjustPos(QRect& rc);
+    QRect adjustPos(QRect rc);
+    QRect scaleToOrigin(QRect rc);
+    QRect scaleToDraw(QRect rc);
     void onTargetChanged();
-
-signals:
-    void combChanged(DsCombInfo ci);
-    void undo();
 
 public slots:
     void onCombChanged();
+    void onOverlayChanged();
+
+    void onUndo();
     void onTrash();
     void onOK();
     void showExpre();
     void onExpreSelected(QString& filepath);
+    void showText();
+    void showTime();
 
 protected:
     void initUI();
     void initConnect();
 
     virtual void drawOutline();
-    virtual void drawTaskInfo();
-    virtual void drawCombInfo();
+    void drawTaskInfo();
+    void drawScreenInfo();
+    void drawPictureInfo();
+    void drawTextInfo();
     virtual void paintGL();
     virtual void resizeEvent(QResizeEvent *e);
     virtual void mousePressEvent(QMouseEvent* e);
@@ -248,23 +255,26 @@ private:
     COMB_TYPE m_combtype;
 
     std::vector<QRect> m_vecScreens;
-    std::vector<PictureInfo> m_vecPictures;
-    std::vector<TextInfo> m_vecTexts;
-    std::vector<TimeInfo> m_vecTimes;
-    std::vector<StopwatchInfo> m_vecStopwatchs;
+    std::vector<QRect> m_vecPictures;
+    std::vector<QRect> m_vecTexts;
 
     TargetInfo m_target;
+    int m_location;
 
     bool m_bMouseMoving;
     HCombTitlebarWidget* m_titlebar;
     HCombToolbarWidget*  m_toolbar;
-    QLabel* m_labelDrag;
-    QPixmap m_pixmapDrag;
     HChangeColorWidget* m_wdgTrash;
 
     HExpreWidget* m_wdgExpre;
+
+    QLabel* m_labelDrag;
+    QPixmap m_pixmapDrag;
+
     QLabel* m_labelAdd;
     QPixmap m_pixmapAdd;
+    PictureItem m_itemPicture;
+    TextItem    m_itemText;
 };
 //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 

@@ -8,10 +8,6 @@ HRcLoader::HRcLoader()
 
 }
 
-HRcLoader::~HRcLoader(){
-
-}
-
 HRcLoader* HRcLoader::instance(){
     if (s_rcLoader == NULL){
         s_rcLoader = new HRcLoader;
@@ -34,6 +30,10 @@ void HRcLoader::loadIcon(){
     strImg = g_dsCtx->img_path;
     strImg += "nofullscreen.png";
     icon_exit_fullscreen.load(strImg.c_str());
+
+    strImg = g_dsCtx->img_path;
+    strImg += "info.png";
+    icon_info.load(strImg.c_str());
 
     strImg = g_dsCtx->img_path;
     strImg += "left_expand.png";
@@ -113,6 +113,18 @@ void HRcLoader::loadIcon(){
     strImg = g_dsCtx->img_path;
     strImg += "time.png";
     icon_time.load(strImg.c_str());
+
+    strImg = g_dsCtx->img_path;
+    strImg += "mkdir.png";
+    icon_mkdir.load(strImg.c_str());
+
+    strImg = g_dsCtx->img_path;
+    strImg += "rmdir.png";
+    icon_rmdir.load(strImg.c_str());
+
+    strImg = g_dsCtx->img_path;
+    strImg += "add.png";
+    icon_add.load(strImg.c_str());
 }
 
 void HRcLoader::loadTexture(){

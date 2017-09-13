@@ -8,9 +8,8 @@
 
 class HRcLoader
 {
-public:
+private:
     HRcLoader();
-    ~HRcLoader();
 
 public:
     static HRcLoader* instance();
@@ -26,6 +25,7 @@ public:
 
     QPixmap icon_fullscreen;
     QPixmap icon_exit_fullscreen;
+    QPixmap icon_info;
     QPixmap icon_left_expand;
     QPixmap icon_right_fold;
     QPixmap icon_start;
@@ -44,6 +44,9 @@ public:
     QPixmap icon_ok;
     QPixmap icon_text;
     QPixmap icon_time;
+    QPixmap icon_mkdir;
+    QPixmap icon_rmdir;
+    QPixmap icon_add;
 
     Texture tex_sound;
     Texture tex_numr[MAX_NUM_ICON];

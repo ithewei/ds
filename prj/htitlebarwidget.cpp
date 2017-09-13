@@ -55,6 +55,13 @@ void HTitlebarWidget::initUI(){
     m_btnSnapshot->setFlat(true);
     hbox->addWidget(m_btnSnapshot);
 
+    m_btnDrawInfo = new QPushButton;
+    m_btnDrawInfo->setFixedSize(TITLEBAR_ICON_WIDTH,TITLEBAR_ICON_HEIGHT);
+    m_btnDrawInfo->setIcon(QIcon(HRcLoader::instance()->icon_info));
+    m_btnDrawInfo->setIconSize(QSize(TITLEBAR_ICON_WIDTH,TITLEBAR_ICON_HEIGHT));
+    m_btnDrawInfo->setFlat(true);
+    hbox->addWidget(m_btnDrawInfo);
+
     m_btnFullScreen = new QPushButton;
     m_btnFullScreen->setFixedSize(TITLEBAR_ICON_WIDTH,TITLEBAR_ICON_HEIGHT);
     m_btnFullScreen->setIcon(QIcon(HRcLoader::instance()->icon_fullscreen));
@@ -141,6 +148,13 @@ void HCombTitlebarWidget::initUI(){
     m_btnSnapshot->setIconSize(QSize(TITLEBAR_ICON_WIDTH,TITLEBAR_ICON_HEIGHT));
     m_btnSnapshot->setFlat(true);
     hbox->addWidget(m_btnSnapshot);
+
+    m_btnDrawInfo = new QPushButton;
+    m_btnDrawInfo->setFixedSize(TITLEBAR_ICON_WIDTH,TITLEBAR_ICON_HEIGHT);
+    m_btnDrawInfo->setIcon(QIcon(HRcLoader::instance()->icon_info));
+    m_btnDrawInfo->setIconSize(QSize(TITLEBAR_ICON_WIDTH,TITLEBAR_ICON_HEIGHT));
+    m_btnDrawInfo->setFlat(true);
+    hbox->addWidget(m_btnDrawInfo);
 
     m_btnFullScreen = new QPushButton;
     m_btnFullScreen->setFixedSize(TITLEBAR_ICON_WIDTH,TITLEBAR_ICON_HEIGHT);

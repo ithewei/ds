@@ -1,9 +1,6 @@
 #include "hmainwidget.h"
 #include "hrcloader.h"
 
-const char* url_get_combinfo = "http://localhost/transcoder/index.php?controller=channels&action=Daoboinfo";
-const char* url_post_combinfo = "http://localhost/transcoder/index.php?controller=channels&action=Dragsave";
-
 HMainWidget::HMainWidget(HDsContext* ctx, QWidget *parent)
     : QWidget(parent)
 {
@@ -40,8 +37,6 @@ void HMainWidget::initUI(){
             wdg = new HCombGLWidget(this);
             wdg->svrid = 1;
             m_mapGLWdg[1] = wdg;
-            QObject::connect( wdg, SIGNAL(combChanged(DsCombInfo)), this, SLOT(postCombInfo(DsCombInfo)) );
-            QObject::connect( wdg, SIGNAL(undo()), this, SLOT(undo()) );
         }else{
             wdg = new HGeneralGLWidget(this);
             wdg->svrid = 0;
@@ -90,7 +85,7 @@ void HMainWidget::initConnect(){
     QObject::connect( m_ctx, SIGNAL(sigStop(int)), this, SLOT(onStop(int)) );
     QObject::connect( m_ctx, SIGNAL(quit()), this, SLOT(hide()) );
     QObject::connect( m_ctx, SIGNAL(sigProgressNty(int,int)), this, SLOT(onProgressNty(int,int)) );
-    //QObject::connect( m_ctx, SIGNAL(combChanged()), this, SLOT(getCombInfo()) );
+    //QObject::connect( m_ctx, SIGNAL(combChanged()), this, SLOT(getScreenInfo()) );
 
     for (int i = 0; i < m_vecGLWdg.size(); ++i){
         QObject::connect( m_vecGLWdg[i], SIGNAL(fullScreen()), this, SLOT(onFullScreen()) );
@@ -106,12 +101,6 @@ void HMainWidget::initConnect(){
         timer_repaint.start(1000 / m_ctx->frames);
         //timer_repaint.start(1000 / 20);
     }
-
-    m_NAM_GetCombInfo = new QNetworkAccessManager(this);
-    QObject::connect( m_NAM_GetCombInfo, SIGNAL(finished(QNetworkReply*)), this, SLOT(onGetCombInfoReply(QNetworkReply*)) );
-
-    m_NAM_PostCombInfo = new QNetworkAccessManager(this);
-    QObject::connect( m_NAM_PostCombInfo, SIGNAL(finished(QNetworkReply*)), this, SLOT(onPostCombInfoReply(QNetworkReply*)) );
 }
 
 HGLWidget* HMainWidget::getGLWdgBySvrid(int svrid){
@@ -206,7 +195,7 @@ void HMainWidget::mouseReleaseEvent(QMouseEvent *event){
 //                m_ctx->handle_event(evt);
                 HCombGLWidget::TargetInfo target = ((HCombGLWidget*)wdg)->getTargetByPos(
                             QPoint(event->x()-wdg->x(), event->y()-wdg->y()), HCombGLWidget::SCREEN);
-                changeCombSource(target.index, m_dragSrcWdg->svrid);
+                changeScreenSource(target.id, m_dragSrcWdg->svrid);
             }else{
                 // exchange position
                 QRect rcSrc = m_dragSrcWdg->geometry();
@@ -333,83 +322,13 @@ void HMainWidget::onGLWdgClicked(){
     }
 }
 
-void HMainWidget::getCombInfo(){
-    if (m_NAM_GetCombInfo)
-        m_NAM_GetCombInfo->get(QNetworkRequest(QUrl(url_get_combinfo)));
-}
-
-#include <QJsonDocument>
-#include <QJsonArray>
-#include <QJsonObject>
-void HMainWidget::onGetCombInfoReply(QNetworkReply* reply){
-    QByteArray bytes = reply->readAll();
-    qDebug(bytes.constData());
-    QJsonDocument dom = QJsonDocument::fromJson(bytes);
-    if (!dom.isNull()){
-        if (dom.isArray()){
-            QJsonArray arr = dom.array();
-            for (int i = 0; i < arr.size(); ++i){
-                QJsonValue val = arr[i];
-                if (val.isObject()){
-                    QJsonObject obj = val.toObject();
-                    int iID = 0;
-                    int iV = 0;
-                    if (obj.contains("id")){
-                        QJsonValue id = obj.value("id");
-                        iID = id.toInt();
-                    }
-                    if (obj.contains("v")){
-                        QJsonValue v = obj.value("v");
-                        iV = v.toInt();
-                    }
-                    g_dsCtx->m_tComb.items[i].iSvrid = iID;
-                    g_dsCtx->m_tComb.items[i].bAudio = iV;
-                    qDebug("id=%d a=%d", iID, iV);
-                }
-            }
-        }
-    }
-
-    reply->deleteLater();
-}
-
-void HMainWidget::postCombInfo(DsCombInfo ci){
-    if (m_NAM_PostCombInfo){
-        QJsonArray arr;
-        for (int i = 0; i < ci.itemCnt; ++i){
-            QJsonObject obj;
-            DsCombItem* item = &ci.items[i];
-            obj.insert("x", item->x);
-            obj.insert("y", item->y);
-            obj.insert("w", item->w);
-            obj.insert("h", item->h);
-            obj.insert("v", item->iSvrid);
-            obj.insert("a", item->bAudio ? 1 : 0);
-            arr.append(obj);
-        }
-        QJsonDocument doc;
-        doc.setArray(arr);
-        QByteArray bytes = doc.toJson();
-        qDebug(bytes.constData());
-        m_NAM_PostCombInfo->post(QNetworkRequest(QUrl(url_post_combinfo)), bytes);
-    }
-}
-
-void HMainWidget::onPostCombInfoReply(QNetworkReply* reply){
-
-}
-
-void HMainWidget::undo(){
-    postCombInfo(m_ctx->m_tCombUndo);
-}
-
-void HMainWidget::changeCombSource(int index, int svrid){
-    DsCombInfo ci = m_ctx->m_tComb;
-    if (ci.items[index].iSvrid != svrid){
-        ci.items[index].iSvrid = svrid;
+void HMainWidget::changeScreenSource(int index, int svrid){
+    DsScreenInfo si = m_ctx->m_tComb;
+    if (si.items[index].v != svrid){
+        si.items[index].v = svrid;
         if (svrid == 0){
-            ci.items[index].bAudio = false;
+            si.items[index].a = false;
         }
-        postCombInfo(ci);
+        HNetwork::instance()->postScreenInfo(si);
     }
 }
