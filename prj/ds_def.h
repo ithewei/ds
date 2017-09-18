@@ -81,9 +81,22 @@ struct PictureItem : public CommonItem{
 };
 
 struct TextItem : public CommonItem{
+    enum TYPE{
+        PLAIN_TEXT = 1,
+        TIME = 2,
+        WATCHER = 3,
+    };
+
+    TYPE type;
     QString text;
     int font_size;
     int font_color;
+
+    TextItem(){
+        type = PLAIN_TEXT;
+        font_size = 32;
+        font_color = 0xFFFFFF;
+    }
 };
 
 struct DsScreenInfo{

@@ -489,25 +489,20 @@ HCombGLWidget::~HCombGLWidget(){
 
 void HCombGLWidget::initUI(){
     m_labelDrag = new QLabel(this);
-    m_labelDrag->setStyleSheet("border:3px groove #FF8C00");
+    m_labelDrag->setStyleSheet("border:3px groove #FF8C00;");
     m_labelDrag->hide();
 
-    m_labelAdd = new QLabel(this);
-    m_labelAdd->setStyleSheet("border:3px dashed white");
-    m_labelAdd->hide();
+    m_labelAddPicture = new QLabel(this);
+    m_labelAddPicture->hide();
 
-    m_wdgTrash = new HChangeColorWidget(this);
-    m_wdgTrash->setPixmap(HRcLoader::instance()->icon_trash_big);
-    m_wdgTrash->hide();
-
-    m_wdgExpre = new HExpreWidget(this);
-    m_wdgExpre->setWindowFlags(Qt::Popup);
+    m_labelAddText = new QLabel(this);
+    m_labelAddText->hide();
 
     QVBoxLayout* vbox = new QVBoxLayout;
     vbox->setMargin(2);
 
     m_titlebar = new HCombTitlebarWidget;
-    m_titlebar->setFixedHeight(TITLE_BAR_HEIGHT);
+    m_titlebar->setFixedHeight(TOOL_BAR_HEIGHT);
     m_titlebar->hide();
     vbox->addWidget(m_titlebar);
 
@@ -519,6 +514,13 @@ void HCombGLWidget::initUI(){
     vbox->addWidget(m_toolbar);
 
     setLayout(vbox);
+
+    m_wdgTrash = new HChangeColorWidget(this);
+    m_wdgTrash->setPixmap(HRcLoader::instance()->icon_trash_big);
+    m_wdgTrash->hide();
+
+    m_wdgExpre = new HExpreWidget(this);
+    m_wdgExpre->setWindowFlags(Qt::Popup);
 }
 
 void HCombGLWidget::initConnect(){
@@ -539,7 +541,7 @@ void HCombGLWidget::initConnect(){
     QObject::connect( m_toolbar->m_btnExpre, SIGNAL(clicked(bool)), this, SLOT(showExpre()) );
     QObject::connect( m_toolbar->m_btnOK, SIGNAL(clicked(bool)), this, SLOT(onOK()) );
     QObject::connect( m_toolbar->m_btnText, SIGNAL(clicked(bool)), this, SLOT(showText()) );
-    QObject::connect( m_toolbar->m_btnTime, SIGNAL(clicked(bool)), this, SLOT(showTime()) );
+    //m_toolbar->m_btnText->hide();
 
     QObject::connect( m_wdgExpre, SIGNAL(expreSelected(QString&)), this, SLOT(onExpreSelected(QString&)) );
 }
@@ -581,11 +583,22 @@ void HCombGLWidget::showToolWidgets(bool bShow){
 }
 
 void HCombGLWidget::onTargetChanged(){
-    if (m_labelAdd->isVisible()){
-        if (isTemporary(m_target.type))
-            m_labelAdd->setStyleSheet("border:3px dashed red");
+    if (m_labelAddPicture->isVisible()){
+        if (m_target.type == LABEL_ADD_PICTURE)
+            m_labelAddPicture->setStyleSheet("border:3px dashed red;");
         else
-            m_labelAdd->setStyleSheet("border:3px dashed white");
+            m_labelAddPicture->setStyleSheet("border:3px dashed white;");
+    }
+
+    if (m_labelAddText->isVisible()){
+        if (m_target.type == LABEL_ADD_TEXT){
+            m_labelAddText->setStyleSheet("border:3px dashed red;");
+        }else{
+            m_labelAddText->setStyleSheet("border:3px dashed white;");
+        }
+        QPalette pal = m_labelAddText->palette();
+        pal.setColor(QPalette::Foreground, m_itemText.font_color);
+        m_labelAddText->setPalette(pal);
     }
 }
 
@@ -611,24 +624,23 @@ HCombGLWidget::TargetInfo HCombGLWidget::getTargetByPos(QPoint pt, TRAGET_TYPE t
     TargetInfo ti;
 
     // 优先顺序: TEMPORARY > OVERLAY > SCREEN
-    // STOPWATCH > TIME > TEXT > PICTURE
+    // TEXT > PICTURE
     // SUB_SCREEN > MAIN_SCREEN
 
     if (type == ALL || type == TEMPORARY){
-        if (m_labelAdd->isVisible() && m_labelAdd->geometry().contains(pt)){
-            ti.type = LABEL_ADD;
+        if (m_labelAddText->isVisible() && m_labelAddText->geometry().contains(pt)){
+            ti.type = LABEL_ADD_TEXT;
             ti.id = 0;
-            ti.rc = m_labelAdd->geometry();
+            ti.rc = m_labelAddText->geometry();
             return ti;
         }
-    }
 
-    if (type == ALL || type == STOPWATCH){
-
-    }
-
-    if (type == ALL || type == TIME){
-
+        if (m_labelAddPicture->isVisible() && m_labelAddPicture->geometry().contains(pt)){
+            ti.type = LABEL_ADD_PICTURE;
+            ti.id = 0;
+            ti.rc = m_labelAddPicture->geometry();
+            return ti;
+        }
     }
 
     if (type == ALL || type == TEXT){
@@ -724,6 +736,8 @@ void HCombGLWidget::onCombChanged(){
             m_combtype = TILED;
         }
     }
+
+    HNetwork::instance()->queryOverlayInfo();
 }
 
 void HCombGLWidget::onOverlayChanged(){
@@ -745,41 +759,83 @@ void HCombGLWidget::onUndo(){
 }
 
 void HCombGLWidget::onTrash(){
-    if (isTemporary(m_target.type)){
-        m_labelAdd->hide();
+    if (m_target.type == LABEL_ADD_PICTURE){
+        m_labelAddPicture->hide();
+    }else if(m_target.type == LABEL_ADD_TEXT){
+        m_labelAddText->hide();
     }else if (isScreen(m_target.type)){
         stopComb(m_target.id);
+    }else if (m_target.type == PICTURE){
+        PictureItem item = HNetwork::instance()->m_vecPictures[m_target.id];
+        HNetwork::instance()->removePicture(item);
+    }else if (m_target.type == TEXT){
+        TextItem item = HNetwork::instance()->m_vecTexts[m_target.id];
+        HNetwork::instance()->removeText(item);
     }
+
+    m_target.type = NONE;
 }
 
 void HCombGLWidget::onOK(){
-    if (m_labelAdd->isVisible()){
-        m_labelAdd->hide();
+    if (m_labelAddPicture->isVisible()){
+        m_labelAddPicture->hide();
 
-        QRect rc = m_labelAdd->geometry();
+        QRect rc = m_labelAddPicture->geometry();
         m_itemPicture.rc = scaleToOrigin(rc);
         HNetwork::instance()->overlayPicture(m_itemPicture);
+    }
+
+    if (m_labelAddText->isVisible()){
+        m_labelAddText->hide();
+
+        QRect rc = m_labelAddText->geometry();
+        rc.setY(height()-rc.y()-m_itemText.font_size);
+        m_itemText.rc = scaleToOrigin(rc);
+        HNetwork::instance()->overlayText(m_itemText);
     }
 }
 
 void HCombGLWidget::showExpre(){
     int w = m_wdgExpre->width();
     int h = m_wdgExpre->height();
-    m_wdgExpre->setGeometry(x() + (width() - w)/2, m_toolbar->y() + y() - h, w, h);
+    m_wdgExpre->move(x() + (width() - w)/2, y() + m_toolbar->y() - h);
     m_wdgExpre->show();
 }
 
-#include <QFontDialog>
 void HCombGLWidget::showText(){
+    HAddTextWidget dlg(this);
+    dlg.setWindowFlags(Qt::Dialog | Qt::FramelessWindowHint);
+    int w = dlg.width();
+    int h = dlg.height();
+    dlg.move(x() + (width() - w)/2, y() + m_toolbar->y() - h);
+    if (dlg.exec() == QDialog::Accepted){
+        m_itemText = dlg.m_textItem;
+        QString str;
+        if (m_itemText.type == TextItem::PLAIN_TEXT){
+            str = m_itemText.text;
+        }else if (m_itemText.type == TextItem::TIME){
+            str = QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss");
+        }else if (m_itemText.type == TextItem::WATCHER){
+            str = QDateTime::currentDateTime().toString("HH:mm:ss.zzz");
+        }
+        m_labelAddText->setText(str);
+        QFont font = m_labelAddText->font();
+        font.setPointSize(m_itemText.font_size);
+        m_labelAddText->setFont(font);
 
+        QFontMetrics fm(font);
+        int w = fm.width(str) + 20;
+        int h = fm.height();
+        m_labelAddText->setGeometry(QRect((width()-w)/2, (height()-h)/2, w, h));
+        m_labelAddText->show();
+
+        m_target.type = LABEL_ADD_TEXT;
+        onTargetChanged();
+    }
 }
 
-void HCombGLWidget::showTime(){
-
-}
-
-#define EXPRE_MAX_WIDTH     256
-#define EXPRE_MAX_HEIGHT    256
+#define EXPRE_MAX_WIDTH     128
+#define EXPRE_MAX_HEIGHT    128
 void HCombGLWidget::onExpreSelected(QString& filepath){
     m_pixmapAdd.load(filepath);
     if (m_pixmapAdd.isNull())
@@ -794,12 +850,12 @@ void HCombGLWidget::onExpreSelected(QString& filepath){
         pixmap = pixmap.scaled(QSize(w,h));
     }
 
-    m_labelAdd->setGeometry((width()-w)/2, (height()-h)/2, w, h);
-    m_labelAdd->setPixmap(pixmap);
-    m_labelAdd->show();
+    m_labelAddPicture->setGeometry((width()-w)/2, (height()-h)/2, w, h);
+    m_labelAddPicture->setPixmap(pixmap);
+    m_labelAddPicture->show();
 
     m_itemPicture.src = filepath;
-    m_target.type = LABEL_ADD;
+    m_target.type = LABEL_ADD_PICTURE;
     m_target.id = 0;
     onTargetChanged();
 }
@@ -908,6 +964,8 @@ void HCombGLWidget::resizeEvent(QResizeEvent *e){
     onCombChanged();
     onOverlayChanged();
 
+    m_target.type = NONE;
+
     HGLWidget::resizeEvent(e);
 }
 
@@ -988,37 +1046,43 @@ void HCombGLWidget::mouseMoveEvent(QMouseEvent *e){
         m_labelDrag->setGeometry(rc);
     }
 
-    if (m_target.type == LABEL_ADD){
-        if (m_labelAdd->isVisible()){
-            QRect rc = m_labelAdd->geometry();
+    if (m_target.type == LABEL_ADD_PICTURE && m_labelAddPicture->isVisible()){
+        QRect rc = m_labelAddPicture->geometry();
 
-            if (m_location & Center){
-                // move
-                int w = m_labelAdd->width();
-                int h = m_labelAdd->height();
-                rc.setRect(e->x()-w/2, e->y()-h/2, w, h);
-                rc = adjustPos(rc);
-            }else{
-                // resize
-                if (m_location & Left){
-                    if (e->x() < rc.right() - 2*LOCATION_PADDING)
-                        rc.setLeft(e->x());
-                }else if (m_location & Right){
-                    if (e->x() > rc.left() + 2*LOCATION_PADDING)
-                    rc.setRight(e->x());
-                }
-                if (m_location & Top){
-                    if (e->y() < rc.bottom() - 2*LOCATION_PADDING)
-                        rc.setTop(e->y());
-                }else if (m_location & Bottom){
-                    if (e->y() > rc.top() + 2*LOCATION_PADDING)
-                        rc.setBottom(e->y());
-                }
-                m_labelAdd->setPixmap(m_pixmapAdd.scaled(rc.size()));
+        if (m_location & Center){
+            // move
+            int w = m_labelAddPicture->width();
+            int h = m_labelAddPicture->height();
+            rc.setRect(e->x()-w/2, e->y()-h/2, w, h);
+            rc = adjustPos(rc);
+        }else{
+            // resize
+            if (m_location & Left){
+                if (e->x() < rc.right() - 2*LOCATION_PADDING)
+                    rc.setLeft(e->x());
+            }else if (m_location & Right){
+                if (e->x() > rc.left() + 2*LOCATION_PADDING)
+                rc.setRight(e->x());
             }
-
-            m_labelAdd->setGeometry(rc);
+            if (m_location & Top){
+                if (e->y() < rc.bottom() - 2*LOCATION_PADDING)
+                    rc.setTop(e->y());
+            }else if (m_location & Bottom){
+                if (e->y() > rc.top() + 2*LOCATION_PADDING)
+                    rc.setBottom(e->y());
+            }
+            m_labelAddPicture->setPixmap(m_pixmapAdd.scaled(rc.size()));
         }
+
+        m_labelAddPicture->setGeometry(rc);
+    }
+
+    if (m_target.type == LABEL_ADD_TEXT && m_labelAddText->isVisible()){
+        int w = m_labelAddText->width();
+        int h = m_labelAddText->height();
+        QRect rc(e->x()-w/2, e->y()-h/2, w, h);
+        rc = adjustPos(rc);
+        m_labelAddText->setGeometry(rc);
     }
 
     if (m_wdgTrash->isVisible()){
@@ -1047,6 +1111,14 @@ void HCombGLWidget::mouseReleaseEvent(QMouseEvent *e){
             if (m_target.type == MAIN_SCREEN)
                 return; // main screen not move or resize
             reposComb(m_target.id, m_labelDrag->geometry());
+        }else if (m_target.type == PICTURE){
+            PictureItem item = HNetwork::instance()->m_vecPictures[m_target.id];
+            item.rc = scaleToOrigin(m_labelDrag->geometry());
+            HNetwork::instance()->modifyPicture(item);
+        }else if (m_target.type == TEXT){
+            TextItem item = HNetwork::instance()->m_vecTexts[m_target.id];
+            item.rc = scaleToOrigin(m_labelDrag->geometry());
+            HNetwork::instance()->modifyText(item);
         }
 
         m_target.type = NONE;

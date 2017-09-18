@@ -3,6 +3,8 @@
 const char* url_post_combinfo = "http://localhost/transcoder/index.php?controller=channels&action=Dragsave";
 const char* url_query_overlay = "http://localhost/transcoder/index.php?controller=logo&action=allinfo";
 const char* url_add_overlay = "http://localhost/transcoder/index.php?controller=logo&action=logoadd";
+const char* url_remove_overlay = "http://localhost/transcoder/index.php?controller=logo&action=ddelete";
+const char* url_modify_overlay = "http://localhost/transcoder/index.php?controller=logo&action=editpt";
 const char* dir_trans = "/var/www/transcoder/";
 
 HNetwork* HNetwork::s_pNetwork = NULL;
@@ -13,6 +15,12 @@ HNetwork::HNetwork() : QObject()
 
     m_nam_add_overlay = new QNetworkAccessManager(this);
     QObject::connect( m_nam_add_overlay, SIGNAL(finished(QNetworkReply*)), this, SLOT(queryOverlayInfo()) );
+
+    m_nam_remove_overlay = new QNetworkAccessManager(this);
+    QObject::connect( m_nam_remove_overlay, SIGNAL(finished(QNetworkReply*)), this, SLOT(queryOverlayInfo()) );
+
+    m_nam_modify_overlay = new QNetworkAccessManager(this);
+    QObject::connect( m_nam_modify_overlay, SIGNAL(finished(QNetworkReply*)), this, SLOT(queryOverlayInfo()) );
 
     m_nam_query_overlay = new QNetworkAccessManager(this);
     QObject::connect( m_nam_query_overlay, SIGNAL(finished(QNetworkReply*)), this, SLOT(onQueryOverlayReply(QNetworkReply*)) );
@@ -32,7 +40,7 @@ void HNetwork::exitInstance(){
     }
 }
 
-void HNetwork::postScreenInfo(DsScreenInfo si){
+void HNetwork::postScreenInfo(DsScreenInfo& si){
     QJsonArray arr;
     for (int i = 0; i < si.itemCnt; ++i){
         QJsonObject obj;
@@ -56,6 +64,7 @@ void HNetwork::queryOverlayInfo(){
     m_nam_query_overlay->get(QNetworkRequest(QUrl(url_query_overlay)));
 }
 
+#include "hdsctx.h"
 void HNetwork::onQueryOverlayReply(QNetworkReply* reply){
     QByteArray bytes = reply->readAll();
     qDebug(bytes.constData());
@@ -102,7 +111,7 @@ void HNetwork::onQueryOverlayReply(QNetworkReply* reply){
             QJsonObject obj_text = arr_text[i].toObject();
             TextItem item;
             if (obj_text.contains("id")){
-                item.id = obj_text.value("id").toInt();
+                item.id = obj_text.value("id").toString().toInt();
             }
 
             if (obj_text.contains("x_pos") && obj_text.contains("y_pos") &&
@@ -125,6 +134,15 @@ void HNetwork::onQueryOverlayReply(QNetworkReply* reply){
             if (obj_text.contains("font_color")){
                 item.font_color = obj_text.value("font_color").toInt();
             }
+
+            QFont font;
+            font.setPointSize(item.font_size);
+            QFontMetrics fm(font);
+            int h = fm.height();
+            int w = fm.width(item.text);
+            int x = item.rc.x();
+            int y = g_dsCtx->m_tComb.height - item.rc.y() - h;//y_pos is from bottom
+            item.rc.setRect(x,y,w,h);
 
             m_vecTexts.push_back(item);
             qDebug("id=%d,x=%d,y=%d,w=%d,h=%d,content=%s,font_size=%d", item.id, item.rc.x(), item.rc.y(), item.rc.width(), item.rc.height(),
@@ -154,5 +172,73 @@ void HNetwork::overlayPicture(PictureItem &item){
     QByteArray bytes = dom.toJson();
     qDebug(bytes.constData());
     m_nam_add_overlay->post(QNetworkRequest(QUrl(url_add_overlay)), bytes);
+}
+
+void HNetwork::overlayText(TextItem& item){
+    QJsonObject obj;
+    obj.insert("content", item.text);
+    obj.insert("x", item.rc.x());
+    obj.insert("y", item.rc.y());
+    obj.insert("font_size", item.font_size);
+    char color[32];
+    sprintf(color, "0x%x", item.font_color);
+    obj.insert("font_color", color);
+    QJsonArray arr;
+    arr.append(obj);
+    QJsonObject obj_pic;
+    obj_pic.insert("text", arr);
+    QJsonDocument dom;
+    dom.setObject(obj_pic);
+    QByteArray bytes = dom.toJson();
+    qDebug(bytes.constData());
+    m_nam_add_overlay->post(QNetworkRequest(QUrl(url_add_overlay)), bytes);
+}
+
+void HNetwork::modifyPicture(PictureItem& item){
+    QJsonObject obj;
+    obj.insert("id", item.id);
+    obj.insert("x", item.rc.x());
+    obj.insert("y", item.rc.y());
+    obj.insert("w", item.rc.width());
+    obj.insert("h", item.rc.height());
+    QJsonArray arr;
+    arr.append(obj);
+    QJsonObject obj_pic;
+    obj_pic.insert("picture", arr);
+    QJsonDocument dom;
+    dom.setObject(obj_pic);
+    QByteArray bytes = dom.toJson();
+    qDebug(bytes.constData());
+    m_nam_modify_overlay->post(QNetworkRequest(QUrl(url_modify_overlay)), bytes);
+}
+
+void HNetwork::modifyText(TextItem& item){
+    //...
+}
+
+void HNetwork::removePicture(PictureItem& item){
+    QJsonObject obj;
+    obj.insert("id", item.id);
+    obj.insert("type", "picture");
+    QJsonArray arr;
+    arr.append(obj);
+    QJsonDocument dom;
+    dom.setArray(arr);
+    QByteArray bytes = dom.toJson();
+    qDebug(bytes.constData());
+    m_nam_remove_overlay->post(QNetworkRequest(QUrl(url_remove_overlay)), bytes);
+}
+
+void HNetwork::removeText(TextItem& item){
+    QJsonObject obj;
+    obj.insert("id", item.id);
+    obj.insert("type", "text");
+    QJsonArray arr;
+    arr.append(obj);
+    QJsonDocument dom;
+    dom.setArray(arr);
+    QByteArray bytes = dom.toJson();
+    qDebug(bytes.constData());
+    m_nam_remove_overlay->post(QNetworkRequest(QUrl(url_remove_overlay)), bytes);
 }
 

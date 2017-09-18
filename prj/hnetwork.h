@@ -21,13 +21,16 @@ public:
     static HNetwork* instance();
     static void exitInstance();
 
-    void postScreenInfo(DsScreenInfo info);
+    void postScreenInfo(DsScreenInfo& info);
 
     void overlayPicture(PictureItem& item);
     void overlayText(TextItem& item);
 
     void removePicture(PictureItem& item);
     void removeText(TextItem& item);
+
+    void modifyPicture(PictureItem& item);
+    void modifyText(TextItem& item);
 
 signals:
     void overlayChanged();
@@ -46,6 +49,8 @@ private:
     QNetworkAccessManager* m_nam_post_screeninfo;
     QNetworkAccessManager* m_nam_add_overlay;
     QNetworkAccessManager* m_nam_query_overlay;
+    QNetworkAccessManager* m_nam_remove_overlay;
+    QNetworkAccessManager* m_nam_modify_overlay;
 };
 
 #endif // HNETWORK_H

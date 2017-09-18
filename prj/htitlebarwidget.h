@@ -3,9 +3,6 @@
 
 #include <QWidget>
 
-#define TITLEBAR_ICON_WIDTH          48
-#define TITLEBAR_ICON_HEIGHT         48
-
 class HTitlebarWidget : public QWidget
 {
     Q_OBJECT

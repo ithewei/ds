@@ -51,6 +51,11 @@ void myLogHandler(QtMsgType type, const QMessageLogContext & ctx, const QString 
     }
 }
 
+#include <QApplication>
+#include <QDesktopWidget>
+#include <QTranslator>
+#include <QLocale>
+#include <QLibraryInfo>
 #include <QSplashScreen>
 #include <QProgressBar>
 #ifdef WIN32
@@ -65,6 +70,14 @@ void* HDsContext::thread_gui(void* param){
     QApplication app(argc, NULL);
 
     qInstallMessageHandler(myLogHandler);
+
+#ifndef QT_NO_TRANSLATION
+    QString translatorFileName = QLatin1String("qt_");
+    translatorFileName += QLocale::system().name();
+    QTranslator *translator = new QTranslator(&app);
+    if (translator->load(translatorFileName, QLibraryInfo::location(QLibraryInfo::TranslationsPath)))
+        app.installTranslator(translator);
+#endif
 
     QFont font = QApplication::font();
     font.setPointSize(18);
@@ -482,7 +495,8 @@ int HDsContext::parse_comb_xml(const char* xml){
 
         ook::xml_parser::enum_childen(item, NULL);
         const ook::xml_element * e;
-        int x,y,w,h,a,u;
+        int x,y,w=-1,h=-1,a;
+        int u = 0;
         while(1)
         {
             e = ook::xml_parser::enum_childen(item, "param");
@@ -503,6 +517,10 @@ int HDsContext::parse_comb_xml(const char* xml){
             else if(n == "u")
                 u = atoi(v.c_str());
         }
+
+        if (w < 0 || h < 0)
+            continue;
+
         ci.items[ci.itemCnt].rc.setRect(x,y,w,h);
         ci.items[ci.itemCnt].a = a;
         ci.items[ci.itemCnt].v = u;

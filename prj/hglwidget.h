@@ -143,6 +143,7 @@ public:
 //<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 #include "hchangecolorwidget.h"
 #include "hexprewidget.h"
+#include "haddtextwidget.h"
 
 #include "hnetwork.h"
 class HCombGLWidget : public HGLWidget
@@ -176,12 +177,11 @@ public:
         OVERLAY = 10,
         PICTURE,
         TEXT,
-        TIME,
-        STOPWATCH,
         OVERLAY_END = 99,
 
         TEMPORARY = 100,
-        LABEL_ADD,
+        LABEL_ADD_PICTURE,
+        LABEL_ADD_TEXT,
         TEMPORARY_END = 199,
 
         ALL = 0xFF,
@@ -200,7 +200,7 @@ public:
 
     struct TargetInfo{
         TRAGET_TYPE type;
-        int         id; // for SCREEN is index, for OVERLAY is id, for TEMPORARY is index
+        int         id;
         QRect       rc;
 
         TargetInfo(){
@@ -231,7 +231,6 @@ public slots:
     void showExpre();
     void onExpreSelected(QString& filepath);
     void showText();
-    void showTime();
 
 protected:
     void initUI();
@@ -271,9 +270,11 @@ private:
     QLabel* m_labelDrag;
     QPixmap m_pixmapDrag;
 
-    QLabel* m_labelAdd;
+    QLabel* m_labelAddPicture;
     QPixmap m_pixmapAdd;
     PictureItem m_itemPicture;
+
+    QLabel* m_labelAddText;
     TextItem    m_itemText;
 };
 //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>

@@ -40,7 +40,8 @@ SOURCES += \
     hnumselectwidget.cpp \
     qglwidgetimpl.cpp \
     hexprewidget.cpp \
-    hnetwork.cpp
+    hnetwork.cpp \
+    haddtextwidget.cpp
 
 HEADERS += \
         ds.h \
@@ -59,7 +60,8 @@ HEADERS += \
     qglwidgetimpl.h \
     hexprewidget.h \
     hnetwork.h \
-    ds_def.h
+    ds_def.h \
+    haddtextwidget.h
 
 unix {
     target.path = /usr/lib

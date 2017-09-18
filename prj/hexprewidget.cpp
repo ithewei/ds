@@ -298,13 +298,6 @@ void HExpreWidget::initUI(){
 
     readConf();
     genUI();
-
-    m_fileDlg = new QFileDialog(this);
-    m_fileDlg->setFileMode(QFileDialog::AnyFile);
-    m_fileDlg->setViewMode(QFileDialog::Detail);
-    m_fileDlg->setDirectory("");
-    m_fileDlg->setWindowTitle(tr("导入图片"));
-    m_fileDlg->setNameFilter("Image files(*.png *.jpg *.bmp *.tga)");
 }
 
 void HExpreWidget::initConnect(){
@@ -418,27 +411,48 @@ void HExpreWidget::onRmdir(){
 }
 
 #include <QFileDialog>
-#include <QTimer>
+#include <QStandardPaths>
 void HExpreWidget::onAdd(QString& str){
-    qDebug("bbbbbbbbbbbbbbbbbbbbbbbb");
-    m_fileDlg->setVisible(true);
-    m_fileDlg->setWindowModality(Qt::ApplicationModal);
-    QTimer::singleShot(300, (QObject*)g_mainWdg, SLOT(show()) );
-    qDebug("ccccccccccccccccccccccccccc");
-    if (m_fileDlg->exec() == QDialog::Accepted){
-        qDebug("aaaaaaaaaaaaaaaaaaaaaaaaa");
-        QStringList files = m_fileDlg->selectedFiles();
+    const QFileDialog::Options options = QFileDialog::DontUseNativeDialog;
+    QList<QUrl> urls;
+         urls << QUrl::fromLocalFile("/var/www/transcoder/Upload")
+              << QUrl::fromLocalFile(QStandardPaths::standardLocations(QStandardPaths::PicturesLocation).first());
+
+//    QString selectedFilter;
+//    QStringList files = QFileDialog::getOpenFileNames(
+//                                NULL, tr("导入图片"),
+//                                "/var/www/transcoder/Upload",
+//                                tr("Image files(*.png *.jpg *.bmp *.tga)"),
+//                                &selectedFilter,
+//                                options);
+
+//    for (int i = 0; i < files.size(); ++i){
+//        QFileInfo file(files.at(i));
+//        QString newfile(str);
+//        newfile += "/";
+//        newfile += file.fileName();
+//        QFile::copy(files.at(i), newfile);
+//    }
+//    genUI();
+
+    QFileDialog dlg(NULL, tr("导入图片"),"/var/www/transcoder/Upload",tr("Image files(*.png *.jpg *.bmp *.tga)"));
+    dlg.setOptions(options);
+    dlg.setFileMode(QFileDialog::ExistingFiles);
+    dlg.setSidebarUrls(urls);
+    //dlg.showMaximized();
+    if (dlg.exec() == QDialog::Accepted){
+        QStringList files = dlg.selectedFiles();
+
         for (int i = 0; i < files.size(); ++i){
             QFileInfo file(files.at(i));
             QString newfile(str);
             newfile += "/";
             newfile += file.fileName();
             QFile::copy(files.at(i), newfile);
-        }
 
-        genUI();
-        show();
+            genUI();
+        }
     }
 
-    qDebug("eeeeeeeeeeeeeeeeeeeeeeee");
+    show();
 }

@@ -12,7 +12,7 @@
 #define CATEGORY_HEIGHT     48
 
 #define EXPRE_WIDTH         572
-#define EXPRE_HEIGHT        408
+#define EXPRE_HEIGHT        390
 
 #include <list>
 #include <QFileDialog>
@@ -59,8 +59,6 @@ public:
     QPushButton* m_btnRmdir;
 
     ExpreConf m_conf;
-
-    QFileDialog* m_fileDlg;
 };
 
 #endif // HEXPREWIDGET_H

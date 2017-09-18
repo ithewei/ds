@@ -4,9 +4,6 @@
 #include <QWidget>
 #include <QSlider>
 
-#define TOOLBAR_ICON_WIDTH          64
-#define TOOLBAR_ICON_HEIGHT         64
-
 class HToolbarWidget : public QWidget
 {
     Q_OBJECT
@@ -49,7 +46,6 @@ public:
     QPushButton* m_btnStop;
 
     QPushButton* m_btnText;
-    QPushButton* m_btnTime;
     QPushButton* m_btnExpre;
 
     QPushButton* m_btnOK;
