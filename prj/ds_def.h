@@ -82,9 +82,10 @@ struct PictureItem : public CommonItem{
 
 struct TextItem : public CommonItem{
     enum TYPE{
-        PLAIN_TEXT = 1,
+        LABEL = 1,
         TIME = 2,
         WATCHER = 3,
+        SUBTITLE = 4,
     };
 
     TYPE type;
@@ -93,7 +94,7 @@ struct TextItem : public CommonItem{
     int font_color;
 
     TextItem(){
-        type = PLAIN_TEXT;
+        type = LABEL;
         font_size = 32;
         font_color = 0xFFFFFF;
     }

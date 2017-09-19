@@ -752,6 +752,8 @@ void HCombGLWidget::onOverlayChanged(){
     for (int i = 0; i < texts.size(); ++i){
         m_vecTexts.push_back(scaleToDraw(texts[i].rc));
     }
+
+    m_target.type = NONE;
 }
 
 void HCombGLWidget::onUndo(){
@@ -804,23 +806,27 @@ void HCombGLWidget::showExpre(){
 
 void HCombGLWidget::showText(){
     HAddTextWidget dlg(this);
-    dlg.setWindowFlags(Qt::Dialog | Qt::FramelessWindowHint);
+    dlg.setWindowFlags(Qt::Dialog | Qt::FramelessWindowHint | Qt::X11BypassWindowManagerHint);
     int w = dlg.width();
     int h = dlg.height();
     dlg.move(x() + (width() - w)/2, y() + m_toolbar->y() - h);
     if (dlg.exec() == QDialog::Accepted){
         m_itemText = dlg.m_textItem;
+        qDebug(m_itemText.text.toLocal8Bit().constData());
         QString str;
-        if (m_itemText.type == TextItem::PLAIN_TEXT){
+        if (m_itemText.type == TextItem::LABEL){
             str = m_itemText.text;
         }else if (m_itemText.type == TextItem::TIME){
             str = QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss");
         }else if (m_itemText.type == TextItem::WATCHER){
-            str = QDateTime::currentDateTime().toString("HH:mm:ss.zzz");
+            str = "00:00:00:0";
+        }else if (m_itemText.type == TextItem::SUBTITLE){
+            str = "字幕";
         }
         m_labelAddText->setText(str);
         QFont font = m_labelAddText->font();
-        font.setPointSize(m_itemText.font_size);
+        font.setPointSize(m_itemText.font_size*0.8);
+        font.setLetterSpacing(QFont::AbsoluteSpacing,2);
         m_labelAddText->setFont(font);
 
         QFontMetrics fm(font);
@@ -992,8 +998,8 @@ void HCombGLWidget::mouseMoveEvent(QMouseEvent *e){
         // moveBegin
         if (isTemporary(m_target.type)){
             return;
-        }else if (isScreen(m_target.type) || m_target.type == PICTURE){
-            if (isScreen(m_target.type)){
+        }else if (isScreen(m_target.type) || m_target.type == PICTURE || m_target.type == TEXT){
+            if (isScreen(m_target.type) || m_target.type == TEXT){
                 m_pixmapDrag = grab(m_target.rc);
             }else if (m_target.type == PICTURE){
                 QString src = HNetwork::instance()->m_vecPictures[m_target.id].src;
@@ -1018,7 +1024,7 @@ void HCombGLWidget::mouseMoveEvent(QMouseEvent *e){
     if (m_labelDrag->isVisible()){
         QRect rc = m_labelDrag->geometry();
 
-        if (m_location & Center){
+        if (m_location & Center || m_target.type == TEXT){
             // move
             int w = m_labelDrag->width();
             int h = m_labelDrag->height();
@@ -1117,7 +1123,9 @@ void HCombGLWidget::mouseReleaseEvent(QMouseEvent *e){
             HNetwork::instance()->modifyPicture(item);
         }else if (m_target.type == TEXT){
             TextItem item = HNetwork::instance()->m_vecTexts[m_target.id];
-            item.rc = scaleToOrigin(m_labelDrag->geometry());
+            QRect rc = m_labelDrag->geometry();
+            rc.setY(height()-rc.y()-m_itemText.font_size);
+            item.rc = scaleToOrigin(rc);
             HNetwork::instance()->modifyText(item);
         }
 

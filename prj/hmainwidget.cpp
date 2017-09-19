@@ -2,7 +2,7 @@
 #include "hrcloader.h"
 
 HMainWidget::HMainWidget(HDsContext* ctx, QWidget *parent)
-    : QWidget(parent)
+    : QMainWindow(parent)
 {
     m_ctx = ctx;
     m_focusGLWdg = NULL;
@@ -17,7 +17,7 @@ HMainWidget::~HMainWidget(){
 
 void HMainWidget::initUI(){
     qDebug("");
-    setWindowFlags(Qt::Window | Qt::FramelessWindowHint | Qt::CustomizeWindowHint);
+    setWindowFlags(Qt::Window | Qt::FramelessWindowHint);
     setWindowTitle("Anystreaming Director");
     if (m_ctx->m_tLayout.width == 0 || m_ctx->m_tLayout.height == 0){
        m_ctx->m_tLayout.width  = QApplication::desktop()->width();

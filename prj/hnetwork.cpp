@@ -132,21 +132,35 @@ void HNetwork::onQueryOverlayReply(QNetworkReply* reply){
             }
 
             if (obj_text.contains("font_color")){
-                item.font_color = obj_text.value("font_color").toInt();
+                item.font_color = obj_text.value("font_color").toString().toInt(NULL, 16);
             }
 
             QFont font;
-            font.setPointSize(item.font_size);
+            font.setPointSize(item.font_size*0.8);
+            font.setLetterSpacing(QFont::AbsoluteSpacing, 2);
             QFontMetrics fm(font);
             int h = fm.height();
-            int w = fm.width(item.text);
+            int w = 256;
+            if (item.text.contains("__%%TIMER%%__")){
+                item.type = TextItem::TIME;
+                w = fm.width("2017-09-10 12:34:56");
+            }else if (item.text.contains("__%%WATCHER%%__")){
+                item.type = TextItem::WATCHER;
+                w = fm.width("00:00:00:0");
+            }else if (item.text.contains("__%%subtitle_index%%__")){
+                item.type = TextItem::SUBTITLE;
+                w = 360;
+            }else{
+                item.type = TextItem::LABEL;
+                w = fm.width(item.text);
+            }
             int x = item.rc.x();
             int y = g_dsCtx->m_tComb.height - item.rc.y() - h;//y_pos is from bottom
             item.rc.setRect(x,y,w,h);
 
             m_vecTexts.push_back(item);
-            qDebug("id=%d,x=%d,y=%d,w=%d,h=%d,content=%s,font_size=%d", item.id, item.rc.x(), item.rc.y(), item.rc.width(), item.rc.height(),
-                   item.text.toLocal8Bit().constData(),item.font_size);
+            qDebug("id=%d,x=%d,y=%d,w=%d,h=%d,content=%s,font_size=%d,font_color=0x%x", item.id, item.rc.x(), item.rc.y(), item.rc.width(), item.rc.height(),
+                   item.text.toLocal8Bit().constData(),item.font_size, item.font_color);
         }
     }
 
@@ -213,7 +227,23 @@ void HNetwork::modifyPicture(PictureItem& item){
 }
 
 void HNetwork::modifyText(TextItem& item){
-    //...
+    QJsonObject obj;
+    obj.insert("id", item.id);
+    obj.insert("x", item.rc.x());
+    obj.insert("y", item.rc.y());
+    obj.insert("font_size", item.font_size);
+    char color[32];
+    sprintf(color, "0x%x", item.font_color);
+    obj.insert("font_color", color);
+    QJsonArray arr;
+    arr.append(obj);
+    QJsonObject obj_pic;
+    obj_pic.insert("text", arr);
+    QJsonDocument dom;
+    dom.setObject(obj_pic);
+    QByteArray bytes = dom.toJson();
+    qDebug(bytes.constData());
+    m_nam_add_overlay->post(QNetworkRequest(QUrl(url_modify_overlay)), bytes);
 }
 
 void HNetwork::removePicture(PictureItem& item){

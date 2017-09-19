@@ -2,6 +2,7 @@
 #define HMAINWIDGET_H
 
 #include <QWidget>
+#include <QMainWindow>
 #include <QPushButton>
 #include <QTimer>
 #include "hmaintoolbar.h"
@@ -19,7 +20,7 @@
 #define DRAG_HEIGHT     108
 
 class HDsContext;
-class HMainWidget : public QWidget
+class HMainWidget : public QMainWindow
 {
     Q_OBJECT
 public:

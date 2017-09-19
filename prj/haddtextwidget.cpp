@@ -38,24 +38,27 @@ void HAddTextWidget::initUI(){
 //    grid->addWidget(m_cmbCategory, row, 1);
 
     m_grpCategory = new QButtonGroup(this);
-    QRadioButton* btnText = new QRadioButton("字幕");
-    btnText->setChecked(true);
+    QRadioButton* btnLabel = new QRadioButton("标签");
+    btnLabel->setChecked(true);
     QRadioButton* btnTime = new QRadioButton("时间");
     QRadioButton* btnWatch = new QRadioButton("秒表");
-    m_grpCategory->addButton(btnText, 0);
+    QRadioButton* btnSubtitle = new QRadioButton("字幕");
+    m_grpCategory->addButton(btnLabel, 0);
     m_grpCategory->addButton(btnTime, 1);
     m_grpCategory->addButton(btnWatch, 2);
+    m_grpCategory->addButton(btnSubtitle, 3);
     QHBoxLayout* hbox = new QHBoxLayout;
-    hbox->addWidget(btnText);
+    hbox->addWidget(btnLabel);
     hbox->addWidget(btnTime);
     hbox->addWidget(btnWatch);
+    hbox->addWidget(btnSubtitle);
     grid->addLayout(hbox, row, 1);
 
     ++row;
     label = new QLabel("文本:");
     grid->addWidget(label, row, 0);
     m_editText = new QLineEdit;
-    m_editText->setText("请添加需要的文本");
+    m_editText->setText("请输入标签文本");
     grid->addWidget(m_editText, row, 1);
 
     ++row;
@@ -93,7 +96,7 @@ void HAddTextWidget::initUI(){
     label = new QLabel("预览:");
     grid->addWidget(label, row, 0);
     m_labelPreview = new QLabel;
-    m_labelPreview->setStyleSheet("border:1px solid red;background-color: black");
+    m_labelPreview->setStyleSheet("border:1px solid red;background-color: #696969");
     QPalette pal = m_labelPreview->palette();
     pal.setColor(QPalette::Foreground, default_font_color);
     m_labelPreview->setPalette(pal);
@@ -136,10 +139,10 @@ void HAddTextWidget::selectFont(){
 #include <QFileDialog>
 void HAddTextWidget::selectColor(){
     QColorDialog::ColorDialogOptions options = QColorDialog::DontUseNativeDialog;
-    const QColor color = QColorDialog::getColor(Qt::white, NULL, "Select Color", options);
+    const QColor color = QColorDialog::getColor(Qt::white, this, "Select Color", options);
 
     if (color.isValid()) {
-        m_textItem.font_color = color.rgb();
+        m_textItem.font_color = color.rgb() & 0x00FFFFFF;
         qDebug("color=%x", m_textItem.font_color);
 
         QPalette pal = m_labelPreview->palette();
@@ -150,7 +153,7 @@ void HAddTextWidget::selectColor(){
 
 void HAddTextWidget::onCategoryChanged(int index){
     if (index == 0){
-        m_editText->setText("请添加需要的文本");
+        m_editText->setText("请输入标签文本");
         m_editText->setReadOnly(false);
     }else if (index == 1){
         m_editText->setText("yyyy-MM-dd HH:mm:ss");
@@ -158,6 +161,9 @@ void HAddTextWidget::onCategoryChanged(int index){
     }else if (index == 2){
         m_editText->setText("HH:mm:ss.zzz");
         m_editText->setReadOnly(true);
+    }else if (index == 3){
+        m_editText->setText("请输入字幕轨");
+        m_editText->setReadOnly(false);
     }
 }
 
@@ -171,7 +177,7 @@ void HAddTextWidget::accept(){
     //int iCategory = m_cmbCategory->currentIndex();
     int iCategory = m_grpCategory->checkedId();
     if (iCategory == 0){
-        m_textItem.type = TextItem::PLAIN_TEXT;
+        m_textItem.type = TextItem::LABEL;
         m_textItem.text = m_editText->text();
     }else if (iCategory == 1){
         m_textItem.type = TextItem::TIME;
@@ -179,6 +185,11 @@ void HAddTextWidget::accept(){
     }else if (iCategory == 2){
         m_textItem.type = TextItem::WATCHER;
         m_textItem.text = "__%%WATCHER%%__";
+    }else if (iCategory == 3){
+        m_textItem.type = TextItem::SUBTITLE;
+        m_textItem.text = "__%%subtitle_index%%__";
+        m_textItem.text += QString::asprintf("|%d", m_editText->text().toInt());
+        qDebug(m_textItem.text.toLocal8Bit().constData());
     }
     m_textItem.font_size = m_cmbFontSize->currentText().toInt();
 
