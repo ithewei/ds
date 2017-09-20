@@ -13,6 +13,7 @@ public:
 public:
     int startPlay();
     int stopPlay();
+    int pausePlay(bool bPause);
     int pushAudio(av_pcmbuff* pcm);
 
     static int playCallback(

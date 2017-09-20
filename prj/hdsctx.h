@@ -46,8 +46,15 @@ public:
 
     void setAction(int action) {
         qDebug("");
-        this->action = action;
-        emit actionChanged(action);
+        if (this->action != action){
+            this->action = action;
+            emit actionChanged(action);
+            if (action > 0){
+                m_audioPlay->pausePlay(false);
+            }else{
+                m_audioPlay->pausePlay(true);
+            }
+        }
     }
 
     void setTitle(int svrid, const char* title){

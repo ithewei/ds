@@ -192,7 +192,7 @@ void HNetwork::overlayText(TextItem& item){
     QJsonObject obj;
     obj.insert("content", item.text);
     obj.insert("x", item.rc.x());
-    obj.insert("y", item.rc.y());
+    obj.insert("y", g_dsCtx->m_tComb.height - item.rc.bottom());
     obj.insert("font_size", item.font_size);
     char color[32];
     sprintf(color, "0x%x", item.font_color);
@@ -230,7 +230,7 @@ void HNetwork::modifyText(TextItem& item){
     QJsonObject obj;
     obj.insert("id", item.id);
     obj.insert("x", item.rc.x());
-    obj.insert("y", item.rc.y());
+    obj.insert("y", g_dsCtx->m_tComb.height - item.rc.bottom());
     obj.insert("font_size", item.font_size);
     char color[32];
     sprintf(color, "0x%x", item.font_color);

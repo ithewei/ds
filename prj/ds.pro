@@ -80,3 +80,6 @@ LIBS += -lGL \
         -ltrans \
         -lportaudio
 
+DISTFILES += \
+    ../readme
+

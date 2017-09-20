@@ -78,6 +78,14 @@ int HAudioPlay::stopPlay(){
     }
 }
 
+int HAudioPlay::pausePlay(bool bPause){
+    if (bPause){
+        Pa_StopStream(m_pStream);
+    }else{
+        Pa_StartStream(m_pStream);
+    }
+}
+
 int HAudioPlay::pushAudio(av_pcmbuff* pcm){
     if (!m_pStream || m_pcmInfo.channels != pcm->channels ||
             m_pcmInfo.samplerate != pcm->samplerate){

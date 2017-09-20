@@ -435,7 +435,7 @@ void HExpreWidget::onAdd(QString& str){
 //    }
 //    genUI();
 
-    QFileDialog dlg(NULL, tr("导入图片"),"/var/www/transcoder/Upload",tr("Image files(*.png *.jpg *.bmp *.tga)"));
+    QFileDialog dlg(this, tr("导入图片"),"/var/www/transcoder/Upload",tr("Image files(*.png *.jpg *.bmp *.tga)"));
     dlg.setOptions(options);
     dlg.setFileMode(QFileDialog::ExistingFiles);
     dlg.setSidebarUrls(urls);

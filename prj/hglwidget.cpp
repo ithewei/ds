@@ -541,7 +541,6 @@ void HCombGLWidget::initConnect(){
     QObject::connect( m_toolbar->m_btnExpre, SIGNAL(clicked(bool)), this, SLOT(showExpre()) );
     QObject::connect( m_toolbar->m_btnOK, SIGNAL(clicked(bool)), this, SLOT(onOK()) );
     QObject::connect( m_toolbar->m_btnText, SIGNAL(clicked(bool)), this, SLOT(showText()) );
-    //m_toolbar->m_btnText->hide();
 
     QObject::connect( m_wdgExpre, SIGNAL(expreSelected(QString&)), this, SLOT(onExpreSelected(QString&)) );
 }
@@ -579,7 +578,7 @@ void HCombGLWidget::showToolWidgets(bool bShow){
 
     showTitlebar(bShow);
     showToolbar(bShow);
-    m_wdgTrash->setVisible(bShow);
+    //m_wdgTrash->setVisible(bShow);
 }
 
 void HCombGLWidget::onTargetChanged(){
@@ -791,7 +790,6 @@ void HCombGLWidget::onOK(){
         m_labelAddText->hide();
 
         QRect rc = m_labelAddText->geometry();
-        rc.setY(height()-rc.y()-m_itemText.font_size);
         m_itemText.rc = scaleToOrigin(rc);
         HNetwork::instance()->overlayText(m_itemText);
     }
@@ -1124,7 +1122,6 @@ void HCombGLWidget::mouseReleaseEvent(QMouseEvent *e){
         }else if (m_target.type == TEXT){
             TextItem item = HNetwork::instance()->m_vecTexts[m_target.id];
             QRect rc = m_labelDrag->geometry();
-            rc.setY(height()-rc.y()-m_itemText.font_size);
             item.rc = scaleToOrigin(rc);
             HNetwork::instance()->modifyText(item);
         }

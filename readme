@@ -3,7 +3,9 @@
 This is a project for ds(direcotor_service).
 Build by hewei in 2017/07/27
 
-# MODULE
+# 3rd librarys
 
-- OpenGL
 - QT
+- OpenGL(GL,GLU,GLEW,ftgl)
+- ffmpeg
+- portaudio

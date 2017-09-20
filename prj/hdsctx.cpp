@@ -66,6 +66,8 @@ void* HDsContext::thread_gui(void* param){
     qDebug("thread_gui start");
 
     HDsContext* pObj = (HDsContext*)param;
+
+    //qputenv("QT_IM_MODULE", QByteArray("qtvirtualkeyboard"));
     int argc = 0;
     QApplication app(argc, NULL);
 
@@ -135,7 +137,7 @@ HDsContext::HDsContext()
 {
     ref     = 1;
     init    = 0;
-    action  = 1;
+    action  = -1;
     display_mode = DISPLAY_MODE_TIMER;
     frames = 25;
     scale_mode = BIG_VIDEO_SCALE;
