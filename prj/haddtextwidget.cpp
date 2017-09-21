@@ -1,4 +1,5 @@
 #include "haddtextwidget.h"
+#include "hrcloader.h"
 
 HAddTextWidget::HAddTextWidget(QWidget *parent) : QDialog(parent)
 {
@@ -14,6 +15,7 @@ HAddTextWidget::HAddTextWidget(QWidget *parent) : QDialog(parent)
 #include <QRadioButton>
 void HAddTextWidget::initUI(){
     setFixedSize(QSize(480,390));
+    setStyleSheet("background-color: #FFFFF0");
 
     int default_font_size = 32;
     QColor default_font_color = Qt::white;
@@ -23,7 +25,7 @@ void HAddTextWidget::initUI(){
     QGridLayout* grid = new QGridLayout;
 
     grid->setHorizontalSpacing(20);
-    grid->setVerticalSpacing(10);
+    grid->setVerticalSpacing(20);
 
     int row = 0;
     QLabel* label = new QLabel("类别:");
@@ -96,23 +98,34 @@ void HAddTextWidget::initUI(){
     label = new QLabel("预览:");
     grid->addWidget(label, row, 0);
     m_labelPreview = new QLabel;
-    m_labelPreview->setStyleSheet("border:1px solid red;background-color: #696969");
+    m_labelPreview->setStyleSheet("background-color: #696969");
     QPalette pal = m_labelPreview->palette();
     pal.setColor(QPalette::Foreground, default_font_color);
     m_labelPreview->setPalette(pal);
     QFont font = m_labelPreview->font();
     font.setPointSize(default_font_size);
     m_labelPreview->setFont(font);
-    m_labelPreview->setText("12:34:56\n中文简体");
+    m_labelPreview->setText("123中文ABC");
     grid->addWidget(m_labelPreview, row, 1);
 
     ++row;
     hbox = new QHBoxLayout;
-    QPushButton* btnAccept = new QPushButton("确认");
+    //QPushButton* btnAccept = new QPushButton("确认");
+    QSize sz(64,64);
+    QPushButton* btnAccept = new QPushButton;
+    btnAccept->setFixedSize(sz);
+    btnAccept->setIconSize(sz);
+    btnAccept->setIcon(HRcLoader::instance()->icon_ok);
+    btnAccept->setFlat(true);
     QObject::connect( btnAccept, SIGNAL(clicked(bool)), this, SLOT(accept()) );
     hbox->addWidget(btnAccept);
 
-    QPushButton* btnReject = new QPushButton("取消");
+    //QPushButton* btnReject = new QPushButton("取消");
+    QPushButton* btnReject = new QPushButton;
+    btnReject->setFixedSize(sz);
+    btnReject->setIconSize(sz);
+    btnReject->setIcon(HRcLoader::instance()->icon_close);
+    btnReject->setFlat(true);
     QObject::connect( btnReject, SIGNAL(clicked(bool)), this, SLOT(reject()) );
     hbox->addWidget(btnReject);
     grid->addLayout(hbox, row, 1);

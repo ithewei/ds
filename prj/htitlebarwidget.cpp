@@ -19,7 +19,7 @@ void HTitlebarWidget::initUI(){
     QHBoxLayout* hbox = new QHBoxLayout;
 
     hbox->setContentsMargins(5,1,5,1);
-    hbox->setSpacing(10);
+    hbox->setSpacing(5);
 
     m_label = new QLabel;
     hbox->addWidget(m_label);
@@ -27,6 +27,22 @@ void HTitlebarWidget::initUI(){
     hbox->addStretch();
 
     QSize sz(48,48);
+
+    m_btnMicphoneOpened = new QPushButton;
+    m_btnMicphoneOpened->setFixedSize(sz);
+    m_btnMicphoneOpened->setIcon(QIcon(HRcLoader::instance()->icon_micphone));
+    m_btnMicphoneOpened->setIconSize(sz);
+    m_btnMicphoneOpened->setFlat(true);
+    m_btnMicphoneOpened->hide();
+    hbox->addWidget(m_btnMicphoneOpened);
+
+    m_btnMicphoneClosed = new QPushButton;
+    m_btnMicphoneClosed->setFixedSize(sz);
+    m_btnMicphoneClosed->setIcon(QIcon(HRcLoader::instance()->icon_micphone_gray));
+    m_btnMicphoneClosed->setIconSize(sz);
+    m_btnMicphoneClosed->setFlat(true);
+    m_btnMicphoneClosed->hide();
+    hbox->addWidget(m_btnMicphoneClosed);
 
     m_btnNum = new QPushButton;
     m_btnNum->setFixedSize(sz);
@@ -74,6 +90,12 @@ void HTitlebarWidget::initConnection(){
 
     QObject::connect( m_btnExitFullScreen, SIGNAL(clicked()), m_btnExitFullScreen, SLOT(hide()) );
     QObject::connect( m_btnExitFullScreen, SIGNAL(clicked()), m_btnFullScreen, SLOT(show()) );
+
+    QObject::connect( m_btnMicphoneOpened, SIGNAL(clicked()), m_btnMicphoneOpened, SLOT(hide()) );
+    QObject::connect( m_btnMicphoneOpened, SIGNAL(clicked()), m_btnMicphoneClosed, SLOT(show()) );
+
+    QObject::connect( m_btnMicphoneClosed, SIGNAL(clicked()), m_btnMicphoneClosed, SLOT(hide()) );
+    QObject::connect( m_btnMicphoneClosed, SIGNAL(clicked()), m_btnMicphoneOpened, SLOT(show()) );
 }
 
 bool HTitlebarWidget::event(QEvent *e){

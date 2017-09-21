@@ -352,22 +352,6 @@ int HDsContext::parse_layout_xml(const char* xml_file){
                 frames = 30;
             qDebug("frames=%d", frames);
         }
-
-        else if(n == "v_back")
-            std::string v_back = v;
-        else if(n == "v_mask")
-            std::string v_mask = v;
-        else if(n == "f_mask")
-            std::string f_mask = v;
-
-        else if(n == "printmask")
-            int printmask      = (unsigned int)strtoul(v.c_str(), NULL, 16);
-        else if(n == "pic_threshold")
-            int pic_threshold   = (unsigned int)strtoul(v.c_str(), NULL, 10);
-        else if(n == "detail_numb")
-            int detail_numb     = (unsigned int)strtoul(v.c_str(), NULL, 10);
-        else if(n == "pick.cb")
-            std::string urlHandleEvent = v;
     }
 
     int i = 0;
@@ -397,6 +381,7 @@ int HDsContext::parse_layout_xml(const char* xml_file){
             else if(n == "y")
                 y = atoi(v.c_str());
         }
+        w = w >> 2 << 2; // let w is 4的整数倍
         m_tLayout.items[i].setRect(x, y, w, h);
 
         ++i;
@@ -499,6 +484,7 @@ int HDsContext::parse_comb_xml(const char* xml){
         const ook::xml_element * e;
         int x,y,w=-1,h=-1,a;
         int u = 0;
+        int bV = 1;
         while(1)
         {
             e = ook::xml_parser::enum_childen(item, "param");
@@ -518,6 +504,8 @@ int HDsContext::parse_comb_xml(const char* xml){
                 a = atoi(v.c_str());
             else if(n == "u")
                 u = atoi(v.c_str());
+            else if (n == "v")
+                bV = atoi(v.c_str());
         }
 
         if (w < 0 || h < 0)
@@ -525,7 +513,8 @@ int HDsContext::parse_comb_xml(const char* xml){
 
         ci.items[ci.itemCnt].rc.setRect(x,y,w,h);
         ci.items[ci.itemCnt].a = a;
-        ci.items[ci.itemCnt].v = u;
+        ci.items[ci.itemCnt].v = bV;
+        ci.items[ci.itemCnt].srvid = u;
 
         ++ci.itemCnt;
         if(ci.itemCnt >= MAXNUM_COMB_SCREEN)
@@ -533,7 +522,7 @@ int HDsContext::parse_comb_xml(const char* xml){
     }
 
     for (int i = 0; i < MAXNUM_COMB_SCREEN; ++i){
-        m_preselect[i] = ci.items[i].v;
+        m_preselect[i] = ci.items[i].srvid;
     }
 
     if (memcmp(&m_tComb, &m_tCombUndo, sizeof(DsScreenInfo)) != 0){
@@ -800,12 +789,12 @@ void HDsContext::initFont(std::string& path, int h){
     }
 }
 
-void HDsContext::fullscreen(int svrid, bool bFull){
-    DsSvrItem* item = getItem(svrid);
+void HDsContext::fullscreen(int srvid, bool bFull){
+    DsSvrItem* item = getItem(srvid);
     if (item){
         item->mutex.lock();
         if (bFull){
-            filter = svrid;
+            filter = srvid;
             scale_mode = NONE_SCALE;
         }else{
             filter = 0;
@@ -817,15 +806,15 @@ void HDsContext::fullscreen(int svrid, bool bFull){
 }
 
 #include "hffmpeg.h"
-int HDsContext::push_video(int svrid, const av_picture* pic){
+int HDsContext::push_video(int srvid, const av_picture* pic){
     if (action < 1)
         return -1;
 
-    DsSvrItem* item = getItem(svrid);
+    DsSvrItem* item = getItem(srvid);
     if (!item || item->bPause)
         return -2;
 
-    if (filter != 0 && filter != svrid)
+    if (filter != 0 && filter != srvid)
         return -3;
 
     m_curTick = (unsigned int)chsc_gettick();
@@ -851,8 +840,13 @@ int HDsContext::push_video(int svrid, const av_picture* pic){
                 if (scale_mode == BIG_VIDEO_SCALE && h > 720){
 //                    item->tex_yuv.width = w >> 2;
 //                    item->tex_yuv.height = h >> 2;
-                    item->tex_yuv.width = m_tLayout.items[0].width() >> 2 << 2;
-                    item->tex_yuv.height = m_tLayout.items[0].height();
+                    if (srvid == 1){
+                        item->tex_yuv.width = m_tLayout.items[m_tLayout.itemCnt-1].width();
+                        item->tex_yuv.height = m_tLayout.items[m_tLayout.itemCnt-1].height();
+                    }else{
+                        item->tex_yuv.width = m_tLayout.items[0].width();
+                        item->tex_yuv.height = m_tLayout.items[0].height();
+                    }
                 }else{
                     item->tex_yuv.width = w;
                     item->tex_yuv.height = h;
@@ -919,13 +913,13 @@ int HDsContext::push_video(int svrid, const av_picture* pic){
     case OOK_FOURCC('U', 'Y', 'V', 'Y'):
     case OOK_FOURCC('H', 'D', 'Y', 'C'):
         {
-            if(!tex_yuv[svrid].data)
+            if(!tex_yuv[srvid].data)
             {
-                tex_yuv[svrid].data = (unsigned char *)malloc(w * h * 2);
+                tex_yuv[srvid].data = (unsigned char *)malloc(w * h * 2);
                 qDebug("malloc w=%d,h=%d", w, h);
             }
 
-            unsigned char * y   = tex_yuv[svrid].data;
+            unsigned char * y   = tex_yuv[srvid].data;
             unsigned char * s_y = pic->data[0];
             w <<= 1;
             for(int i = 0; i < h; i++)
@@ -934,9 +928,9 @@ int HDsContext::push_video(int svrid, const av_picture* pic){
                 y   += w;
                 s_y += pic->stride[0];
             }
-            tex_yuv[svrid].width = pic->width;
-            tex_yuv[svrid].height = pic->height;
-            //tex_yuv[svrid].type = GL_I420;
+            tex_yuv[srvid].width = pic->width;
+            tex_yuv[srvid].height = pic->height;
+            //tex_yuv[srvid].type = GL_I420;
         }
         break;
 #endif
@@ -944,24 +938,24 @@ int HDsContext::push_video(int svrid, const av_picture* pic){
         return -3000;
     }
 
-    emit videoPushed(svrid, bFirstFrame);
+    emit videoPushed(srvid, bFirstFrame);
 
     return 0;
 }
 
-int HDsContext::push_audio(int svrid, const av_pcmbuff* pcm){
+int HDsContext::push_audio(int srvid, const av_pcmbuff* pcm){
     if (action < 1 || m_tInit.audio < 1)
         return -1;
 
-    DsSvrItem* item = getItem(svrid);
+    DsSvrItem* item = getItem(srvid);
     if (!item || item->bPause)
         return -2;
 
-    if (filter != 0 && filter != svrid)
+    if (filter != 0 && filter != srvid)
         return -3;
 
     // just comb window play audio
-    if (svrid == 1){
+    if (srvid == 1){
         m_audioPlay->pushAudio((av_pcmbuff*)pcm);
     }
 
@@ -993,7 +987,7 @@ int HDsContext::push_audio(int svrid, const av_pcmbuff* pcm){
         item->bUpdateAverage = false;
     }
 
-    emit audioPushed(svrid);
+    emit audioPushed(srvid);
 
     return 0;
 }
@@ -1037,8 +1031,8 @@ void HDsContext::handle_event(DsEvent& event){
                    "director.pick\r\n"
                    "pos=%d\r\n"
                    "pos=%d (%d,%d)\r\n",
-                   event.src_svrid,
-                   event.dst_svrid,
+                   event.src_srvid,
+                   event.dst_srvid,
                    x,
                    y);
     }else if (event.type == DS_EVENT_STOP){
@@ -1046,7 +1040,7 @@ void HDsContext::handle_event(DsEvent& event){
                    512,
                    "director.dclick\r\n"
                    "pos=%d (%d,%d)\r\n",
-                   event.dst_svrid,
+                   event.dst_srvid,
                    x,
                    y);
     }
@@ -1054,4 +1048,16 @@ void HDsContext::handle_event(DsEvent& event){
     pthread_t pth;
     pthread_create(&pth, NULL, thread_http_req, szReq);
     pthread_detach(pth);
+}
+
+ScreenItem* HDsContext::getScreenItem(int srvid){
+    ScreenItem* item = NULL;
+    for (int i = 0; i < m_tComb.itemCnt; ++i){
+        if (m_tComb.items[i].srvid == srvid){
+            item = & m_tComb.items[i];
+            break;
+        }
+    }
+
+    return item;
 }

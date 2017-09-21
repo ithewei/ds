@@ -31,7 +31,7 @@ protected:
     void initUI();
     void initConnect();
     HGLWidget* getGLWdgByPos(int x, int y);
-    HGLWidget* getGLWdgBySvrid(int svrid);
+    HGLWidget* getGLWdgBysrvid(int srvid);
     virtual void keyPressEvent(QKeyEvent *event);
     virtual void mousePressEvent(QMouseEvent *event);
     virtual void mouseMoveEvent(QMouseEvent *event);
@@ -43,10 +43,10 @@ signals:
 public slots:
     void onTimerRepaint();
     void onActionChanged(int action);
-    void onvideoPushed(int svrid, bool bFirstFrame);
-    void onAudioPushed(int svrid);
-    void onStop(int svrid);
-    void onProgressNty(int svrid, int progress);
+    void onvideoPushed(int srvid, bool bFirstFrame);
+    void onAudioPushed(int srvid);
+    void onStop(int srvid);
+    void onProgressNty(int srvid, int progress);
 
     void onFullScreen();
     void onExitFullScreen();
@@ -55,12 +55,12 @@ public slots:
     void expand();
     void fold();
 
-    void changeScreenSource(int index, int svrid);
+    void changeScreenSource(int index, int srvid);
 
 private:
     HDsContext* m_ctx;
     std::vector<HGLWidget*> m_vecGLWdg;
-    std::map<int, HGLWidget*> m_mapGLWdg; // svrid : HGLWidget
+    std::map<int, HGLWidget*> m_mapGLWdg; // srvid : HGLWidget
     HGLWidget* m_focusGLWdg;
 
     QPushButton* m_btnLeftExpand;

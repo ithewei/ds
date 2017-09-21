@@ -107,6 +107,10 @@ void HRcLoader::loadIcon(){
     icon_ok.load(strImg.c_str());
 
     strImg = g_dsCtx->img_path;
+    strImg += "close.png";
+    icon_close.load(strImg.c_str());
+
+    strImg = g_dsCtx->img_path;
     strImg += "text.png";
     icon_text.load(strImg.c_str());
 
@@ -125,6 +129,14 @@ void HRcLoader::loadIcon(){
     strImg = g_dsCtx->img_path;
     strImg += "add.png";
     icon_add.load(strImg.c_str());
+
+    strImg = g_dsCtx->img_path;
+    strImg += "micphone.png";
+    icon_micphone.load(strImg.c_str());
+
+    strImg = g_dsCtx->img_path;
+    strImg += "micphone_gray.png";
+    icon_micphone_gray.load(strImg.c_str());
 }
 
 void HRcLoader::loadTexture(){

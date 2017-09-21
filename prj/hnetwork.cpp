@@ -5,6 +5,7 @@ const char* url_query_overlay = "http://localhost/transcoder/index.php?controlle
 const char* url_add_overlay = "http://localhost/transcoder/index.php?controller=logo&action=logoadd";
 const char* url_remove_overlay = "http://localhost/transcoder/index.php?controller=logo&action=ddelete";
 const char* url_modify_overlay = "http://localhost/transcoder/index.php?controller=logo&action=editpt";
+const char* url_micphone = "http://localhost/transcoder/index.php?controller=channels&action=voiceover";
 const char* dir_trans = "/var/www/transcoder/";
 
 HNetwork* HNetwork::s_pNetwork = NULL;
@@ -24,6 +25,9 @@ HNetwork::HNetwork() : QObject()
 
     m_nam_query_overlay = new QNetworkAccessManager(this);
     QObject::connect( m_nam_query_overlay, SIGNAL(finished(QNetworkReply*)), this, SLOT(onQueryOverlayReply(QNetworkReply*)) );
+
+    m_nam_micphone = new QNetworkAccessManager(this);
+    //QObject::connect( m_nam_micphone, SIGNAL(finished(QNetworkReply*)), this, SLOT(onQueryMicphone(QNetworkReply*)) );
 }
 
 HNetwork* HNetwork::instance(){
@@ -43,13 +47,15 @@ void HNetwork::exitInstance(){
 void HNetwork::postScreenInfo(DsScreenInfo& si){
     QJsonArray arr;
     for (int i = 0; i < si.itemCnt; ++i){
-        QJsonObject obj;
         ScreenItem& item = si.items[i];
+        if (!item.v)
+            continue;
+        QJsonObject obj;
         obj.insert("x", item.rc.x());
         obj.insert("y", item.rc.y());
         obj.insert("w", item.rc.width());
         obj.insert("h", item.rc.height());
-        obj.insert("v", item.v);
+        obj.insert("v", item.srvid);
         obj.insert("a", item.a ? 1 : 0);
         arr.append(obj);
     }
@@ -270,5 +276,27 @@ void HNetwork::removeText(TextItem& item){
     QByteArray bytes = dom.toJson();
     qDebug(bytes.constData());
     m_nam_remove_overlay->post(QNetworkRequest(QUrl(url_remove_overlay)), bytes);
+}
+
+//void HNetwork::onQueryMicphone(QNetworkReply* reply){
+//    QJsonDocument doc = QJsonDocument::fromJson(reply->readAll());
+//    if (doc.isObject()){
+//        QJsonObject obj = doc.object();
+//        if (obj.contains("id")){
+//            int micphone = obj.value("id").toInt();
+//        }
+//    }
+
+//    reply->deleteLater();
+//}
+
+//void HNetwork::queryMicphone(){
+//    m_nam_micphone->get(QNetworkRequest(QUrl(url_micphone)));
+//}
+
+void HNetwork::setMicphone(int srvid){
+    QString json = QString::asprintf("{\"id\":%d}", srvid);
+    qDebug(json.toUtf8().constData());
+    m_nam_micphone->post(QNetworkRequest(QUrl(url_micphone)), json.toUtf8());
 }
 

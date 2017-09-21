@@ -42,11 +42,14 @@ public:
     QPixmap icon_undo;
     QPixmap icon_expre;
     QPixmap icon_ok;
+    QPixmap icon_close;
     QPixmap icon_text;
     QPixmap icon_time;
     QPixmap icon_mkdir;
     QPixmap icon_rmdir;
     QPixmap icon_add;
+    QPixmap icon_micphone;
+    QPixmap icon_micphone_gray;
 
     Texture tex_sound;
     Texture tex_numr[MAX_NUM_ICON];

@@ -23,6 +23,8 @@ public:
     QPushButton* m_btnStartRecord;
     QPushButton* m_btnStopRecord;
 
+    QPushButton* m_btnMicphoneOpened;
+    QPushButton* m_btnMicphoneClosed;
     QPushButton* m_btnNum;
 };
 

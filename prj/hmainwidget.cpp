@@ -30,16 +30,16 @@ void HMainWidget::initUI(){
     setPalette(pal);
 
     for (int i = 0; i < m_ctx->m_tLayout.itemCnt; ++i){
-        // last is comb window,svrid = 1
+        // last is comb window,srvid = 1
 
         HGLWidget* wdg;
         if (i == m_ctx->m_tLayout.itemCnt - 1){
             wdg = new HCombGLWidget(this);
-            wdg->svrid = 1;
+            wdg->srvid = 1;
             m_mapGLWdg[1] = wdg;
         }else{
             wdg = new HGeneralGLWidget(this);
-            wdg->svrid = 0;
+            wdg->srvid = 0;
         }
         wdg->setGeometry(m_ctx->m_tLayout.items[i]);
         wdg->setTitleColor(m_ctx->m_tInit.titcolor);
@@ -103,19 +103,19 @@ void HMainWidget::initConnect(){
     }
 }
 
-HGLWidget* HMainWidget::getGLWdgBySvrid(int svrid){
-    std::map<int, HGLWidget*>::iterator iter = m_mapGLWdg.find(svrid);
+HGLWidget* HMainWidget::getGLWdgBysrvid(int srvid){
+    std::map<int, HGLWidget*>::iterator iter = m_mapGLWdg.find(srvid);
     if (iter != m_mapGLWdg.end()){
         HGLWidget* wdg = iter->second;
-        if (wdg->svrid == svrid){
+        if (wdg->srvid == srvid){
             return wdg;
         }
     }
 
     for (int i = 0; i < m_vecGLWdg.size(); ++i){
-        if (m_vecGLWdg[i]->svrid == 0){
-            m_vecGLWdg[i]->svrid = svrid;
-            m_mapGLWdg[svrid] = m_vecGLWdg[i];
+        if (m_vecGLWdg[i]->srvid == 0){
+            m_vecGLWdg[i]->srvid = srvid;
+            m_mapGLWdg[srvid] = m_vecGLWdg[i];
             return m_vecGLWdg[i];
         }
     }
@@ -164,7 +164,7 @@ void HMainWidget::mouseMoveEvent(QMouseEvent *event){
     if (!wdg)
         return;
 
-    if (wdg->status(MAJOR_STATUS_MASK) == PLAYING && !m_labelDrag->isVisible() && wdg->svrid != 1){
+    if (wdg->status(MAJOR_STATUS_MASK) == PLAYING && !m_labelDrag->isVisible() && wdg->srvid != 1){
         m_dragSrcWdg = wdg;
         m_labelDrag->setPixmap( QPixmap::fromImage(wdg->grabFramebuffer()).scaled(DRAG_WIDTH, DRAG_HEIGHT) );
         m_labelDrag->show();
@@ -184,18 +184,18 @@ void HMainWidget::mouseReleaseEvent(QMouseEvent *event){
             return;
 
         if (m_dragSrcWdg != wdg){
-            if (wdg->svrid == 1){
+            if (wdg->srvid == 1){
                 // pick comb's source
 //                DsEvent evt;
 //                evt.type = DS_EVENT_PICK;
-//                evt.src_svrid = m_dragSrcWdg->svrid;
-//                evt.dst_svrid = 1;
+//                evt.src_srvid = m_dragSrcWdg->srvid;
+//                evt.dst_srvid = 1;
 //                evt.dst_x = event->x() - wdg->x();
 //                evt.dst_y = event->y() - wdg->y();
 //                m_ctx->handle_event(evt);
                 HCombGLWidget::TargetInfo target = ((HCombGLWidget*)wdg)->getTargetByPos(
                             QPoint(event->x()-wdg->x(), event->y()-wdg->y()), HCombGLWidget::SCREEN);
-                changeScreenSource(target.id, m_dragSrcWdg->svrid);
+                changeScreenSource(target.id, m_dragSrcWdg->srvid);
             }else{
                 // exchange position
                 QRect rcSrc = m_dragSrcWdg->geometry();
@@ -214,7 +214,7 @@ void HMainWidget::mouseReleaseEvent(QMouseEvent *event){
 void HMainWidget::onTimerRepaint(){
     for (int i = 0; i < m_vecGLWdg.size(); ++i){
         HGLWidget* wdg = m_vecGLWdg[i];
-        DsSvrItem* item = m_ctx->getItem(wdg->svrid);
+        DsSvrItem* item = m_ctx->getItem(wdg->srvid);
         if (wdg->status(MAJOR_STATUS_MASK) == PLAYING && item && item->v_input != wdg->m_nPreFrame){
             wdg->update();
         }
@@ -236,8 +236,8 @@ void HMainWidget::onActionChanged(int action){
     }
 }
 
-void HMainWidget::onvideoPushed(int svrid, bool bFirstFrame){
-    HGLWidget* wdg = getGLWdgBySvrid(svrid);
+void HMainWidget::onvideoPushed(int srvid, bool bFirstFrame){
+    HGLWidget* wdg = getGLWdgBysrvid(srvid);
     if (wdg == NULL)
         return;
 
@@ -248,8 +248,8 @@ void HMainWidget::onvideoPushed(int svrid, bool bFirstFrame){
     wdg->setStatus(PLAYING | wdg->status(MINOR_STATUS_MASK) | PLAY_VIDEO, bRepainter);
 }
 
-void HMainWidget::onAudioPushed(int svrid){
-    HGLWidget* wdg = getGLWdgBySvrid(svrid);
+void HMainWidget::onAudioPushed(int srvid){
+    HGLWidget* wdg = getGLWdgBysrvid(srvid);
     if (wdg == NULL)
         return;
 
@@ -257,8 +257,8 @@ void HMainWidget::onAudioPushed(int svrid){
     wdg->setStatus(PLAYING | wdg->status(MINOR_STATUS_MASK) | PLAY_AUDIO, false);
 }
 
-void HMainWidget::onStop(int svrid){
-    HGLWidget* wdg = getGLWdgBySvrid(svrid);
+void HMainWidget::onStop(int srvid){
+    HGLWidget* wdg = getGLWdgBysrvid(srvid);
     if (wdg == NULL)
         return;
 
@@ -266,8 +266,8 @@ void HMainWidget::onStop(int svrid){
     wdg->onStop();
 }
 
-void HMainWidget::onProgressNty(int svrid, int progress){
-    HGLWidget* wdg = getGLWdgBySvrid(svrid);
+void HMainWidget::onProgressNty(int srvid, int progress){
+    HGLWidget* wdg = getGLWdgBysrvid(srvid);
     if (wdg == NULL)
         return;
 
@@ -294,7 +294,7 @@ void HMainWidget::onFullScreen(){
     pSender->setWindowFlags(Qt::Window);
     pSender->showFullScreen();
 
-    m_ctx->fullscreen(((HGLWidget*)pSender)->svrid, true);
+    m_ctx->fullscreen(((HGLWidget*)pSender)->srvid, true);
 }
 
 void HMainWidget::onExitFullScreen(){
@@ -304,7 +304,7 @@ void HMainWidget::onExitFullScreen(){
     pSender->setGeometry(m_rcSavedGeometry);
     pSender->showNormal();
 
-    m_ctx->fullscreen(((HGLWidget*)pSender)->svrid, false);
+    m_ctx->fullscreen(((HGLWidget*)pSender)->srvid, false);
 }
 
 void HMainWidget::onGLWdgClicked(){
@@ -322,11 +322,11 @@ void HMainWidget::onGLWdgClicked(){
     }
 }
 
-void HMainWidget::changeScreenSource(int index, int svrid){
+void HMainWidget::changeScreenSource(int index, int srvid){
     DsScreenInfo si = m_ctx->m_tComb;
-    if (si.items[index].v != svrid){
-        si.items[index].v = svrid;
-        if (svrid == 0){
+    if (si.items[index].srvid != srvid){
+        si.items[index].srvid = srvid;
+        if (srvid == 0){
             si.items[index].a = false;
         }
         HNetwork::instance()->postScreenInfo(si);

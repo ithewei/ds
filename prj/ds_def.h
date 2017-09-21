@@ -56,11 +56,11 @@ struct DsLayoutInfo{
 struct DsEvent{
     int type;
 
-    int src_svrid;
+    int src_srvid;
     int src_x;
     int src_y;
 
-    int dst_svrid;
+    int dst_srvid;
     int dst_x;
     int dst_y;
 };
@@ -71,7 +71,8 @@ struct CommonItem{
 };
 
 struct ScreenItem : public CommonItem{
-    int v;
+    int srvid;
+    bool v;
     bool a;
     QString src;
 };

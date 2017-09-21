@@ -35,14 +35,16 @@ public:
     void start_gui_thread();
     void handle_event(DsEvent& event);
 
-    DsSvrItem* getItem(int svrid){
-        if (svrid < 1 || svrid > DIRECTOR_MAX_SERVS)
+    ScreenItem* getScreenItem(int srvid);
+
+    DsSvrItem* getItem(int srvid){
+        if (srvid < 1 || srvid > DIRECTOR_MAX_SERVS)
             return NULL;
-        return &m_tItems[svrid-1];
+        return &m_tItems[srvid-1];
     }
 
-    int push_video(int svrid, const av_picture* pic);
-    int push_audio(int svrid, const av_pcmbuff* pcm);
+    int push_video(int srvid, const av_picture* pic);
+    int push_audio(int srvid, const av_pcmbuff* pcm);
 
     void setAction(int action) {
         qDebug("");
@@ -57,31 +59,31 @@ public:
         }
     }
 
-    void setTitle(int svrid, const char* title){
-        DsSvrItem* item = getItem(svrid);
+    void setTitle(int srvid, const char* title){
+        DsSvrItem* item = getItem(srvid);
         if (item){
             item->title = title;
         }
     }
-    void stop(int svrid){
+    void stop(int srvid){
         qDebug("");
-        DsSvrItem* item = getItem(svrid);
+        DsSvrItem* item = getItem(srvid);
         if (item){
             item->init();
         }
-        emit sigStop(svrid);
+        emit sigStop(srvid);
     }
 
-    void fullscreen(int svrid, bool bFull);
+    void fullscreen(int srvid, bool bFull);
 
 signals:
     void actionChanged(int action);
-    void videoPushed(int svrid, bool bFirstFrame);
-    void audioPushed(int svrid);
-    void sigStop(int svrid);
+    void videoPushed(int srvid, bool bFirstFrame);
+    void audioPushed(int srvid);
+    void sigStop(int srvid);
     void quit();
     void combChanged();
-    void sigProgressNty(int svrid, int progress);
+    void sigProgressNty(int srvid, int progress);
 
 public slots:
 

@@ -88,7 +88,7 @@ protected:
     virtual void mouseMoveEvent(QMouseEvent* e);
 
 public:
-    int svrid;
+    int srvid;
 
     bool m_bDrawInfo;
 
@@ -122,6 +122,8 @@ public slots:
     void onNumSelected(int num);
     void onNumCanceled(int num);
     void showNumSelector();
+    void openMicphone();
+    void closeMicphone();
 
     void onProgressChanged(int progress);
 

@@ -28,11 +28,11 @@ void HGLWidget::showToolWidgets(bool bShow){
 }
 
 void HGLWidget::onStart(){
-    DsSvrItem* item = g_dsCtx->getItem(svrid);
+    DsSvrItem* item = g_dsCtx->getItem(srvid);
     if (item && item->ifcb){
-        qDebug("svrid=%d startplay", svrid);
+        qDebug("srvid=%d startplay", srvid);
         //item->bPause = false;
-        if (svrid == 1){
+        if (srvid == 1){
             item->ifcb->onservice_callback(ifservice_callback::e_service_cb_chr, libchar(), OOK_FOURCC('P', 'A', 'U', 'S'), 0, 0, NULL);
         }else{
             item->ifcb->onservice_callback(ifservice_callback::e_service_cb_pause, libchar(), OOK_FOURCC('P', 'A', 'U', 'S'), 0, 0, NULL);
@@ -42,11 +42,11 @@ void HGLWidget::onStart(){
 }
 
 void HGLWidget::onPause(){    
-    DsSvrItem* item = g_dsCtx->getItem(svrid);
+    DsSvrItem* item = g_dsCtx->getItem(srvid);
     if (item && item->ifcb){
-        qDebug("svrid=%d ifservice_callback::e_service_cb_pause", svrid);
+        qDebug("srvid=%d ifservice_callback::e_service_cb_pause", srvid);
         //item->bPause = true;
-        if (svrid == 1){
+        if (srvid == 1){
             item->ifcb->onservice_callback(ifservice_callback::e_service_cb_chr, libchar(), OOK_FOURCC('P', 'A', 'U', 'S'), 0, 0, NULL);
         }else{
             item->ifcb->onservice_callback(ifservice_callback::e_service_cb_pause, libchar(), OOK_FOURCC('P', 'A', 'U', 'S'), 0, 1, NULL);
@@ -60,8 +60,8 @@ void HGLWidget::onStop(){
     m_mapIcons.clear();
     m_nPreFrame = 0;
 
-    if (svrid != 1){// svrid=1 is comb,reserve
-        svrid = 0;
+    if (srvid != 1){// srvid=1 is comb,reserve
+        srvid = 0;
     }
 }
 
@@ -70,7 +70,7 @@ void HGLWidget::onStop(){
 #include <QDateTime>
 void HGLWidget::snapshot(){
     //test snapshot
-    DsSvrItem* item = g_dsCtx->getItem(svrid);
+    DsSvrItem* item = g_dsCtx->getItem(srvid);
     if (item && item->tex_yuv.data){
         static const char* prefix = "/var/transcoder/snapshot/";
         QDir dir;
@@ -159,7 +159,7 @@ Texture* HGLWidget::getTexture(int type){
 }
 
 void HGLWidget::drawVideo(){
-    DsSvrItem* item = g_dsCtx->getItem(svrid);
+    DsSvrItem* item = g_dsCtx->getItem(srvid);
     if (item){
         item->mutex.lock();
         if (item->tex_yuv.data && item->tex_yuv.width > 0 && item->tex_yuv.height > 0){
@@ -172,7 +172,7 @@ void HGLWidget::drawVideo(){
 
 void HGLWidget::drawAudio(){
     // draw sound average
-    DsSvrItem* item = g_dsCtx->getItem(svrid);
+    DsSvrItem* item = g_dsCtx->getItem(srvid);
     if (item){
         DrawInfo di;
         if (item->a_channels > 1){
@@ -222,7 +222,7 @@ void HGLWidget::drawIcon(){
 }
 
 void HGLWidget::drawTitle(){
-    DsSvrItem* item = g_dsCtx->getItem(svrid);
+    DsSvrItem* item = g_dsCtx->getItem(srvid);
     if (item && item->title.length() > 0){
         DrawInfo di;
         di.left = 2;
@@ -326,6 +326,8 @@ void HGeneralGLWidget::initConnect(){
     //QObject::connect( m_titlebar->m_btnStartRecord, SIGNAL(clicked(bool)), this, SLOT(startRecord()) );
     //QObject::connect( m_titlebar->m_btnStopRecord, SIGNAL(clicked(bool)), this, SLOT(stopRecord()) );
     QObject::connect( m_titlebar->m_btnNum, SIGNAL(clicked(bool)), this, SLOT(showNumSelector()) );
+    QObject::connect( m_titlebar->m_btnMicphoneOpened, SIGNAL(clicked(bool)), this, SLOT(closeMicphone()) );
+    QObject::connect( m_titlebar->m_btnMicphoneClosed, SIGNAL(clicked(bool)), this, SLOT(openMicphone()) );
 
     QObject::connect( m_toolbar->m_btnStart, SIGNAL(clicked(bool)), this, SLOT(onStart()) );
     QObject::connect( m_toolbar->m_btnPause, SIGNAL(clicked(bool)), this, SLOT(onPause()) );
@@ -337,9 +339,22 @@ void HGeneralGLWidget::initConnect(){
 
 void HGeneralGLWidget::showTitlebar(bool bShow){
     if (bShow){
-        DsSvrItem* item = g_dsCtx->getItem(svrid);
+        DsSvrItem* item = g_dsCtx->getItem(srvid);
         if (item){
             m_titlebar->m_label->setText(item->title.c_str());
+        }
+
+        m_titlebar->m_btnMicphoneOpened->hide();
+        m_titlebar->m_btnMicphoneClosed->hide();
+        if (m_status & PLAY_AUDIO){
+            ScreenItem* screen = g_dsCtx->getScreenItem(srvid);
+            if (screen){
+                if (!screen->v && screen->a){
+                    m_titlebar->m_btnMicphoneOpened->show();
+                }
+            }else{
+                m_titlebar->m_btnMicphoneClosed->show();
+            }
         }
         m_titlebar->show();
     }else{
@@ -358,7 +373,7 @@ void HGeneralGLWidget::showToolbar(bool bShow){
             m_toolbar->m_btnPause->hide();
         }
 
-        if (g_dsCtx->getItem(svrid)->src_type == SRC_TYPE_FILE){
+        if (g_dsCtx->getItem(srvid)->src_type == SRC_TYPE_FILE){
             m_toolbar->m_slider->show();
         }else{
             m_toolbar->m_slider->hide();
@@ -378,16 +393,16 @@ void HGeneralGLWidget::showToolWidgets(bool bShow){
     }
 
     showTitlebar(bShow);
-    DsSvrItem* item = g_dsCtx->getItem(svrid);
+    DsSvrItem* item = g_dsCtx->getItem(srvid);
     if (item){
-        if (g_dsCtx->getItem(svrid)->src_type == SRC_TYPE_FILE){
+        if (g_dsCtx->getItem(srvid)->src_type == SRC_TYPE_FILE){
             showToolbar(bShow);
         }
     }
 }
 
 void HGeneralGLWidget::onNumSelected(int num){
-    g_dsCtx->m_preselect[num-1] = svrid;
+    g_dsCtx->m_preselect[num-1] = srvid;
 }
 
 void HGeneralGLWidget::onNumCanceled(int num){
@@ -396,7 +411,7 @@ void HGeneralGLWidget::onNumCanceled(int num){
 
 void HGeneralGLWidget::showNumSelector(){
     for (int i = 0; i < MAX_NUM_ICON; ++i){
-        if (g_dsCtx->m_preselect[i] == svrid){
+        if (g_dsCtx->m_preselect[i] == srvid){
             m_numSelector->m_numSelects[i]->hide();
             m_numSelector->m_numCancels[i]->show();
         }else{
@@ -411,11 +426,19 @@ void HGeneralGLWidget::showNumSelector(){
 }
 
 void HGeneralGLWidget::onProgressChanged(int progress){
-    DsSvrItem* item = g_dsCtx->getItem(svrid);
+    DsSvrItem* item = g_dsCtx->getItem(srvid);
     if (item && item->ifcb){
-        qDebug("svrid=%d progress=%d ifservice_callback::e_service_cb_playratio", svrid, progress);
+        qDebug("srvid=%d progress=%d ifservice_callback::e_service_cb_playratio", srvid, progress);
         item->ifcb->onservice_callback(ifservice_callback::e_service_cb_playratio, libchar(), 0, 0, progress, NULL);
     }
+}
+
+void HGeneralGLWidget::openMicphone(){
+    HNetwork::instance()->setMicphone(srvid);
+}
+
+void HGeneralGLWidget::closeMicphone(){
+    HNetwork::instance()->setMicphone(0);
 }
 
 void HGeneralGLWidget::drawSelectNum(){
@@ -425,7 +448,7 @@ void HGeneralGLWidget::drawSelectNum(){
     di.left = 1;
     di.right = 48;
     for (int i = 0; i < MAX_NUM_ICON; ++i){
-        if (g_dsCtx->m_preselect[i] == svrid){
+        if (g_dsCtx->m_preselect[i] == srvid){
             drawTex(&HRcLoader::instance()->tex_numr[i], &di);
             di.left += 48;
             di.right += 48;
@@ -434,16 +457,15 @@ void HGeneralGLWidget::drawSelectNum(){
 }
 
 void HGeneralGLWidget::drawSound(){
-    for (int i = 0; i < g_dsCtx->m_tComb.itemCnt; ++i){
-        if (g_dsCtx->m_tComb.items[i].v == svrid && g_dsCtx->m_tComb.items[i].a){
-            DrawInfo diAudio;
-            Texture *tex = getTexture(HAVE_AUDIO);
-            diAudio.right = width() - 1;
-            diAudio.top = 1;
-            diAudio.left = diAudio.right - 32 + 1;
-            diAudio.bottom = diAudio.top + 32 - 1;
-            drawTex(tex, &diAudio);
-        }
+    ScreenItem* item = g_dsCtx->getScreenItem(srvid);
+    if (item && item->a){
+        DrawInfo di;
+        Texture *tex = getTexture(HAVE_AUDIO);
+        di.right = width() - 1;
+        di.top = 1;
+        di.left = di.right - 32 + 1;
+        di.bottom = di.top + 32 - 1;
+        drawTex(tex, &di);
     }
 }
 
@@ -547,7 +569,7 @@ void HCombGLWidget::initConnect(){
 
 void HCombGLWidget::showTitlebar(bool bShow){
     if (bShow){
-        DsSvrItem* item = g_dsCtx->getItem(svrid);
+        DsSvrItem* item = g_dsCtx->getItem(srvid);
         if (item){
             m_titlebar->m_label->setText(item->title.c_str());
         }
@@ -722,9 +744,11 @@ QRect HCombGLWidget::scaleToDraw(QRect rc){
 void HCombGLWidget::onCombChanged(){
     m_vecScreens.clear();
     for (int i = 0; i < g_dsCtx->m_tComb.itemCnt; ++i){
-        QRect rc = g_dsCtx->m_tComb.items[i].rc;
-        rc = scaleToDraw(rc);
-        m_vecScreens.push_back(rc);
+        if (g_dsCtx->m_tComb.items[i].v){
+            QRect rc = g_dsCtx->m_tComb.items[i].rc;
+            rc = scaleToDraw(rc);
+            m_vecScreens.push_back(rc);
+        }
     }
 
     // add comb_type for PIP not move main screen
@@ -1142,14 +1166,14 @@ void HCombGLWidget::reposComb(int index, QRect rc){
 void HCombGLWidget::stopComb(int index){
 //    DsEvent evt;
 //    evt.type = DS_EVENT_STOP;
-//    evt.dst_svrid = 1;
+//    evt.dst_srvid = 1;
 //    evt.dst_x = m_ptMousePressed.x();
 //    evt.dst_y = m_ptMousePressed.y();
 //    g_dsCtx->handle_event(evt);
 
     DsScreenInfo si = g_dsCtx->m_tComb;
-    if (si.items[index].v != 0){
-        si.items[index].v = 0;
+    if (si.items[index].srvid != 0){
+        si.items[index].srvid = 0;
         si.items[index].a = false;
         HNetwork::instance()->postScreenInfo(si);
     }
