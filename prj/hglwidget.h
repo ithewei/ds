@@ -233,6 +233,7 @@ public slots:
     void showExpre();
     void onExpreSelected(QString& filepath);
     void showText();
+    void onSetting();
 
 protected:
     void initUI();

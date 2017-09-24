@@ -4,7 +4,6 @@
 #include <QWebChannel>
 
 const char* toolbar_url = "http://localhost/transcoder/audio/index.html";
-//const char* toolbar_url = "https://www.baidu.com";
 
 HWebContext::HWebContext()
  : QObject()

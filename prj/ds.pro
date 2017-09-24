@@ -41,7 +41,8 @@ SOURCES += \
     qglwidgetimpl.cpp \
     hexprewidget.cpp \
     hnetwork.cpp \
-    haddtextwidget.cpp
+    haddtextwidget.cpp \
+    hsettingwidget.cpp
 
 HEADERS += \
         ds.h \
@@ -61,7 +62,8 @@ HEADERS += \
     hexprewidget.h \
     hnetwork.h \
     ds_def.h \
-    haddtextwidget.h
+    haddtextwidget.h \
+    hsettingwidget.h
 
 unix {
     target.path = /usr/lib

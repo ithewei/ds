@@ -137,6 +137,26 @@ void HRcLoader::loadIcon(){
     strImg = g_dsCtx->img_path;
     strImg += "micphone_gray.png";
     icon_micphone_gray.load(strImg.c_str());
+
+    strImg = g_dsCtx->img_path;
+    strImg += "setting.png";
+    icon_setting.load(strImg.c_str());
+
+    strImg = g_dsCtx->img_path;
+    strImg += "mute.png";
+    icon_mute.load(strImg.c_str());
+
+    strImg = g_dsCtx->img_path;
+    strImg += "voice.png";
+    icon_voice.load(strImg.c_str());
+
+    strImg = g_dsCtx->img_path;
+    strImg += "zoomin.png";
+    icon_zoomin.load(strImg.c_str());
+
+    strImg = g_dsCtx->img_path;
+    strImg += "zoomout.png";
+    icon_zoomout.load(strImg.c_str());
 }
 
 void HRcLoader::loadTexture(){

@@ -19,7 +19,7 @@ void HTitlebarWidget::initUI(){
     QHBoxLayout* hbox = new QHBoxLayout;
 
     hbox->setContentsMargins(5,1,5,1);
-    hbox->setSpacing(5);
+    hbox->setSpacing(20);
 
     m_label = new QLabel;
     hbox->addWidget(m_label);
@@ -27,6 +27,13 @@ void HTitlebarWidget::initUI(){
     hbox->addStretch();
 
     QSize sz(48,48);
+
+    m_btnNum = new QPushButton;
+    m_btnNum->setFixedSize(sz);
+    m_btnNum->setIcon(QIcon(HRcLoader::instance()->icon_num));
+    m_btnNum->setIconSize(sz);
+    m_btnNum->setFlat(true);
+    hbox->addWidget(m_btnNum);
 
     m_btnMicphoneOpened = new QPushButton;
     m_btnMicphoneOpened->setFixedSize(sz);
@@ -44,18 +51,28 @@ void HTitlebarWidget::initUI(){
     m_btnMicphoneClosed->hide();
     hbox->addWidget(m_btnMicphoneClosed);
 
-    m_btnNum = new QPushButton;
-    m_btnNum->setFixedSize(sz);
-    m_btnNum->setIcon(QIcon(HRcLoader::instance()->icon_num));
-    m_btnNum->setIconSize(sz);
-    m_btnNum->setFlat(true);
-    hbox->addWidget(m_btnNum);
+    m_btnVoice = new QPushButton;
+    m_btnVoice->setFixedSize(sz);
+    m_btnVoice->setIcon(QIcon(HRcLoader::instance()->icon_voice));
+    m_btnVoice->setIconSize(sz);
+    m_btnVoice->setFlat(true);
+    m_btnVoice->show();
+    hbox->addWidget(m_btnVoice);
+
+    m_btnMute = new QPushButton;
+    m_btnMute->setFixedSize(sz);
+    m_btnMute->setIcon(QIcon(HRcLoader::instance()->icon_mute));
+    m_btnMute->setIconSize(sz);
+    m_btnMute->setFlat(true);
+    m_btnMute->hide();
+    hbox->addWidget(m_btnMute);
 
     m_btnSnapshot = new QPushButton;
     m_btnSnapshot->setFixedSize(sz);
     m_btnSnapshot->setIcon(QIcon(HRcLoader::instance()->icon_snapshot));
     m_btnSnapshot->setIconSize(sz);
     m_btnSnapshot->setFlat(true);
+    m_btnSnapshot->hide();
     hbox->addWidget(m_btnSnapshot);
 
     m_btnDrawInfo = new QPushButton;
@@ -63,6 +80,7 @@ void HTitlebarWidget::initUI(){
     m_btnDrawInfo->setIcon(QIcon(HRcLoader::instance()->icon_info.scaled(sz)));
     m_btnDrawInfo->setIconSize(sz);
     m_btnDrawInfo->setFlat(true);
+    m_btnDrawInfo->hide();
     hbox->addWidget(m_btnDrawInfo);
 
     m_btnFullScreen = new QPushButton;
@@ -96,6 +114,12 @@ void HTitlebarWidget::initConnection(){
 
     QObject::connect( m_btnMicphoneClosed, SIGNAL(clicked()), m_btnMicphoneClosed, SLOT(hide()) );
     QObject::connect( m_btnMicphoneClosed, SIGNAL(clicked()), m_btnMicphoneOpened, SLOT(show()) );
+
+    QObject::connect( m_btnVoice, SIGNAL(clicked()), m_btnVoice, SLOT(hide()) );
+    QObject::connect( m_btnVoice, SIGNAL(clicked()), m_btnMute, SLOT(show()) );
+
+    QObject::connect( m_btnMute, SIGNAL(clicked()), m_btnMute, SLOT(hide()) );
+    QObject::connect( m_btnMute, SIGNAL(clicked()), m_btnVoice, SLOT(show()) );
 }
 
 bool HTitlebarWidget::event(QEvent *e){
@@ -144,6 +168,7 @@ void HCombTitlebarWidget::initUI(){
     m_btnSnapshot->setIcon(QIcon(HRcLoader::instance()->icon_snapshot.scaled(sz)));
     m_btnSnapshot->setIconSize(sz);
     m_btnSnapshot->setFlat(true);
+    m_btnSnapshot->hide();
     hbox->addWidget(m_btnSnapshot);
 
     m_btnDrawInfo = new QPushButton;

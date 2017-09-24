@@ -27,6 +27,25 @@ struct ExpreConf{
     std::list<ExpreRecord> records;
 };
 
+class HExportWidget : public QDialog
+{
+    Q_OBJECT
+public:
+    HExportWidget(QWidget *parent = NULL);
+
+    QStringList selectedFiles();
+
+protected:
+    void initUI();
+    void initConnect();
+
+    void initList(QListWidget* list, QString dir);
+
+public:
+    QListWidget* m_listLocal;
+    QListWidget* m_listUsb;
+};
+
 class HExpreWidget : public QWidget
 {
     Q_OBJECT

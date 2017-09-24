@@ -260,54 +260,49 @@ int HDsContext::parse_init_xml(const char* xml){
         <head>
             <param n="width"  v="1280" />
             <param n="height" v="800"  />
-            <param n="frames" v="10"   />
-
-            <__param n="printmask"   v="0x008" />
-            <__param n="detail_numb" v="600"  />
-
-            <param n="pick.cb" v="http://127.0.0.1/transcoder/index.php?controller=channels&action=srcchange" />
+            <param n="frames" v="15"   />
         </head>
         <body>
             <item>
                 <param n="u"   v="1" />
-                <param n="w"   v="426" />
+                <param n="w"   v="424" />
                 <param n="h"   v="264" />
-                <param n="x"   v="0"   />
+                <param n="x"   v="4"   />
                 <param n="y"   v="4"   />
             </item>
             <item>
                 <param n="u"   v="2"   />
-                <param n="w"   v="426" />
+                <param n="w"   v="424" />
                 <param n="h"   v="264" />
-                <param n="x"   v="0"   />
+                <param n="x"   v="4"   />
                 <param n="y"   v="268" />
             </item>
             <item>
                 <param n="u"   v="3"   />
-                <param n="w"   v="426" />
+                <param n="w"   v="424" />
                 <param n="h"   v="264" />
-                <param n="x"   v="0"   />
+                <param n="x"   v="4"   />
                 <param n="y"   v="532" />
             </item>
             <item>
                 <param n="u"   v="4"   />
-                <param n="w"   v="426" />
+                <param n="w"   v="424" />
                 <param n="h"   v="264" />
-                <param n="x"   v="426" />
+                <param n="x"   v="428" />
                 <param n="y"   v="532" />
             </item>
             <item>
                 <param n="u"   v="5"   />
-                <param n="w"   v="426" />
+                <param n="w"   v="424" />
                 <param n="h"   v="264" />
                 <param n="x"   v="852" />
                 <param n="y"   v="532" />
             </item>
             <item>
                 <param n="u"   v="6"   />
-                <param n="w"   v="852" />
+                <param n="w"   v="848" />
                 <param n="h"   v="528" />
-                <param n="x"   v="426" />
+                <param n="x"   v="428" />
                 <param n="y"   v="4"   />
             </item>
         </body>

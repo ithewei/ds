@@ -563,6 +563,7 @@ void HCombGLWidget::initConnect(){
     QObject::connect( m_toolbar->m_btnExpre, SIGNAL(clicked(bool)), this, SLOT(showExpre()) );
     QObject::connect( m_toolbar->m_btnOK, SIGNAL(clicked(bool)), this, SLOT(onOK()) );
     QObject::connect( m_toolbar->m_btnText, SIGNAL(clicked(bool)), this, SLOT(showText()) );
+    QObject::connect( m_toolbar->m_btnSetting, SIGNAL(clicked(bool)), this, SLOT(onSetting()) );
 
     QObject::connect( m_wdgExpre, SIGNAL(expreSelected(QString&)), this, SLOT(onExpreSelected(QString&)) );
 }
@@ -819,11 +820,16 @@ void HCombGLWidget::onOK(){
     }
 }
 
-void HCombGLWidget::showExpre(){
-    int w = m_wdgExpre->width();
-    int h = m_wdgExpre->height();
-    m_wdgExpre->move(x() + (width() - w)/2, y() + m_toolbar->y() - h);
-    m_wdgExpre->show();
+#include "hsettingwidget.h"
+void HCombGLWidget::onSetting(){
+    HSettingWidget dlg(this);
+    dlg.setWindowFlags(Qt::Dialog | Qt::FramelessWindowHint | Qt::X11BypassWindowManagerHint);
+    int w = dlg.width();
+    int h = dlg.height();
+    dlg.move(x() + (width() - w)/2, y() + m_toolbar->y() - h);
+    if (dlg.exec() == QDialog::Accepted){
+        //...
+    }
 }
 
 void HCombGLWidget::showText(){
@@ -860,6 +866,13 @@ void HCombGLWidget::showText(){
         m_target.type = LABEL_ADD_TEXT;
         onTargetChanged();
     }
+}
+
+void HCombGLWidget::showExpre(){
+    int w = m_wdgExpre->width();
+    int h = m_wdgExpre->height();
+    m_wdgExpre->move(x() + (width() - w)/2, y() + m_toolbar->y() - h);
+    m_wdgExpre->show();
 }
 
 #define EXPRE_MAX_WIDTH     128

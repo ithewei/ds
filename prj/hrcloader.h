@@ -50,6 +50,11 @@ public:
     QPixmap icon_add;
     QPixmap icon_micphone;
     QPixmap icon_micphone_gray;
+    QPixmap icon_setting;
+    QPixmap icon_mute;
+    QPixmap icon_voice;
+    QPixmap icon_zoomin;
+    QPixmap icon_zoomout;
 
     Texture tex_sound;
     Texture tex_numr[MAX_NUM_ICON];

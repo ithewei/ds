@@ -6,6 +6,7 @@
 #define EXPRE_FILEPATH  Qt::UserRole + 200
 
 const char* dir_upload = "/var/www/transcoder/Upload/";
+const char* dir_usb = "/usb/";
 
 #include <QDir>
 bool delDir(const QString &path)
@@ -28,6 +29,93 @@ bool delDir(const QString &path)
     }
     return dir.rmpath(dir.absolutePath()); // 删除文件夹
 }
+
+//<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+HExportWidget::HExportWidget(QWidget *parent)
+    :   QDialog(parent)
+{
+    initUI();
+    initConnect();
+}
+
+QStringList HExportWidget::selectedFiles(){
+    QStringList ret;
+
+    QList<QListWidgetItem*> items = m_listLocal->selectedItems();
+    for (int i = 0; i < items.size(); ++i){
+        ret.push_back(QString(dir_upload) + items[i]->text());
+    }
+
+    items = m_listUsb->selectedItems();
+    for (int i = 0; i < items.size(); ++i){
+        ret.push_back(QString(dir_usb) + items[i]->text());
+    }
+
+    return ret;
+}
+
+void HExportWidget::initUI(){
+    QVBoxLayout* vbox = new QVBoxLayout;
+
+    QHBoxLayout* hbox = new QHBoxLayout;
+
+    QVBoxLayout* vbox_local = new QVBoxLayout;
+    vbox_local->addWidget(new QLabel("本地："));
+    m_listLocal = new QListWidget;
+    vbox_local->addWidget(m_listLocal);
+    initList(m_listLocal, dir_upload);
+    hbox->addLayout(vbox_local);
+
+    QVBoxLayout* vbox_usb = new QVBoxLayout;
+    vbox_usb->addWidget(new QLabel("U盘："));
+    m_listUsb = new QListWidget;
+    vbox_usb->addWidget(m_listUsb);
+    initList(m_listUsb, dir_usb);
+    hbox->addLayout(vbox_usb);
+
+    vbox->addLayout(hbox);
+
+    QHBoxLayout* hbox_okcancel = new QHBoxLayout;
+    //QPushButton* btnAccept = new QPushButton("确认");
+    QSize sz(64,64);
+    QPushButton* btnAccept = new QPushButton;
+    btnAccept->setFixedSize(sz);
+    btnAccept->setIconSize(sz);
+    btnAccept->setIcon(HRcLoader::instance()->icon_ok);
+    btnAccept->setFlat(true);
+    QObject::connect( btnAccept, SIGNAL(clicked(bool)), this, SLOT(accept()) );
+    hbox_okcancel->addWidget(btnAccept);
+
+    //QPushButton* btnReject = new QPushButton("取消");
+    QPushButton* btnReject = new QPushButton;
+    btnReject->setFixedSize(sz);
+    btnReject->setIconSize(sz);
+    btnReject->setIcon(HRcLoader::instance()->icon_close);
+    btnReject->setFlat(true);
+    QObject::connect( btnReject, SIGNAL(clicked(bool)), this, SLOT(reject()) );
+    hbox_okcancel->addWidget(btnReject);
+    vbox->addLayout(hbox_okcancel);
+
+    setLayout(vbox);
+}
+
+void HExportWidget::initConnect(){
+
+}
+
+void HExportWidget::initList(QListWidget* list, QString dir){
+    QDir qdir(dir);
+    qdir.setFilter(QDir::Files);
+    QStringList filters;
+          filters << "*.png" << "*.jpg" << "*.bmp";
+    qdir.setNameFilters(filters);
+    QFileInfoList  files = qdir.entryInfoList();
+    for (int i = 0; i < files.size(); ++i){
+        QString filepath = files[i].fileName();
+        list->addItem(filepath);
+    }
+}
+//>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
 HExpreWidget::HExpreWidget(QWidget *parent) : QWidget(parent)
 {
@@ -270,7 +358,7 @@ void HExpreWidget::initUI(){
     m_listCategory->setStyleSheet("background-color: white; border: 0px");
     m_listCategory->setMovement(QListView::Static);
     m_listCategory->setMinimumSize(QSize(CATEGORY_WIDTH,CATEGORY_HEIGHT));
-    m_listCategory->setFixedSize(CATEGORY_WIDTH*3.5, CATEGORY_HEIGHT);
+    m_listCategory->setFixedSize(CATEGORY_WIDTH*4, CATEGORY_HEIGHT);
     m_listCategory->setFlow(QListView::LeftToRight);
 
     hbox->addWidget(m_listCategory);
@@ -283,6 +371,7 @@ void HExpreWidget::initUI(){
     m_btnMkdir->setIcon(QIcon(HRcLoader::instance()->icon_mkdir));
     m_btnMkdir->setIconSize(QSize(CATEGORY_HEIGHT,CATEGORY_HEIGHT));
     m_btnMkdir->setFlat(true);
+    m_btnMkdir->hide();
     hbox->addWidget(m_btnMkdir);
 
     m_btnRmdir = new QPushButton;
@@ -290,6 +379,7 @@ void HExpreWidget::initUI(){
     m_btnRmdir->setIcon(QIcon(HRcLoader::instance()->icon_rmdir));
     m_btnRmdir->setIconSize(QSize(CATEGORY_HEIGHT,CATEGORY_HEIGHT));
     m_btnRmdir->setFlat(true);
+    m_btnRmdir->hide();
     hbox->addWidget(m_btnRmdir);
 
     vbox->addLayout(hbox);
@@ -413,10 +503,11 @@ void HExpreWidget::onRmdir(){
 #include <QFileDialog>
 #include <QStandardPaths>
 void HExpreWidget::onAdd(QString& str){
-    const QFileDialog::Options options = QFileDialog::DontUseNativeDialog;
-    QList<QUrl> urls;
-         urls << QUrl::fromLocalFile("/var/www/transcoder/Upload")
-              << QUrl::fromLocalFile(QStandardPaths::standardLocations(QStandardPaths::PicturesLocation).first());
+//    const QFileDialog::Options options = QFileDialog::DontUseNativeDialog;
+//    QList<QUrl> urls;
+//         urls << QUrl::fromLocalFile("/var/www/transcoder/Upload")
+//              << QUrl::fromLocalFile(QStandardPaths::standardLocations(QStandardPaths::PicturesLocation).first())
+//              << QUrl::fromLocalFile("/usb");
 
 //    QString selectedFilter;
 //    QStringList files = QFileDialog::getOpenFileNames(
@@ -435,11 +526,14 @@ void HExpreWidget::onAdd(QString& str){
 //    }
 //    genUI();
 
-    QFileDialog dlg(this, tr("导入图片"),"/var/www/transcoder/Upload",tr("Image files(*.png *.jpg *.bmp *.tga)"));
-    dlg.setOptions(options);
-    dlg.setFileMode(QFileDialog::ExistingFiles);
-    dlg.setSidebarUrls(urls);
-    //dlg.showMaximized();
+//    QFileDialog dlg(this, tr("导入图片"),"/var/www/transcoder/Upload",tr("Image files(*.png *.jpg *.bmp *.tga)"));
+//    dlg.setOptions(options);
+//    dlg.setFileMode(QFileDialog::ExistingFiles);
+//    dlg.setSidebarUrls(urls);
+
+    HExportWidget dlg(this);
+    dlg.setWindowFlags(Qt::Dialog | Qt::FramelessWindowHint | Qt::X11BypassWindowManagerHint);
+
     if (dlg.exec() == QDialog::Accepted){
         QStringList files = dlg.selectedFiles();
 

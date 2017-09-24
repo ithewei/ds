@@ -2,6 +2,7 @@
 #define HTOOLBARWIDGET_H
 
 #include <QWidget>
+#include <QPushButton>
 #include <QSlider>
 
 class HToolbarWidget : public QWidget
@@ -48,6 +49,10 @@ public:
     QPushButton* m_btnText;
     QPushButton* m_btnExpre;
 
+    QPushButton* m_btnZoomIn;
+    QPushButton* m_btnZoomOut;
+
+    QPushButton* m_btnSetting;
     QPushButton* m_btnOK;
     QPushButton* m_btnTrash;
     QPushButton* m_btnUndo;
