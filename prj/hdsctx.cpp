@@ -957,7 +957,7 @@ int HDsContext::push_audio(int srvid, const av_pcmbuff* pcm){
     if (item->bUpdateAverage){
         int channels = pcm->channels;
         unsigned short * src = (unsigned short *)pcm->pcmbuf;
-        int samples = pcm->pcmlen >> 1 / channels; // >>1 beacause default bpp=16
+        int samples = pcm->pcmlen / 2 / channels; // /2 beacause default bpp=16
 
         unsigned long long a[2];
         a[0] = 0;
@@ -966,8 +966,6 @@ int HDsContext::push_audio(int srvid, const av_pcmbuff* pcm){
             for (int c = 0; c < channels; ++c){
                 a[c % 2] += *src;
                 ++src;
-                if (!src)
-                    return -6;
             }
         }
         item->a_average[0] = a[0] / ((channels + 1) / 2) / samples;
