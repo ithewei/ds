@@ -37,7 +37,7 @@ public:
     QPushButton* m_btnColor;
     QLabel* m_labelPreview;
 
-    TextItem m_textItem;
+    HTextItem m_TextItem;
 };
 
 #endif // HADDTEXTWIDGET_H

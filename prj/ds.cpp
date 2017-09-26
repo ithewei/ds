@@ -1,8 +1,8 @@
 #include "ds.h"
 #include "hdsctx.h"
 
-#define VERSION 6
-#define RELEASEINFO "6.0 @ 20170712"
+#define VERSION 7
+#define RELEASEINFO "5.7.1 @ 20170925"
 
 DSSHARED_EXPORT int libversion()    { return VERSION; }
 DSSHARED_EXPORT int libchar()       { return OOK_FOURCC('D', 'I', 'R', 'C'); }
@@ -91,7 +91,6 @@ DSSHARED_EXPORT int libinit(const char* xml, void* task, void** ctx){
 }
 
 DSSHARED_EXPORT int libstop(void* ctx){
-    qDebug("");
     if (!ctx)
         return -1;
 
@@ -204,6 +203,9 @@ DSSHARED_EXPORT int liboper(int media_type, int data_type, int opt, void* param,
                 int progress = *(int*)dsc->ptr;
                 //qDebug("OOK_FOURCC('P', 'L', 'Y', 'R') progress=%d", progress);
                 emit g_dsCtx->sigProgressNty(srvid, progress);
+            }else if (dsc->action == OOK_FOURCC('S', 'M', 'I', 'X')){
+                qDebug("srvid=%d OOK_FOURCC('S', 'M', 'I', 'X')", srvid);
+                g_dsCtx->parse_audio_xml((const char *)dsc->ptr);
             }
 
         }

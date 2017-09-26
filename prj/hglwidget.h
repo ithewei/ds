@@ -148,6 +148,31 @@ public:
 #include "haddtextwidget.h"
 
 #include "hnetwork.h"
+
+class HOprationTargetWidget : public QLabel
+{
+    Q_OBJECT
+public:
+    HOprationTargetWidget(QWidget* parent = NULL) : QLabel(parent) {
+        setStyleSheet("border:3px dashed red;");
+    }
+
+public:
+    QPixmap src_pixmap;
+};
+
+struct OprationTarget
+{
+    QRect rcDraw;
+    HAbstractItem* pItem;
+    HOprationTargetWidget* wdg;
+
+    OprationTarget(){
+        pItem = NULL;
+        wdg = NULL;
+    }
+};
+
 class HCombGLWidget : public HGLWidget
 {
     Q_OBJECT
@@ -162,59 +187,14 @@ public:
     };
     int getLocation(QPoint pt, QRect rc);
 
-    enum COMB_TYPE{
-        UNKNOW = 0,
-        PIP = 1, //pic in pic 画中画，主画面不能移动和缩放
-        TILED = 2, // //平铺，不分主画面和子画面，都能移动和缩放
-    };
-
-    enum TRAGET_TYPE{
-        NONE = 0,
-
-        SCREEN = 1,
-        MAIN_SCREEN,
-        SUB_SCREEN,
-        SCREEN_END = 9,
-
-        OVERLAY = 10,
-        PICTURE,
-        TEXT,
-        OVERLAY_END = 99,
-
-        TEMPORARY = 100,
-        LABEL_ADD_PICTURE,
-        LABEL_ADD_TEXT,
-        TEMPORARY_END = 199,
-
-        ALL = 0xFF,
-    };
-    inline bool isScreen(TRAGET_TYPE type){
-        return type > SCREEN && type < SCREEN_END;
-    }
-
-    inline bool isOverlay(TRAGET_TYPE type){
-        return type > OVERLAY && type < OVERLAY_END;
-    }
-
-    inline bool isTemporary(TRAGET_TYPE type){
-        return type > TEMPORARY && type < TEMPORARY_END;
-    }
-
-    struct TargetInfo{
-        TRAGET_TYPE type;
-        int         id;
-        QRect       rc;
-
-        TargetInfo(){
-            type = NONE;
-            id = 0;
-        }
-    };
 
     HCombGLWidget(QWidget* parent = Q_NULLPTR);
     ~HCombGLWidget();
 
-    TargetInfo getTargetByPos(QPoint pt, TRAGET_TYPE type = ALL);
+    OprationTarget* getItemByPos(QPoint pt, HAbstractItem::TYPE type = HAbstractItem::ALL);
+    bool isValidTarget(OprationTarget* p);
+
+    void addItem(HAbstractItem* pItem);
     void showTitlebar(bool bShow = true);
     void showToolbar(bool bShow = true);
     virtual void showToolWidgets(bool bShow = true);
@@ -250,17 +230,18 @@ protected:
     virtual void mouseMoveEvent(QMouseEvent *e);
     virtual void mouseReleaseEvent(QMouseEvent *e);
 
-    void reposComb(int index, QRect rc);
-    void stopComb(int index);
-
 private:
-    COMB_TYPE m_combtype;
+    std::vector<OprationTarget> m_vecScreens;
+    std::vector<OprationTarget> m_vecPictures;
+    std::vector<OprationTarget> m_vecTexts;
 
-    std::vector<QRect> m_vecScreens;
-    std::vector<QRect> m_vecPictures;
-    std::vector<QRect> m_vecTexts;
+    std::list<OprationTarget> m_vecAdds;
+#define OprationTarget_ITER std::list<OprationTarget>::iterator
 
-    TargetInfo m_target;
+    HOprationTargetWidget* m_targetWdg;
+
+    OprationTarget* m_target;
+    OprationTarget* m_targetPrev;
     int m_location;
 
     bool m_bMouseMoving;
@@ -269,16 +250,6 @@ private:
     HChangeColorWidget* m_wdgTrash;
 
     HExpreWidget* m_wdgExpre;
-
-    QLabel* m_labelDrag;
-    QPixmap m_pixmapDrag;
-
-    QLabel* m_labelAddPicture;
-    QPixmap m_pixmapAdd;
-    PictureItem m_itemPicture;
-
-    QLabel* m_labelAddText;
-    TextItem    m_itemText;
 };
 //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 

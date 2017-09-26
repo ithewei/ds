@@ -1,9 +1,6 @@
 #ifndef HDSCONTEXT_H
 #define HDSCONTEXT_H
 
-#define DS_EVENT_PICK               0x01
-#define DS_EVENT_STOP               0x02
-
 #define DISPLAY_MODE_REALTIME      1  // realtime display
 #define DISPLAY_MODE_TIMER         2  // timer by fps
 
@@ -14,6 +11,8 @@
 #include "ds_def.h"
 #include "ds_global.h"
 #include "haudioplay.h"
+
+void myLogHandler(QtMsgType type, const QMessageLogContext & ctx, const QString & msg);
 
 class HDsContext : public QObject
 {
@@ -27,6 +26,7 @@ public:
     int parse_init_xml(const char* xml);
     int parse_layout_xml(const char* xml_file);
     int parse_comb_xml(const char* xml);
+    int parse_audio_xml(const char* xml);
     int parse_taskinfo_xml(const char* xml);
 
     void initImg(std::string& path);
@@ -35,7 +35,7 @@ public:
     void start_gui_thread();
     void handle_event(DsEvent& event);
 
-    ScreenItem* getScreenItem(int srvid);
+    HScreenItem* getHScreenItem(int srvid);
 
     DsSvrItem* getItem(int srvid){
         if (srvid < 1 || srvid > DIRECTOR_MAX_SERVS)

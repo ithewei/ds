@@ -42,7 +42,8 @@ SOURCES += \
     hexprewidget.cpp \
     hnetwork.cpp \
     haddtextwidget.cpp \
-    hsettingwidget.cpp
+    hsettingwidget.cpp \
+    habstractitem.cpp
 
 HEADERS += \
         ds.h \
@@ -63,7 +64,8 @@ HEADERS += \
     hnetwork.h \
     ds_def.h \
     haddtextwidget.h \
-    hsettingwidget.h
+    hsettingwidget.h \
+    habstractitem.h
 
 unix {
     target.path = /usr/lib

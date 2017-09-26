@@ -155,8 +155,8 @@ void HAddTextWidget::selectColor(){
     const QColor color = QColorDialog::getColor(Qt::white, this, "Select Color", options);
 
     if (color.isValid()) {
-        m_textItem.font_color = color.rgb() & 0x00FFFFFF;
-        qDebug("color=%x", m_textItem.font_color);
+        m_TextItem.font_color = color.rgb() & 0x00FFFFFF;
+        qDebug("color=%x", m_TextItem.font_color);
 
         QPalette pal = m_labelPreview->palette();
         pal.setColor(QPalette::Foreground, color);
@@ -190,21 +190,21 @@ void HAddTextWidget::accept(){
     //int iCategory = m_cmbCategory->currentIndex();
     int iCategory = m_grpCategory->checkedId();
     if (iCategory == 0){
-        m_textItem.type = TextItem::LABEL;
-        m_textItem.text = m_editText->text();
+        m_TextItem.text_type = HTextItem::LABEL;
+        m_TextItem.text = m_editText->text();
     }else if (iCategory == 1){
-        m_textItem.type = TextItem::TIME;
-        m_textItem.text = "__%%TIMER%%__";
+        m_TextItem.text_type = HTextItem::TIME;
+        m_TextItem.text = "__%%TIMER%%__";
     }else if (iCategory == 2){
-        m_textItem.type = TextItem::WATCHER;
-        m_textItem.text = "__%%WATCHER%%__";
+        m_TextItem.text_type = HTextItem::WATCHER;
+        m_TextItem.text = "__%%WATCHER%%__";
     }else if (iCategory == 3){
-        m_textItem.type = TextItem::SUBTITLE;
-        m_textItem.text = "__%%subtitle_index%%__";
-        m_textItem.text += QString::asprintf("|%d", m_editText->text().toInt());
-        qDebug(m_textItem.text.toLocal8Bit().constData());
+        m_TextItem.text_type = HTextItem::SUBTITLE;
+        m_TextItem.text = "__%%subtitle_index%%__";
+        m_TextItem.text += QString::asprintf("|%d", m_editText->text().toInt());
+        qDebug(m_TextItem.text.toLocal8Bit().constData());
     }
-    m_textItem.font_size = m_cmbFontSize->currentText().toInt();
+    m_TextItem.font_size = m_cmbFontSize->currentText().toInt();
 
     QDialog::accept();
 }

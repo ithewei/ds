@@ -53,6 +53,9 @@ struct DsLayoutInfo{
     }
 };
 
+#define DS_EVENT_PICK               0x01
+#define DS_EVENT_STOP               0x02
+
 struct DsEvent{
     int type;
 
@@ -65,53 +68,27 @@ struct DsEvent{
     int dst_y;
 };
 
-struct CommonItem{
-    int id;
-    QRect rc;
-};
-
-struct ScreenItem : public CommonItem{
-    int srvid;
-    bool v;
-    bool a;
-    QString src;
-};
-
-struct PictureItem : public CommonItem{
-    QString src;
-};
-
-struct TextItem : public CommonItem{
-    enum TYPE{
-        LABEL = 1,
-        TIME = 2,
-        WATCHER = 3,
-        SUBTITLE = 4,
+#include "habstractitem.h"
+struct DsScreenInfo{
+    enum COMB_TYPE{
+        UNKNOW = 0,
+        PIP = 1, //pic in pic 画中画，主画面不能移动和缩放
+        TILED = 2, // //平铺，不分主画面和子画面，都能移动和缩放
     };
 
-    TYPE type;
-    QString text;
-    int font_size;
-    int font_color;
-
-    TextItem(){
-        type = LABEL;
-        font_size = 32;
-        font_color = 0xFFFFFF;
-    }
-};
-
-struct DsScreenInfo{
     int width;
     int height;
 
-    ScreenItem items[MAXNUM_COMB_SCREEN];
+    HScreenItem items[MAXNUM_COMB_SCREEN];
     int itemCnt;
+
+    COMB_TYPE comb_type;
 
     DsScreenInfo(){
         width = 0;
         height = 0;
         itemCnt = 0;
+        comb_type = UNKNOW;
     }
 };
 

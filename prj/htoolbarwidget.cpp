@@ -146,7 +146,7 @@ void HCombToolbarWidget::initUI(){
     QHBoxLayout* hbox = new QHBoxLayout;
 
     hbox->setContentsMargins(5,1,5,1);
-    hbox->setSpacing(10);
+    hbox->setSpacing(20);
 
     QSize sz(64,64);
 
@@ -194,6 +194,7 @@ void HCombToolbarWidget::initUI(){
     m_btnZoomOut->setIcon(QIcon(HRcLoader::instance()->icon_zoomout));
     m_btnZoomOut->setIconSize(sz);
     m_btnZoomOut->setFlat(true);
+    m_btnZoomOut->hide();
     hbox->addWidget(m_btnZoomOut);
 
     m_btnZoomIn = new QPushButton;
@@ -201,6 +202,7 @@ void HCombToolbarWidget::initUI(){
     m_btnZoomIn->setIcon(QIcon(HRcLoader::instance()->icon_zoomin));
     m_btnZoomIn->setIconSize(sz);
     m_btnZoomIn->setFlat(true);
+    m_btnZoomIn->hide();
     hbox->addWidget(m_btnZoomIn);
 
     m_btnSetting = new QPushButton;
@@ -230,6 +232,7 @@ void HCombToolbarWidget::initUI(){
     m_btnUndo->setIcon(QIcon(HRcLoader::instance()->icon_undo));
     m_btnUndo->setIconSize(sz);
     m_btnUndo->setFlat(true);
+    m_btnUndo->hide();
     hbox->addWidget(m_btnUndo);
 
     setLayout(hbox);

@@ -1,4 +1,5 @@
 #include "hnetwork.h"
+#include "hdsctx.h"
 
 const char* url_post_combinfo = "http://localhost/transcoder/index.php?controller=channels&action=Dragsave";
 const char* url_query_overlay = "http://localhost/transcoder/index.php?controller=logo&action=allinfo";
@@ -44,10 +45,51 @@ void HNetwork::exitInstance(){
     }
 }
 
+void HNetwork::addItem(HAbstractItem* item){
+    if (item->type == HAbstractItem::SCREEN){
+
+    }else if (item->type == HAbstractItem::PICTURE){
+        addPicture(*(HPictureItem*)item);
+    }else if (item->type == HAbstractItem::TEXT){
+        addText(*(HTextItem*)item);
+    }
+}
+
+void HNetwork::removeItem(HAbstractItem* item){
+    if (item->type == HAbstractItem::SCREEN){
+        DsScreenInfo si = g_dsCtx->m_tComb;
+        if (si.items[item->id].srvid != 0){
+            si.items[item->id].srvid = 0;
+            si.items[item->id].a = false;
+            postScreenInfo(si);
+        }
+    }else if (item->type == HAbstractItem::PICTURE){
+        removePicture(*(HPictureItem*)item);
+    }else if (item->type == HAbstractItem::TEXT){
+        removeText(*(HTextItem*)item);
+    }
+}
+
+void HNetwork::modifyItem(HAbstractItem* item){
+    if (item->type == HAbstractItem::SCREEN){
+        DsScreenInfo si = g_dsCtx->m_tComb;
+        si.items[item->id].rc = item->rc;
+        HNetwork::instance()->postScreenInfo(si);
+    }else if (item->type == HAbstractItem::PICTURE){
+        modifyPicture(*(HPictureItem*)item);
+    }else if (item->type == HAbstractItem::TEXT){
+        modifyText(*(HTextItem*)item);
+    }
+}
+
+void HNetwork::queryItem(HAbstractItem* item){
+
+}
+
 void HNetwork::postScreenInfo(DsScreenInfo& si){
     QJsonArray arr;
     for (int i = 0; i < si.itemCnt; ++i){
-        ScreenItem& item = si.items[i];
+        HScreenItem& item = si.items[i];
         if (!item.v)
             continue;
         QJsonObject obj;
@@ -63,6 +105,7 @@ void HNetwork::postScreenInfo(DsScreenInfo& si){
     doc.setArray(arr);
     QByteArray bytes = doc.toJson();
     qDebug(bytes.constData());
+
     m_nam_post_screeninfo->post(QNetworkRequest(QUrl(url_post_combinfo)), bytes);
 }
 
@@ -85,7 +128,7 @@ void HNetwork::onQueryOverlayReply(QNetworkReply* reply){
         m_vecPictures.clear();
         for (int i = 0; i < arr_picture.size(); ++i){
             QJsonObject obj_picture = arr_picture[i].toObject();
-            PictureItem item;
+            HPictureItem item;
             if (obj_picture.contains("id")){
                 item.id = obj_picture.value("id").toString().toInt();
             }
@@ -115,7 +158,7 @@ void HNetwork::onQueryOverlayReply(QNetworkReply* reply){
         m_vecTexts.clear();
         for (int i = 0; i < arr_text.size(); ++i){
             QJsonObject obj_text = arr_text[i].toObject();
-            TextItem item;
+            HTextItem item;
             if (obj_text.contains("id")){
                 item.id = obj_text.value("id").toString().toInt();
             }
@@ -148,16 +191,16 @@ void HNetwork::onQueryOverlayReply(QNetworkReply* reply){
             int h = fm.height();
             int w = 256;
             if (item.text.contains("__%%TIMER%%__")){
-                item.type = TextItem::TIME;
+                item.text_type = HTextItem::TIME;
                 w = fm.width("2017-09-10 12:34:56");
             }else if (item.text.contains("__%%WATCHER%%__")){
-                item.type = TextItem::WATCHER;
+                item.text_type = HTextItem::WATCHER;
                 w = fm.width("00:00:00:0");
             }else if (item.text.contains("__%%subtitle_index%%__")){
-                item.type = TextItem::SUBTITLE;
+                item.text_type = HTextItem::SUBTITLE;
                 w = 360;
             }else{
-                item.type = TextItem::LABEL;
+                item.text_type = HTextItem::LABEL;
                 w = fm.width(item.text);
             }
             int x = item.rc.x();
@@ -175,7 +218,7 @@ void HNetwork::onQueryOverlayReply(QNetworkReply* reply){
     reply->deleteLater();
 }
 
-void HNetwork::overlayPicture(PictureItem &item){
+void HNetwork::addPicture(HPictureItem &item){
     QString src = item.src.right(item.src.length() - strlen(dir_trans));
     QJsonObject obj;
     obj.insert("src", src);
@@ -194,7 +237,7 @@ void HNetwork::overlayPicture(PictureItem &item){
     m_nam_add_overlay->post(QNetworkRequest(QUrl(url_add_overlay)), bytes);
 }
 
-void HNetwork::overlayText(TextItem& item){
+void HNetwork::addText(HTextItem& item){
     QJsonObject obj;
     obj.insert("content", item.text);
     obj.insert("x", item.rc.x());
@@ -214,7 +257,7 @@ void HNetwork::overlayText(TextItem& item){
     m_nam_add_overlay->post(QNetworkRequest(QUrl(url_add_overlay)), bytes);
 }
 
-void HNetwork::modifyPicture(PictureItem& item){
+void HNetwork::modifyPicture(HPictureItem& item){
     QJsonObject obj;
     obj.insert("id", item.id);
     obj.insert("x", item.rc.x());
@@ -232,7 +275,7 @@ void HNetwork::modifyPicture(PictureItem& item){
     m_nam_modify_overlay->post(QNetworkRequest(QUrl(url_modify_overlay)), bytes);
 }
 
-void HNetwork::modifyText(TextItem& item){
+void HNetwork::modifyText(HTextItem& item){
     QJsonObject obj;
     obj.insert("id", item.id);
     obj.insert("x", item.rc.x());
@@ -252,7 +295,7 @@ void HNetwork::modifyText(TextItem& item){
     m_nam_add_overlay->post(QNetworkRequest(QUrl(url_modify_overlay)), bytes);
 }
 
-void HNetwork::removePicture(PictureItem& item){
+void HNetwork::removePicture(HPictureItem& item){
     QJsonObject obj;
     obj.insert("id", item.id);
     obj.insert("type", "picture");
@@ -265,7 +308,7 @@ void HNetwork::removePicture(PictureItem& item){
     m_nam_remove_overlay->post(QNetworkRequest(QUrl(url_remove_overlay)), bytes);
 }
 
-void HNetwork::removeText(TextItem& item){
+void HNetwork::removeText(HTextItem& item){
     QJsonObject obj;
     obj.insert("id", item.id);
     obj.insert("type", "text");

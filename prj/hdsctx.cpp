@@ -72,6 +72,7 @@ void* HDsContext::thread_gui(void* param){
     QApplication app(argc, NULL);
 
     qInstallMessageHandler(myLogHandler);
+    qDebug("log print start");
 
 #ifndef QT_NO_TRANSLATION
     QString translatorFileName = QLatin1String("qt_");
@@ -480,6 +481,7 @@ int HDsContext::parse_comb_xml(const char* xml){
         int x,y,w=-1,h=-1,a;
         int u = 0;
         int bV = 1;
+        QString src;
         while(1)
         {
             e = ook::xml_parser::enum_childen(item, "param");
@@ -501,15 +503,24 @@ int HDsContext::parse_comb_xml(const char* xml){
                 u = atoi(v.c_str());
             else if (n == "v")
                 bV = atoi(v.c_str());
+            else if (n == "src")
+                src = v.c_str();
         }
 
         if (w < 0 || h < 0)
             continue;
 
+        ci.items[ci.itemCnt].id = ci.itemCnt;
         ci.items[ci.itemCnt].rc.setRect(x,y,w,h);
         ci.items[ci.itemCnt].a = a;
         ci.items[ci.itemCnt].v = bV;
         ci.items[ci.itemCnt].srvid = u;
+        ci.items[ci.itemCnt].src = src;
+
+        if ((w > ci.width - 10) && (h > ci.height - 10)){
+            ci.items[ci.itemCnt].bMainScreen = true;
+            ci.comb_type = DsScreenInfo::PIP;
+        }
 
         ++ci.itemCnt;
         if(ci.itemCnt >= MAXNUM_COMB_SCREEN)
@@ -520,12 +531,87 @@ int HDsContext::parse_comb_xml(const char* xml){
         m_preselect[i] = ci.items[i].srvid;
     }
 
-    if (memcmp(&m_tComb, &m_tCombUndo, sizeof(DsScreenInfo)) != 0){
-        m_tCombUndo = m_tComb;
-    }
+    m_tCombUndo = m_tComb;
     m_tComb = ci;
 
     emit combChanged();
+
+    return 0;
+}
+
+/*
+<sound_mixer>
+    <body>
+        <item>
+            <param n="src" v="l=http&amp;i=http://192.168.1.232:8000/live/ZJWS"></param>
+            <param n="a" v="0"></param>
+            <param n="v" v="22"></param>
+        </item>
+        <item>
+            <param n="src" v="OUTPUT"></param>
+            <param n="a" v="1"></param>
+            <param n="v" v="-50"></param>
+        </item>
+        <item>
+            <param n="src" v="l=http&amp;i=http://192.168.1.232:8000/live/YXFY"></param>
+            <param n="a" v="1"></param>
+            <param n="v" v="26"></param>
+        </item>
+        <item>
+            <param n="src" v="OUTPUT"></param>
+            <param n="a" v="1"></param>
+            <param n="v" v="-50"></param>
+        </item>
+    </body>
+</sound_mixer>
+*/
+int HDsContext::parse_audio_xml(const char* xml){
+    qDebug(xml);
+    ook::xml_element root;
+    if(!root.parse(xml, strlen(xml)))
+        return -1;
+
+    const ook::xml_element * cocktail = ook::xml_parser::get_element(&root, "<sound_mixer>");
+    if(!cocktail)
+        return -2;
+
+    const ook::xml_element * body = ook::xml_parser::get_element(cocktail, "<body>");
+    if(!body)
+        return -3;
+
+    ook::xml_parser::enum_childen(body, NULL);
+    const ook::xml_element * item;
+    while(1)
+    {
+        item = ook::xml_parser::enum_childen(body, "item");
+        if(!item)
+            break;
+
+        ook::xml_parser::enum_childen(item, NULL);
+        const ook::xml_element * e;
+        QString src;
+        int a;
+        int vol;
+        while (1){
+            e = ook::xml_parser::enum_childen(item, "param");
+            if(!e)
+                break;
+            const std::string & n = e->get_attribute("n");
+            const std::string & v = e->get_attribute("v");
+            if(n == "src")
+                src = v.c_str();
+            else if (n == "a")
+                a = atoi(v.c_str());
+            else if (n == "v")
+                vol = atoi(v.c_str());
+        }
+
+        for (int i = 0; i < m_tComb.itemCnt; ++i){
+            if (m_tComb.items[i].src == src){
+                m_tComb.items[i].a = a;
+            }
+        }
+    }
 
     return 0;
 }
@@ -957,7 +1043,7 @@ int HDsContext::push_audio(int srvid, const av_pcmbuff* pcm){
     if (item->bUpdateAverage){
         int channels = pcm->channels;
         unsigned short * src = (unsigned short *)pcm->pcmbuf;
-        int samples = pcm->pcmlen >> 1 / channels; // >>1 beacause default bpp=16
+        int samples = pcm->pcmlen / 2 / channels; // /2 beacause default bpp=16
 
         unsigned long long a[2];
         a[0] = 0;
@@ -966,8 +1052,6 @@ int HDsContext::push_audio(int srvid, const av_pcmbuff* pcm){
             for (int c = 0; c < channels; ++c){
                 a[c % 2] += *src;
                 ++src;
-                if (!src)
-                    return -6;
             }
         }
         item->a_average[0] = a[0] / ((channels + 1) / 2) / samples;
@@ -1045,8 +1129,8 @@ void HDsContext::handle_event(DsEvent& event){
     pthread_detach(pth);
 }
 
-ScreenItem* HDsContext::getScreenItem(int srvid){
-    ScreenItem* item = NULL;
+HScreenItem* HDsContext::getHScreenItem(int srvid){
+    HScreenItem* item = NULL;
     for (int i = 0; i < m_tComb.itemCnt; ++i){
         if (m_tComb.items[i].srvid == srvid){
             item = & m_tComb.items[i];

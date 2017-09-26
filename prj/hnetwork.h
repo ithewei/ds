@@ -21,16 +21,21 @@ public:
     static HNetwork* instance();
     static void exitInstance();
 
+    void addItem(HAbstractItem* item);
+    void removeItem(HAbstractItem* item);
+    void modifyItem(HAbstractItem* item);
+    void queryItem(HAbstractItem* item);
+
     void postScreenInfo(DsScreenInfo& info);
 
-    void overlayPicture(PictureItem& item);
-    void overlayText(TextItem& item);
+    void addPicture(HPictureItem& item);
+    void addText(HTextItem& item);
 
-    void removePicture(PictureItem& item);
-    void removeText(TextItem& item);
+    void removePicture(HPictureItem& item);
+    void removeText(HTextItem& item);
 
-    void modifyPicture(PictureItem& item);
-    void modifyText(TextItem& item);
+    void modifyPicture(HPictureItem& item);
+    void modifyText(HTextItem& item);
 
     //void queryMicphone();
     void setMicphone(int srvid);
@@ -44,9 +49,9 @@ public slots:
     //void onQueryMicphone(QNetworkReply*);
 
 public:
-    std::vector<ScreenItem> m_vecScreens;
-    std::vector<PictureItem> m_vecPictures;
-    std::vector<TextItem> m_vecTexts;
+    std::vector<HScreenItem> m_vecScreens;
+    std::vector<HPictureItem> m_vecPictures;
+    std::vector<HTextItem> m_vecTexts;
 
 private:
     static HNetwork* s_pNetwork;

@@ -56,7 +56,7 @@ void HTitlebarWidget::initUI(){
     m_btnVoice->setIcon(QIcon(HRcLoader::instance()->icon_voice));
     m_btnVoice->setIconSize(sz);
     m_btnVoice->setFlat(true);
-    m_btnVoice->show();
+    m_btnVoice->hide();
     hbox->addWidget(m_btnVoice);
 
     m_btnMute = new QPushButton;

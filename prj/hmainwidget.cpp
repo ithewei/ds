@@ -193,9 +193,8 @@ void HMainWidget::mouseReleaseEvent(QMouseEvent *event){
 //                evt.dst_x = event->x() - wdg->x();
 //                evt.dst_y = event->y() - wdg->y();
 //                m_ctx->handle_event(evt);
-                HCombGLWidget::TargetInfo target = ((HCombGLWidget*)wdg)->getTargetByPos(
-                            QPoint(event->x()-wdg->x(), event->y()-wdg->y()), HCombGLWidget::SCREEN);
-                changeScreenSource(target.id, m_dragSrcWdg->srvid);
+                OprationTarget* target = ((HCombGLWidget*)wdg)->getItemByPos(QPoint(event->x()-wdg->x(), event->y()-wdg->y()), HAbstractItem::SCREEN);
+                changeScreenSource(target->pItem->id, m_dragSrcWdg->srvid);
             }else{
                 // exchange position
                 QRect rcSrc = m_dragSrcWdg->geometry();
