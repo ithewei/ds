@@ -3,10 +3,11 @@
 
 #include "qglwidgetimpl.h"
 #include "ds_global.h"
+#include "hdsctx.h"
 #include "htitlebarwidget.h"
 #include "htoolbarwidget.h"
 #include "hnumselectwidget.h"
-#include "hdsctx.h"
+#include "hnetwork.h"
 
 #define TITLE_BAR_HEIGHT    50
 #define TOOL_BAR_HEIGHT     66
@@ -124,6 +125,8 @@ public slots:
     void showNumSelector();
     void openMicphone();
     void closeMicphone();
+    void onVoice();
+    void onMute();
 
     void onProgressChanged(int progress);
 
@@ -146,32 +149,7 @@ public:
 #include "hchangecolorwidget.h"
 #include "hexprewidget.h"
 #include "haddtextwidget.h"
-
-#include "hnetwork.h"
-
-class HOprationTargetWidget : public QLabel
-{
-    Q_OBJECT
-public:
-    HOprationTargetWidget(QWidget* parent = NULL) : QLabel(parent) {
-        setStyleSheet("border:3px dashed red;");
-    }
-
-public:
-    QPixmap src_pixmap;
-};
-
-struct OprationTarget
-{
-    QRect rcDraw;
-    HAbstractItem* pItem;
-    HOprationTargetWidget* wdg;
-
-    OprationTarget(){
-        pItem = NULL;
-        wdg = NULL;
-    }
-};
+#include "hoperatetarget.h"
 
 class HCombGLWidget : public HGLWidget
 {
@@ -191,17 +169,11 @@ public:
     HCombGLWidget(QWidget* parent = Q_NULLPTR);
     ~HCombGLWidget();
 
-    OprationTarget* getItemByPos(QPoint pt, HAbstractItem::TYPE type = HAbstractItem::ALL);
-    bool isValidTarget(OprationTarget* p);
+    HOperateTarget* getItemByPos(QPoint pt, HAbstractItem::TYPE type = HAbstractItem::ALL);
 
-    void addItem(HAbstractItem* pItem);
     void showTitlebar(bool bShow = true);
     void showToolbar(bool bShow = true);
     virtual void showToolWidgets(bool bShow = true);
-    QRect adjustPos(QRect rc);
-    QRect scaleToOrigin(QRect rc);
-    QRect scaleToDraw(QRect rc);
-    void onTargetChanged();
 
 public slots:
     void onCombChanged();
@@ -230,18 +202,24 @@ protected:
     virtual void mouseMoveEvent(QMouseEvent *e);
     virtual void mouseReleaseEvent(QMouseEvent *e);
 
+    void removeOperateTarget(HOperateTarget* p);
+    void onTargetChanged();
+    QRect adjustPos(QRect rc);
+    QRect scaleToOrigin(QRect rc);
+    QRect scaleToDraw(QRect rc);
+
 private:
-    std::vector<OprationTarget> m_vecScreens;
-    std::vector<OprationTarget> m_vecPictures;
-    std::vector<OprationTarget> m_vecTexts;
+    std::vector<HOperateTarget> m_vecScreens;
+    std::vector<HOperateTarget> m_vecPictures;
+    std::vector<HOperateTarget> m_vecTexts;
 
-    std::list<OprationTarget> m_vecAdds;
-#define OprationTarget_ITER std::list<OprationTarget>::iterator
+    std::list<HOperateTarget> m_vecAdds;
+#define OperateTarget_ITER std::list<HOperateTarget>::iterator
 
-    HOprationTargetWidget* m_targetWdg;
+    HOperateTargetWidget* m_targetWdg;
 
-    OprationTarget* m_target;
-    OprationTarget* m_targetPrev;
+    HOperateTarget* m_target;
+    HOperateTarget* m_targetPrev;
     int m_location;
 
     bool m_bMouseMoving;

@@ -112,6 +112,8 @@ struct DsSvrItem{
     unsigned int v_input;
     ifservice_callback * ifcb;
 
+    bool bVoice;
+
     DsSvrItem(){
         init();
     }
@@ -136,6 +138,7 @@ struct DsSvrItem{
         v_input = 0;
 
         ifcb = NULL;
+        bVoice = false;
     }
 };
 

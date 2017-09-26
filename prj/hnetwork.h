@@ -40,6 +40,9 @@ public:
     //void queryMicphone();
     void setMicphone(int srvid);
 
+    void queryVoice();
+    void setVoice(int srvid, int a);
+
 signals:
     void overlayChanged();
 
@@ -47,6 +50,7 @@ public slots:
     void queryOverlayInfo();
     void onQueryOverlayReply(QNetworkReply* reply);
     //void onQueryMicphone(QNetworkReply*);
+    void onQueryVoiceReply(QNetworkReply* reply);
 
 public:
     std::vector<HScreenItem> m_vecScreens;
@@ -61,6 +65,7 @@ private:
     QNetworkAccessManager* m_nam_remove_overlay;
     QNetworkAccessManager* m_nam_modify_overlay;
     QNetworkAccessManager* m_nam_micphone;
+    QNetworkAccessManager* m_nam_voice;
 };
 
 #endif // HNETWORK_H
