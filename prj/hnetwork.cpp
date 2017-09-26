@@ -7,6 +7,7 @@ const char* url_add_overlay = "http://localhost/transcoder/index.php?controller=
 const char* url_remove_overlay = "http://localhost/transcoder/index.php?controller=logo&action=ddelete";
 const char* url_modify_overlay = "http://localhost/transcoder/index.php?controller=logo&action=editpt";
 const char* url_micphone = "http://localhost/transcoder/index.php?controller=channels&action=voiceover";
+const char* url_voice = "http://localhost/transcoder/index.php?controller=channels&action=voiceinfo";
 const char* dir_trans = "/var/www/transcoder/";
 
 HNetwork* HNetwork::s_pNetwork = NULL;
@@ -29,6 +30,11 @@ HNetwork::HNetwork() : QObject()
 
     m_nam_micphone = new QNetworkAccessManager(this);
     //QObject::connect( m_nam_micphone, SIGNAL(finished(QNetworkReply*)), this, SLOT(onQueryMicphone(QNetworkReply*)) );
+
+    m_nam_voice = new QNetworkAccessManager(this);
+    QObject::connect( m_nam_voice, SIGNAL(finished(QNetworkReply*)), this, SLOT(onQueryVoiceReply(QNetworkReply*)) );
+
+    queryVoice();
 }
 
 HNetwork* HNetwork::instance(){
@@ -341,5 +347,40 @@ void HNetwork::setMicphone(int srvid){
     QString json = QString::asprintf("{\"id\":%d}", srvid);
     qDebug(json.toUtf8().constData());
     m_nam_micphone->post(QNetworkRequest(QUrl(url_micphone)), json.toUtf8());
+}
+
+void HNetwork::queryVoice(){
+    m_nam_voice->get(QNetworkRequest(QUrl(url_voice)));
+}
+
+void HNetwork::onQueryVoiceReply(QNetworkReply *reply){
+    QJsonDocument doc = QJsonDocument::fromJson(reply->readAll());
+    if (doc.isArray()){
+        QJsonArray arr = doc.array();
+        for (int i = 0; i < arr.size(); ++i){
+            QJsonObject obj = arr[i].toObject();
+            int srvid,a;
+            if (obj.contains("id")){
+                srvid = obj.value("id").toInt();
+            }
+
+            if (obj.contains("a")){
+                a = obj.value("a").toInt();
+            }
+
+            DsSvrItem* pItem = g_dsCtx->getItem(srvid);
+            if (pItem){
+                pItem->bVoice = a;
+            }
+        }
+    }
+
+    reply->deleteLater();
+}
+
+void HNetwork::setVoice(int srvid, int a){
+    QString json = QString::asprintf("{\"id\":%d,\"a\":%d}", srvid, a);
+    qDebug(json.toUtf8().constData());
+    m_nam_voice->post(QNetworkRequest(QUrl(url_voice)), json.toUtf8());
 }
 

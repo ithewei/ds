@@ -520,6 +520,8 @@ int HDsContext::parse_comb_xml(const char* xml){
         if ((w > ci.width - 10) && (h > ci.height - 10)){
             ci.items[ci.itemCnt].bMainScreen = true;
             ci.comb_type = DsScreenInfo::PIP;
+        }else{
+            ci.items[ci.itemCnt].bMainScreen = false;
         }
 
         ++ci.itemCnt;

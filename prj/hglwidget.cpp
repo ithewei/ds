@@ -328,6 +328,8 @@ void HGeneralGLWidget::initConnect(){
     QObject::connect( m_titlebar->m_btnNum, SIGNAL(clicked(bool)), this, SLOT(showNumSelector()) );
     QObject::connect( m_titlebar->m_btnMicphoneOpened, SIGNAL(clicked(bool)), this, SLOT(closeMicphone()) );
     QObject::connect( m_titlebar->m_btnMicphoneClosed, SIGNAL(clicked(bool)), this, SLOT(openMicphone()) );
+    QObject::connect( m_titlebar->m_btnVoice, SIGNAL(clicked(bool)), this, SLOT(onVoice()) );
+    QObject::connect( m_titlebar->m_btnMute, SIGNAL(clicked(bool)), this ,SLOT(onMute()) );
 
     QObject::connect( m_toolbar->m_btnStart, SIGNAL(clicked(bool)), this, SLOT(onStart()) );
     QObject::connect( m_toolbar->m_btnPause, SIGNAL(clicked(bool)), this, SLOT(onPause()) );
@@ -339,6 +341,8 @@ void HGeneralGLWidget::initConnect(){
 
 void HGeneralGLWidget::showTitlebar(bool bShow){
     if (bShow){
+        HNetwork::instance()->queryVoice();
+
         DsSvrItem* item = g_dsCtx->getItem(srvid);
         if (item){
             m_titlebar->m_label->setText(item->title.c_str());
@@ -346,14 +350,24 @@ void HGeneralGLWidget::showTitlebar(bool bShow){
 
         m_titlebar->m_btnMicphoneOpened->hide();
         m_titlebar->m_btnMicphoneClosed->hide();
+        HScreenItem* screen = g_dsCtx->getHScreenItem(srvid);
         if (m_status & PLAY_AUDIO){
-            HScreenItem* screen = g_dsCtx->getHScreenItem(srvid);
             if (screen){
                 if (!screen->v && screen->a){
                     m_titlebar->m_btnMicphoneOpened->show();
                 }
             }else{
                 m_titlebar->m_btnMicphoneClosed->show();
+            }
+        }
+
+        m_titlebar->m_btnVoice->hide();
+        m_titlebar->m_btnMute->hide();
+        if (item){
+            if (item->bVoice){
+                m_titlebar->m_btnVoice->show();
+            }else{
+                m_titlebar->m_btnMute->show();
             }
         }
         m_titlebar->show();
@@ -441,6 +455,14 @@ void HGeneralGLWidget::closeMicphone(){
     HNetwork::instance()->setMicphone(0);
 }
 
+void HGeneralGLWidget::onVoice(){
+    HNetwork::instance()->setVoice(srvid, 0);
+}
+
+void HGeneralGLWidget::onMute(){
+    HNetwork::instance()->setVoice(srvid, 1);
+}
+
 void HGeneralGLWidget::drawSelectNum(){
     DrawInfo di;
     di.top = height()-48;
@@ -495,7 +517,7 @@ void HGeneralGLWidget::paintGL(){
 //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
 //<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-//void OprationTarget::initWidget(HOprationTargetWidget* wdg){
+//void HOperateTarget::initWidget(HOperateTargetWidget* wdg){
 //    if (pItem->type == HAbstractItem::TEXT){
 //        QString str;
 //        HTextItem* pItem = (HTextItem*)this->pItem;
@@ -557,7 +579,7 @@ HCombGLWidget::~HCombGLWidget(){
 }
 
 void HCombGLWidget::initUI(){
-    m_targetWdg = new HOprationTargetWidget(this);
+    m_targetWdg = new HOperateTargetWidget(this);
     m_targetWdg->hide();
 
     QVBoxLayout* vbox = new QVBoxLayout;
@@ -645,7 +667,7 @@ void HCombGLWidget::showToolWidgets(bool bShow){
 }
 
 void HCombGLWidget::onTargetChanged(){
-    if (isValidTarget(m_target) && m_target->wdg){
+    if (m_target && m_target->wdg){
         m_target->wdg->setStyleSheet("border:3px dashed red;");
         if (m_target->pItem->type == HAbstractItem::TEXT){
             HTextItem* pItem = (HTextItem*)m_target->pItem;
@@ -655,7 +677,7 @@ void HCombGLWidget::onTargetChanged(){
         }
     }
 
-    if (isValidTarget(m_targetPrev) && m_targetPrev->wdg){
+    if (m_targetPrev && m_targetPrev->wdg){
         m_targetPrev->wdg->setStyleSheet("border:3px dashed white;");
         if (m_targetPrev->pItem->type == HAbstractItem::TEXT){
             HTextItem* pItem = (HTextItem*)m_targetPrev->pItem;
@@ -688,13 +710,13 @@ int HCombGLWidget::getLocation(QPoint pt, QRect rc){
     return NotIn;
 }
 
-OprationTarget* HCombGLWidget::getItemByPos(QPoint pt, HAbstractItem::TYPE type){
+HOperateTarget* HCombGLWidget::getItemByPos(QPoint pt, HAbstractItem::TYPE type){
     // 优先顺序: TEMPORARY > OVERLAY > SCREEN
     // TEXT > PICTURE
     // SUB_SCREEN > MAIN_SCREEN
 
     if (type == HAbstractItem::ALL){
-        OprationTarget_ITER iter = m_vecAdds.begin();
+        OperateTarget_ITER iter = m_vecAdds.begin();
         while (iter != m_vecAdds.end()){
             if (iter->wdg->isVisible() && iter->wdg->geometry().contains(pt)){
                 return &(*iter);
@@ -730,19 +752,7 @@ OprationTarget* HCombGLWidget::getItemByPos(QPoint pt, HAbstractItem::TYPE type)
     return NULL;
 }
 
-bool HCombGLWidget::isValidTarget(OprationTarget* p){
-    if (p && p->pItem){
-        if (p->pItem->type == HAbstractItem::SCREEN){
-            HScreenItem* pItem = (HScreenItem*)p->pItem;
-            if (pItem->bMainScreen)
-                return false;
-        }
-        return true;
-    }
-    return false;
-}
-
-void HCombGLWidget::addItem(HAbstractItem* pItem){
+void HCombGLWidget::removeOperateTarget(HOperateTarget *p){
 
 }
 
@@ -788,8 +798,7 @@ void HCombGLWidget::onCombChanged(){
     m_vecScreens.clear();
     for (int i = 0; i < g_dsCtx->m_tComb.itemCnt; ++i){
         if (g_dsCtx->m_tComb.items[i].v){
-            OprationTarget target;
-            target.pItem = &g_dsCtx->m_tComb.items[i];
+            HOperateTarget target(&g_dsCtx->m_tComb.items[i]);
             target.rcDraw = scaleToDraw(target.pItem->rc);
             m_vecScreens.push_back(target);
         }
@@ -802,8 +811,7 @@ void HCombGLWidget::onOverlayChanged(){
     m_vecPictures.clear();
     std::vector<HPictureItem>& pics = HNetwork::instance()->m_vecPictures;
     for (int i = 0; i < pics.size(); ++i){        
-        OprationTarget target;
-        target.pItem = &pics[i];
+        HOperateTarget target(&pics[i]);
         target.rcDraw = scaleToDraw(target.pItem->rc);
         m_vecPictures.push_back(target);
     }
@@ -811,8 +819,7 @@ void HCombGLWidget::onOverlayChanged(){
     m_vecTexts.clear();
     std::vector<HTextItem>& texts = HNetwork::instance()->m_vecTexts;
     for (int i = 0; i < texts.size(); ++i){        
-        OprationTarget target;
-        target.pItem = &texts[i];
+        HOperateTarget target(&texts[i]);
         target.rcDraw = scaleToDraw(target.pItem->rc);
         m_vecTexts.push_back(target);
     }
@@ -825,10 +832,10 @@ void HCombGLWidget::onUndo(){
 }
 
 void HCombGLWidget::onTrash(){
-    if (m_target && m_target->pItem){
+    if (m_target){
         if (m_target->wdg){
             m_target->wdg->hide();
-            m_target->wdg = NULL;
+            m_target->detachWidget();
             m_vecAdds.clear();
         }else{
             m_target->pItem->remove();
@@ -839,15 +846,15 @@ void HCombGLWidget::onTrash(){
 }
 
 void HCombGLWidget::onOK(){
-    if (isValidTarget(m_target) && m_target->wdg){
+    if (m_target && m_target->wdg && m_target->isModifiable()){
         m_target->wdg->hide();
         m_target->pItem->rc = scaleToOrigin(m_target->wdg->geometry());
         m_target->pItem->addOrMod();
 
-        if (m_target->pItem->id < 0){
+        if (!m_target->isExist())
             delete m_target->pItem;
-        }
-        m_target->wdg = NULL;
+
+        m_target->detachWidget();
         m_vecAdds.clear();
         m_target = NULL;
     }
@@ -883,9 +890,8 @@ void HCombGLWidget::showText(){
         }else if (pItem->text_type == HTextItem::SUBTITLE){
             str = "字幕";
         }
-        OprationTarget target;
-        target.pItem = pItem;
-        target.wdg = m_targetWdg;
+        HOperateTarget target(pItem);
+        target.attachWidget(m_targetWdg);
         target.wdg->setText(str);
         QFont font = target.wdg->font();
         font.setPointSize(pItem->font_size*0.8);
@@ -922,9 +928,8 @@ void HCombGLWidget::onExpreSelected(QString& filepath){
     HPictureItem* pItem = new HPictureItem;
     pItem->src = filepath;
 
-    OprationTarget target;
-    target.pItem = pItem;
-    target.wdg = m_targetWdg;
+    HOperateTarget target(pItem);
+    target.attachWidget(m_targetWdg);
 
     target.wdg->src_pixmap.load(filepath);
     QPixmap pixmap = target.wdg->src_pixmap;
@@ -1081,9 +1086,9 @@ void HCombGLWidget::mouseMoveEvent(QMouseEvent *e){
     if (!m_bMouseMoving){
         m_bMouseMoving = true;
         // moveBegin
-        if (isValidTarget(m_target)){
-            if (m_target->pItem->id >= 0){
-                m_target->wdg = m_targetWdg;
+        if (m_target && m_target->isModifiable()){
+            if (m_target->isExist()){
+                m_target->attachWidget(m_targetWdg);
                 if (m_target->pItem->type == HAbstractItem::PICTURE){
                     HPictureItem* pItem = (HPictureItem*)m_target->pItem;
                     m_target->wdg->src_pixmap.load(pItem->src);
@@ -1099,7 +1104,7 @@ void HCombGLWidget::mouseMoveEvent(QMouseEvent *e){
         }
     }
 
-    if (isValidTarget(m_target) && m_target->wdg){
+    if (m_target && m_target->wdg){
         QRect rc = m_target->wdg->geometry();
 
         if ((m_location & Center) || m_target->pItem->type == HAbstractItem::TEXT){
@@ -1150,12 +1155,12 @@ void HCombGLWidget::mouseReleaseEvent(QMouseEvent *e){
             onTrash();
         }
 
-        if (isValidTarget(m_target) && m_target->wdg && m_target->pItem->id >= 0){
+        if (m_target && m_target->wdg && m_target->isExist()){
             m_target->wdg->hide();
             m_target->pItem->rc = scaleToOrigin(m_target->wdg->geometry());
             m_target->pItem->modify();
 
-            m_target->wdg = NULL;
+            m_target->detachWidget();
             m_target = NULL;
         }
     }

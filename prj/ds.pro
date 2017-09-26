@@ -43,7 +43,8 @@ SOURCES += \
     hnetwork.cpp \
     haddtextwidget.cpp \
     hsettingwidget.cpp \
-    habstractitem.cpp
+    habstractitem.cpp \
+    hoperatetarget.cpp
 
 HEADERS += \
         ds.h \
@@ -65,7 +66,8 @@ HEADERS += \
     ds_def.h \
     haddtextwidget.h \
     hsettingwidget.h \
-    habstractitem.h
+    habstractitem.h \
+    hoperatetarget.h
 
 unix {
     target.path = /usr/lib
