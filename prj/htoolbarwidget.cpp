@@ -194,7 +194,6 @@ void HCombToolbarWidget::initUI(){
     m_btnZoomOut->setIcon(QIcon(HRcLoader::instance()->icon_zoomout));
     m_btnZoomOut->setIconSize(sz);
     m_btnZoomOut->setFlat(true);
-    m_btnZoomOut->hide();
     hbox->addWidget(m_btnZoomOut);
 
     m_btnZoomIn = new QPushButton;
@@ -202,7 +201,6 @@ void HCombToolbarWidget::initUI(){
     m_btnZoomIn->setIcon(QIcon(HRcLoader::instance()->icon_zoomin));
     m_btnZoomIn->setIconSize(sz);
     m_btnZoomIn->setFlat(true);
-    m_btnZoomIn->hide();
     hbox->addWidget(m_btnZoomIn);
 
     m_btnSetting = new QPushButton;

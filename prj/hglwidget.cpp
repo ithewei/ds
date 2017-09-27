@@ -23,8 +23,8 @@ HGLWidget::~HGLWidget(){
 
 }
 
-void HGLWidget::showToolWidgets(bool bShow){
-
+bool HGLWidget::showToolWidgets(bool bShow){
+    return bShow;
 }
 
 void HGLWidget::onStart(){
@@ -398,12 +398,12 @@ void HGeneralGLWidget::showToolbar(bool bShow){
     }
 }
 
-void HGeneralGLWidget::showToolWidgets(bool bShow){
+bool HGeneralGLWidget::showToolWidgets(bool bShow){
     HGLWidget::showToolWidgets(bShow);
 
     if (bShow){
         if (!(status(MAJOR_STATUS_MASK) == PAUSE || status(MAJOR_STATUS_MASK) == PLAYING))
-            return;
+            return false;
     }
 
     showTitlebar(bShow);
@@ -413,6 +413,8 @@ void HGeneralGLWidget::showToolWidgets(bool bShow){
             showToolbar(bShow);
         }
     }
+
+    return bShow;
 }
 
 void HGeneralGLWidget::onNumSelected(int num){
@@ -569,13 +571,21 @@ HCombGLWidget::HCombGLWidget(QWidget* parent)
 {
     m_bMouseMoving = false;
     m_target = NULL;
+    m_targetPrev = NULL;
+    m_targetShow = NULL;
+    m_bLockToolbar = false;
+
+    m_virtualTarget = new HOperateTarget(NULL);
 
     initUI();
     initConnect();
 }
 
 HCombGLWidget::~HCombGLWidget(){
-
+    if (m_virtualTarget){
+        delete m_virtualTarget;
+        m_virtualTarget = NULL;
+    }
 }
 
 void HCombGLWidget::initUI(){
@@ -613,6 +623,8 @@ void HCombGLWidget::initConnect(){
 
     QObject::connect( m_titlebar->m_btnFullScreen, SIGNAL(clicked(bool)), this, SIGNAL(fullScreen()) );
     QObject::connect( m_titlebar->m_btnExitFullScreen, SIGNAL(clicked(bool)), this, SIGNAL(exitFullScreen()) );
+    QObject::connect( m_titlebar->m_btnPinb, SIGNAL(clicked(bool)), this, SLOT(lockTools()) );
+    QObject::connect( m_titlebar->m_btnPinr, SIGNAL(clicked(bool)), this, SLOT(unlockTools()) );
     QObject::connect( m_titlebar->m_btnDrawInfo, SIGNAL(clicked(bool)), this, SLOT(toggleDrawInfo()) );
     QObject::connect( m_titlebar->m_btnSnapshot, SIGNAL(clicked(bool)), this, SLOT(snapshot()) );
     //QObject::connect( m_titlebar->m_btnStartRecord, SIGNAL(clicked(bool)), this, SLOT(startRecord()) );
@@ -626,6 +638,8 @@ void HCombGLWidget::initConnect(){
     QObject::connect( m_toolbar->m_btnOK, SIGNAL(clicked(bool)), this, SLOT(onOK()) );
     QObject::connect( m_toolbar->m_btnText, SIGNAL(clicked(bool)), this, SLOT(showText()) );
     QObject::connect( m_toolbar->m_btnSetting, SIGNAL(clicked(bool)), this, SLOT(onSetting()) );
+    QObject::connect( m_toolbar->m_btnZoomIn, SIGNAL(clicked(bool)), this, SLOT(onZoomIn()) );
+    QObject::connect( m_toolbar->m_btnZoomOut, SIGNAL(clicked(bool)), this, SLOT(onZoomOut()) );
 
     QObject::connect( m_wdgExpre, SIGNAL(expreSelected(QString&)), this, SLOT(onExpreSelected(QString&)) );
 }
@@ -658,25 +672,20 @@ void HCombGLWidget::showToolbar(bool bShow){
     }
 }
 
-void HCombGLWidget::showToolWidgets(bool bShow){
+bool HCombGLWidget::showToolWidgets(bool bShow){
+    if (m_bLockToolbar)
+        return true;
+
     HGLWidget::showToolWidgets(bShow);
 
     showTitlebar(bShow);
     showToolbar(bShow);
     //m_wdgTrash->setVisible(bShow);
+
+    return bShow;
 }
 
 void HCombGLWidget::onTargetChanged(){
-    if (m_target && m_target->wdg){
-        m_target->wdg->setStyleSheet("border:3px dashed red;");
-        if (m_target->pItem->type == HAbstractItem::TEXT){
-            HTextItem* pItem = (HTextItem*)m_target->pItem;
-            QPalette pal = m_target->wdg->palette();
-            pal.setColor(QPalette::Foreground, pItem->font_color);
-            m_target->wdg->setPalette(pal);
-        }
-    }
-
     if (m_targetPrev && m_targetPrev->wdg){
         m_targetPrev->wdg->setStyleSheet("border:3px dashed white;");
         if (m_targetPrev->pItem->type == HAbstractItem::TEXT){
@@ -684,6 +693,16 @@ void HCombGLWidget::onTargetChanged(){
             QPalette pal = m_targetPrev->wdg->palette();
             pal.setColor(QPalette::Foreground, pItem->font_color);
             m_targetPrev->wdg->setPalette(pal);
+        }
+    }
+
+    if (m_target && m_target->wdg){
+        m_target->wdg->setStyleSheet("border:3px dashed red;");
+        if (m_target->pItem->type == HAbstractItem::TEXT){
+            HTextItem* pItem = (HTextItem*)m_target->pItem;
+            QPalette pal = m_target->wdg->palette();
+            pal.setColor(QPalette::Foreground, pItem->font_color);
+            m_target->wdg->setPalette(pal);
         }
     }
 }
@@ -716,12 +735,14 @@ HOperateTarget* HCombGLWidget::getItemByPos(QPoint pt, HAbstractItem::TYPE type)
     // SUB_SCREEN > MAIN_SCREEN
 
     if (type == HAbstractItem::ALL){
-        OperateTarget_ITER iter = m_vecAdds.begin();
-        while (iter != m_vecAdds.end()){
-            if (iter->wdg->isVisible() && iter->wdg->geometry().contains(pt)){
-                return &(*iter);
-            }
-            ++iter;
+        if (m_virtualTarget && m_virtualTarget->wdg){
+            if (m_virtualTarget->wdg->isVisible() && m_virtualTarget->wdg->geometry().contains(pt))
+                return m_virtualTarget;
+        }
+
+        if (m_targetShow && m_targetShow->wdg){
+            if (m_targetShow->wdg->isVisible() && m_targetShow->wdg->geometry().contains(pt))
+                return m_targetShow;
         }
     }
 
@@ -750,10 +771,6 @@ HOperateTarget* HCombGLWidget::getItemByPos(QPoint pt, HAbstractItem::TYPE type)
     }
 
     return NULL;
-}
-
-void HCombGLWidget::removeOperateTarget(HOperateTarget *p){
-
 }
 
 QRect HCombGLWidget::adjustPos(QRect rc){
@@ -835,8 +852,8 @@ void HCombGLWidget::onTrash(){
     if (m_target){
         if (m_target->wdg){
             m_target->wdg->hide();
+            m_target->detachItem();
             m_target->detachWidget();
-            m_vecAdds.clear();
         }else{
             m_target->pItem->remove();
         }
@@ -851,12 +868,43 @@ void HCombGLWidget::onOK(){
         m_target->pItem->rc = scaleToOrigin(m_target->wdg->geometry());
         m_target->pItem->addOrMod();
 
-        if (!m_target->isExist())
-            delete m_target->pItem;
-
+        m_target->detachItem();
         m_target->detachWidget();
-        m_vecAdds.clear();
         m_target = NULL;
+    }
+}
+
+void HCombGLWidget::onZoomIn(){
+    showTargetWidget();
+
+    if (m_target && m_target->wdg){
+        QRect rc = m_target->wdg->geometry();
+        QPoint ptCenter = rc.center();
+        int w = rc.width() * 1.1;
+        int h = rc.height() * 1.1;
+        if (w > width())
+            w = width();
+        if (h > height())
+            h = height();
+        QRect rcDst = adjustPos(QRect(ptCenter.x() - w/2, ptCenter.y() - h/2, w, h ));
+        m_target->wdg->setGeometry(rcDst);
+    }
+}
+
+void HCombGLWidget::onZoomOut(){
+    showTargetWidget();
+
+    if (m_target && m_target->wdg){
+        QRect rc = m_target->wdg->geometry();
+        QPoint ptCenter = rc.center();
+        int w = rc.width() * 0.9;
+        int h = rc.height() * 0.9;
+        if (w < 2)
+            w = 2;
+        if (h < 2)
+            h = 2;
+        QRect rcDst = adjustPos(QRect(ptCenter.x() - w/2, ptCenter.y() - h/2, w, h ));
+        m_target->wdg->setGeometry(rcDst);
     }
 }
 
@@ -890,27 +938,26 @@ void HCombGLWidget::showText(){
         }else if (pItem->text_type == HTextItem::SUBTITLE){
             str = "字幕";
         }
-        HOperateTarget target(pItem);
-        target.attachWidget(m_targetWdg);
-        target.wdg->setText(str);
-        QFont font = target.wdg->font();
+        m_virtualTarget->attachItem(pItem);
+        m_virtualTarget->attachWidget(m_targetWdg);
+        m_virtualTarget->wdg->setPixmap(QPixmap());
+        m_virtualTarget->wdg->setText(str);
+        QFont font = m_virtualTarget->wdg->font();
         font.setPointSize(pItem->font_size*0.8);
         font.setLetterSpacing(QFont::AbsoluteSpacing,2);
-        target.wdg->setFont(font);
+        m_virtualTarget->wdg->setFont(font);
 
-        QPalette pal = target.wdg->palette();
+        QPalette pal = m_virtualTarget->wdg->palette();
         pal.setColor(QPalette::Foreground, pItem->font_color);
-        target.wdg->setPalette(pal);
+        m_virtualTarget->wdg->setPalette(pal);
 
         QFontMetrics fm(font);
         int w = fm.width(str) + 20;
         int h = fm.height();
-        target.wdg->setGeometry((width()-w)/2, (height()-h)/2, w, h);
-        target.wdg->show();
+        m_virtualTarget->wdg->setGeometry(QRect((width()-w)/2, (height()-h)/2, w, h));
+        m_virtualTarget->wdg->show();
 
-        m_vecAdds.clear();
-        m_vecAdds.push_back(target);
-        m_target = &(m_vecAdds.back());
+        m_target = m_virtualTarget;
         onTargetChanged();
     }
 }
@@ -928,27 +975,51 @@ void HCombGLWidget::onExpreSelected(QString& filepath){
     HPictureItem* pItem = new HPictureItem;
     pItem->src = filepath;
 
-    HOperateTarget target(pItem);
-    target.attachWidget(m_targetWdg);
+    m_virtualTarget->attachItem(pItem);
+    m_virtualTarget->attachWidget(m_targetWdg);
 
-    target.wdg->src_pixmap.load(filepath);
-    QPixmap pixmap = target.wdg->src_pixmap;
+    QPixmap pixmap;
+    pixmap.load(filepath);
+    m_virtualTarget->wdg->setPixmap(pixmap);
+
     int w = pixmap.width();
     int h = pixmap.height();
     if (w > EXPRE_MAX_WIDTH || h > EXPRE_MAX_HEIGHT){
         w = EXPRE_MAX_WIDTH;
         h = EXPRE_MAX_HEIGHT;
-        pixmap = pixmap.scaled(QSize(w,h));
+    }
+    m_virtualTarget->wdg->setGeometry(QRect((width()-w)/2, (height()-h)/2, w, h));
+    m_virtualTarget->wdg->show();
+
+    m_target = m_virtualTarget;
+    onTargetChanged();
+}
+
+bool HCombGLWidget::showTargetWidget(){
+    if (m_targetShow && m_targetShow->wdg){
+        if (m_targetShow->wdg->isVisible() && m_target == m_targetShow)
+            return true;
+        else
+            m_targetShow->detachWidget();
     }
 
-    target.wdg->setGeometry((width()-w)/2, (height()-h)/2, w, h);
-    target.wdg->setPixmap(pixmap);
-    target.wdg->show();
+    if (m_target && m_target->wdg == NULL && m_target->isExist() && m_target->isModifiable()){
+        m_target->attachWidget(m_targetWdg);
+        if (m_target->pItem->type == HAbstractItem::PICTURE){
+            HPictureItem* pItem = (HPictureItem*)m_target->pItem;
+            QPixmap pixmap;
+            pixmap.load(pItem->src);
+            m_target->wdg->setPixmap(pixmap);
+        }else{
+            m_target->wdg->setPixmap(grab(m_target->rcDraw));
+        }
+        m_target->wdg->setGeometry(m_target->rcDraw);
+        m_target->wdg->show();
 
-    m_vecAdds.clear();
-    m_vecAdds.push_back(target);
-    m_target = &(m_vecAdds.back());
-    onTargetChanged();
+        m_targetShow = m_target;
+    }
+
+    return true;
 }
 
 void HCombGLWidget::drawOutline(){
@@ -1086,20 +1157,8 @@ void HCombGLWidget::mouseMoveEvent(QMouseEvent *e){
     if (!m_bMouseMoving){
         m_bMouseMoving = true;
         // moveBegin
-        if (m_target && m_target->isModifiable()){
-            if (m_target->isExist()){
-                m_target->attachWidget(m_targetWdg);
-                if (m_target->pItem->type == HAbstractItem::PICTURE){
-                    HPictureItem* pItem = (HPictureItem*)m_target->pItem;
-                    m_target->wdg->src_pixmap.load(pItem->src);
-                }else{
-                    m_target->wdg->src_pixmap = grab(m_target->rcDraw);
-                }
-                m_target->wdg->setGeometry(m_target->rcDraw);
-                m_target->wdg->setPixmap(m_target->wdg->src_pixmap.scaled(m_target->wdg->size()));
-                m_target->wdg->show();
-
-            }
+        showTargetWidget();
+        if (m_target && m_target->wdg){
             m_location = getLocation(e->pos(), m_target->wdg->geometry());
         }
     }
@@ -1129,7 +1188,6 @@ void HCombGLWidget::mouseMoveEvent(QMouseEvent *e){
                 if (e->y() > rc.top() + 2*LOCATION_PADDING)
                     rc.setBottom(e->y());
             }
-            m_target->wdg->setPixmap(m_target->wdg->src_pixmap.scaled(rc.size()));
         }
 
         m_target->wdg->setGeometry(rc);
@@ -1155,13 +1213,8 @@ void HCombGLWidget::mouseReleaseEvent(QMouseEvent *e){
             onTrash();
         }
 
-        if (m_target && m_target->wdg && m_target->isExist()){
-            m_target->wdg->hide();
-            m_target->pItem->rc = scaleToOrigin(m_target->wdg->geometry());
-            m_target->pItem->modify();
-
-            m_target->detachWidget();
-            m_target = NULL;
+        if (!m_toolbar->isVisible()){
+            onOK();
         }
     }
 }

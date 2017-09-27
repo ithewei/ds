@@ -157,6 +157,14 @@ void HRcLoader::loadIcon(){
     strImg = g_dsCtx->img_path;
     strImg += "zoomout.png";
     icon_zoomout.load(strImg.c_str());
+
+    strImg = g_dsCtx->img_path;
+    strImg += "pinb.png";
+    icon_pinb.load(strImg.c_str());
+
+    strImg = g_dsCtx->img_path;
+    strImg += "pinr.png";
+    icon_pinr.load(strImg.c_str());
 }
 
 void HRcLoader::loadTexture(){

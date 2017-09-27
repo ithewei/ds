@@ -55,6 +55,8 @@ public:
     QPixmap icon_voice;
     QPixmap icon_zoomin;
     QPixmap icon_zoomout;
+    QPixmap icon_pinb;
+    QPixmap icon_pinr;
 
     Texture tex_sound;
     Texture tex_numr[MAX_NUM_ICON];

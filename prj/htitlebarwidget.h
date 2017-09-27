@@ -53,6 +53,8 @@ public:
     QLabel* m_label;
     QPushButton* m_btnFullScreen;
     QPushButton* m_btnExitFullScreen;
+    QPushButton* m_btnPinb;
+    QPushButton* m_btnPinr;
     QPushButton* m_btnDrawInfo;
     QPushButton* m_btnSnapshot;
     QPushButton* m_btnStartRecord;
