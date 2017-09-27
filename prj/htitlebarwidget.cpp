@@ -153,7 +153,7 @@ void HCombTitlebarWidget::initUI(){
     QHBoxLayout* hbox = new QHBoxLayout;
 
     hbox->setContentsMargins(5,1,5,1);
-    hbox->setSpacing(10);
+    hbox->setSpacing(20);
 
     m_label = new QLabel;
     hbox->addWidget(m_label);
@@ -177,6 +177,22 @@ void HCombTitlebarWidget::initUI(){
     m_btnDrawInfo->setIconSize(sz);
     m_btnDrawInfo->setFlat(true);
     hbox->addWidget(m_btnDrawInfo);
+
+    m_btnPinb = new QPushButton;
+    m_btnPinb->setFixedSize(sz);
+    m_btnPinb->setIcon(QIcon(HRcLoader::instance()->icon_pinb.scaled(sz)));
+    m_btnPinb->setIconSize(sz);
+    m_btnPinb->setFlat(true);
+    m_btnPinb->show();
+    hbox->addWidget(m_btnPinb);
+
+    m_btnPinr = new QPushButton;
+    m_btnPinr->setFixedSize(sz);
+    m_btnPinr->setIcon(QIcon(HRcLoader::instance()->icon_pinr.scaled(sz)));
+    m_btnPinr->setIconSize(sz);
+    m_btnPinr->setFlat(true);
+    m_btnPinr->hide();
+    hbox->addWidget(m_btnPinr);
 
     m_btnFullScreen = new QPushButton;
     m_btnFullScreen->setFixedSize(sz);
@@ -203,6 +219,12 @@ void HCombTitlebarWidget::initConnection(){
 
     QObject::connect( m_btnExitFullScreen, SIGNAL(clicked()), m_btnExitFullScreen, SLOT(hide()) );
     QObject::connect( m_btnExitFullScreen, SIGNAL(clicked()), m_btnFullScreen, SLOT(show()) );
+
+    QObject::connect( m_btnPinb, SIGNAL(clicked()), m_btnPinb, SLOT(hide()) );
+    QObject::connect( m_btnPinb, SIGNAL(clicked()), m_btnPinr, SLOT(show()) );
+
+    QObject::connect( m_btnPinr, SIGNAL(clicked()), m_btnPinr, SLOT(hide()) );
+    QObject::connect( m_btnPinr, SIGNAL(clicked()), m_btnPinb, SLOT(show()) );
 }
 
 bool HCombTitlebarWidget::event(QEvent *e){

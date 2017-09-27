@@ -11,6 +11,9 @@ class HOperateTargetWidget : public QLabel
 public:
     HOperateTargetWidget(QWidget* parent = NULL);
 
+    void setPixmap(const QPixmap& pixmap);
+    void setGeometry(const QRect& rc);
+
 public:
     QPixmap src_pixmap;
 };
@@ -22,6 +25,9 @@ public:
 
     bool isModifiable();
     bool isExist();
+
+    void attachItem(HAbstractItem* p);
+    void detachItem();
 
     void attachWidget(HOperateTargetWidget* p);
     void detachWidget();

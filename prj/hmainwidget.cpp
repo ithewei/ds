@@ -310,14 +310,14 @@ void HMainWidget::onGLWdgClicked(){
     HGLWidget* pSender = (HGLWidget*)sender();
 
     if (m_focusGLWdg == pSender){
-        m_focusGLWdg->showToolWidgets(false);
-        m_focusGLWdg = NULL;
+        if (!m_focusGLWdg->showToolWidgets(false))
+            m_focusGLWdg = NULL;
     }else{
         if (m_focusGLWdg){
             m_focusGLWdg->showToolWidgets(false);
         }
-        pSender->showToolWidgets(true);
-        m_focusGLWdg = pSender;
+        if (pSender->showToolWidgets(true))
+            m_focusGLWdg = pSender;
     }
 }
 

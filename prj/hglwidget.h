@@ -59,7 +59,7 @@ public:
     void setTitleColor(int color) {m_titcolor = color;}
     void setOutlineColor(int color) {m_outlinecolor = color;}
 
-    virtual void showToolWidgets(bool bShow = true);
+    virtual bool showToolWidgets(bool bShow = true);
 
 signals:
     void fullScreen();
@@ -116,7 +116,7 @@ public:
 
     void showTitlebar(bool bShow = true);
     void showToolbar(bool bShow = true);
-    virtual void showToolWidgets(bool bShow = true);
+    virtual bool showToolWidgets(bool bShow = true);
     void setProgress(int progress) {m_toolbar->m_slider->setValue(progress);}
 
 public slots:
@@ -173,15 +173,20 @@ public:
 
     void showTitlebar(bool bShow = true);
     void showToolbar(bool bShow = true);
-    virtual void showToolWidgets(bool bShow = true);
+    virtual bool showToolWidgets(bool bShow = true);
 
 public slots:
     void onCombChanged();
     void onOverlayChanged();
 
+    void lockTools() {m_bLockToolbar = true;}
+    void unlockTools() {m_bLockToolbar = false;}
+
     void onUndo();
     void onTrash();
     void onOK();
+    void onZoomIn();
+    void onZoomOut();
     void showExpre();
     void onExpreSelected(QString& filepath);
     void showText();
@@ -202,32 +207,32 @@ protected:
     virtual void mouseMoveEvent(QMouseEvent *e);
     virtual void mouseReleaseEvent(QMouseEvent *e);
 
-    void removeOperateTarget(HOperateTarget* p);
     void onTargetChanged();
     QRect adjustPos(QRect rc);
     QRect scaleToOrigin(QRect rc);
     QRect scaleToDraw(QRect rc);
 
+    bool showTargetWidget();
+
 private:
     std::vector<HOperateTarget> m_vecScreens;
     std::vector<HOperateTarget> m_vecPictures;
     std::vector<HOperateTarget> m_vecTexts;
-
-    std::list<HOperateTarget> m_vecAdds;
-#define OperateTarget_ITER std::list<HOperateTarget>::iterator
-
-    HOperateTargetWidget* m_targetWdg;
+    HOperateTarget* m_virtualTarget;
 
     HOperateTarget* m_target;
     HOperateTarget* m_targetPrev;
-    int m_location;
+    HOperateTarget* m_targetShow;
 
-    bool m_bMouseMoving;
+    HOperateTargetWidget* m_targetWdg;
     HCombTitlebarWidget* m_titlebar;
     HCombToolbarWidget*  m_toolbar;
     HChangeColorWidget* m_wdgTrash;
-
     HExpreWidget* m_wdgExpre;
+
+    int m_location;
+    bool m_bMouseMoving;
+    bool m_bLockToolbar;
 };
 //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
