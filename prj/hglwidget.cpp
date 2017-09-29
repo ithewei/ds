@@ -845,7 +845,7 @@ void HCombGLWidget::onOverlayChanged(){
 }
 
 void HCombGLWidget::onUndo(){
-    HNetwork::instance()->postScreenInfo(g_dsCtx->m_tCombUndo);
+    HAbstractItem::onUndo();
 }
 
 void HCombGLWidget::onTrash(){
@@ -855,6 +855,7 @@ void HCombGLWidget::onTrash(){
             m_target->detachItem();
             m_target->detachWidget();
         }else{
+            m_target->pItem->savePreStatus();
             m_target->pItem->remove();
         }
 
@@ -865,6 +866,7 @@ void HCombGLWidget::onTrash(){
 void HCombGLWidget::onOK(){
     if (m_target && m_target->wdg && m_target->isModifiable()){
         m_target->wdg->hide();
+        m_target->pItem->savePreStatus();
         m_target->pItem->rc = scaleToOrigin(m_target->wdg->geometry());
         m_target->pItem->addOrMod();
 
@@ -973,7 +975,7 @@ void HCombGLWidget::showExpre(){
 #define EXPRE_MAX_HEIGHT    128
 void HCombGLWidget::onExpreSelected(QString& filepath){
     HPictureItem* pItem = new HPictureItem;
-    pItem->src = filepath;
+    strncpy(pItem->src, filepath.toLocal8Bit().constData(), MAXLEN_STR);
 
     m_virtualTarget->attachItem(pItem);
     m_virtualTarget->attachWidget(m_targetWdg);
@@ -996,6 +998,9 @@ void HCombGLWidget::onExpreSelected(QString& filepath){
 }
 
 bool HCombGLWidget::showTargetWidget(){
+    if (!m_target || !m_target->isModifiable())
+        return false;
+
     if (m_targetShow && m_targetShow->wdg){
         if (m_targetShow->wdg->isVisible() && m_target == m_targetShow)
             return true;
@@ -1003,7 +1008,7 @@ bool HCombGLWidget::showTargetWidget(){
             m_targetShow->detachWidget();
     }
 
-    if (m_target && m_target->wdg == NULL && m_target->isExist() && m_target->isModifiable()){
+    if (m_target->wdg == NULL && m_target->isExist()){
         m_target->attachWidget(m_targetWdg);
         if (m_target->pItem->type == HAbstractItem::PICTURE){
             HPictureItem* pItem = (HPictureItem*)m_target->pItem;

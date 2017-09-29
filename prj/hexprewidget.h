@@ -1,9 +1,7 @@
 #ifndef HEXPREWIDGET_H
 #define HEXPREWIDGET_H
 
-#include <QWidget>
-#include <QListWidget>
-#include <QStackedWidget>
+#include "qtheaders.h"
 
 #define EXPRE_ICON_WIDTH    128
 #define EXPRE_ICON_HEIGHT   128
@@ -15,7 +13,6 @@
 #define EXPRE_HEIGHT        390
 
 #include <list>
-#include <QFileDialog>
 struct ExpreRecord{
     int id;
     QString label;

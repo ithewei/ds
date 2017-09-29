@@ -515,7 +515,7 @@ int HDsContext::parse_comb_xml(const char* xml){
         ci.items[ci.itemCnt].a = a;
         ci.items[ci.itemCnt].v = bV;
         ci.items[ci.itemCnt].srvid = u;
-        ci.items[ci.itemCnt].src = src;
+        strncpy(ci.items[ci.itemCnt].src, src.toLocal8Bit().constData(), MAXLEN_STR);
 
         if ((w > ci.width - 10) && (h > ci.height - 10)){
             ci.items[ci.itemCnt].bMainScreen = true;
@@ -533,7 +533,6 @@ int HDsContext::parse_comb_xml(const char* xml){
         m_preselect[i] = ci.items[i].srvid;
     }
 
-    m_tCombUndo = m_tComb;
     m_tComb = ci;
 
     emit combChanged();

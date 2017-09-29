@@ -1,8 +1,7 @@
 #ifndef HCHANGECOLORWIDGET_H
 #define HCHANGECOLORWIDGET_H
 
-#include <QLabel>
-#include <QColor>
+#include "qtheaders.h"
 
 class HChangeColorWidget : public QLabel
 {

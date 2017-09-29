@@ -1,9 +1,8 @@
 #ifndef HMAINTOOLBAR_H
 #define HMAINTOOLBAR_H
 
-#include <QWidget>
+#include "qtheaders.h"
 #include <QWebEngineView>
-#include "ds_global.h"
 
 #define ICON_WIDTH      90
 #define ICON_HEIGHT     90

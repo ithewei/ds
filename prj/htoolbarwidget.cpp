@@ -230,7 +230,6 @@ void HCombToolbarWidget::initUI(){
     m_btnUndo->setIcon(QIcon(HRcLoader::instance()->icon_undo));
     m_btnUndo->setIconSize(sz);
     m_btnUndo->setFlat(true);
-    m_btnUndo->hide();
     hbox->addWidget(m_btnUndo);
 
     setLayout(hbox);
@@ -244,7 +243,6 @@ void HCombToolbarWidget::initConnection(){
     QObject::connect( m_btnPause, SIGNAL(clicked(bool)), m_btnStart, SLOT(show()) );
 }
 
-#include <QEvent>
 bool HCombToolbarWidget::event(QEvent *e){
     switch (e->type()){
     case QEvent::MouseButtonPress:

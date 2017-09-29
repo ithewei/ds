@@ -1,18 +1,11 @@
 #ifndef HMAINWIDGET_H
 #define HMAINWIDGET_H
 
-#include <QWidget>
-#include <QMainWindow>
-#include <QPushButton>
-#include <QTimer>
+#include "qtheaders.h"
 #include "hmaintoolbar.h"
 #include "hglwidget.h"
-#include "hchangecolorwidget.h"
 #include "ds_global.h"
 #include "hdsctx.h"
-#include <QNetworkAccessManager>
-#include <QNetworkRequest>
-#include <QNetworkReply>
 
 #define MAXNUM_GLWIDGET 8
 

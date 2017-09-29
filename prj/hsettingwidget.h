@@ -1,10 +1,7 @@
 #ifndef HSETTINGWIDGET_H
 #define HSETTINGWIDGET_H
 
-#include <QDialog>
-#include <QPushButton>
-#include <QLineEdit>
-#include <QLabel>
+#include "qtheaders.h"
 
 class HSettingWidget : public QDialog
 {

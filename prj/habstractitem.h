@@ -2,6 +2,8 @@
 #define HABSTRACTITEM_H
 
 #include <QRect>
+#include <string.h>
+#define MAXLEN_STR  256
 
 class HAbstractItem
 {
@@ -9,9 +11,15 @@ public:
     HAbstractItem();
     virtual ~HAbstractItem();
 
-    virtual void add() = 0;
-    virtual void remove() = 0;
-    virtual void modify() = 0;
+    virtual void clone(HAbstractItem* rhs){
+        memcpy(this, rhs, sizeof(HAbstractItem));
+    }
+
+    virtual void add();
+    virtual void remove();
+    virtual void modify();
+    virtual void undo();
+    virtual void savePreStatus();
 
     void addOrMod(){
         if (id == -1)
@@ -33,6 +41,14 @@ public:
         ALL = 0xFF,
     };
 
+    enum OPERATE{
+        OPERATE_NONE = 0,
+
+        OPERATE_ADD,
+        OPERATE_REMOVE,
+        OPERATE_MODIFY,
+    };
+
     inline bool isOverlay(){
         return type > OVERLAY && type < OVERLAY_END;
     }
@@ -41,6 +57,10 @@ public:
     TYPE type;
     int id;
     QRect rc;
+
+    static OPERATE  s_operate;
+    static HAbstractItem* s_itemUndo;
+    static void onUndo();
 };
 
 class HScreenItem : public HAbstractItem
@@ -48,15 +68,20 @@ class HScreenItem : public HAbstractItem
 public:
     HScreenItem();
 
-    virtual void add();
+    void clone(HAbstractItem* rhs){
+        memcpy(this, rhs, sizeof(HScreenItem));
+    }
+
     virtual void remove();
     virtual void modify();
+    virtual void undo();
+    virtual void savePreStatus();
 
 public:
     int srvid;
     bool v;
     bool a;
-    QString src;
+    char src[MAXLEN_STR];
 
     bool bMainScreen;
 };
@@ -66,18 +91,26 @@ class HPictureItem : public HAbstractItem
 public:
     HPictureItem();
 
+    void clone(HAbstractItem* rhs){
+        memcpy(this, rhs, sizeof(HPictureItem));
+    }
+
     virtual void add();
     virtual void remove();
     virtual void modify();
 
 public:
-    QString src;
+    char src[MAXLEN_STR];
 };
 
 class HTextItem : public HAbstractItem
 {
 public:
     HTextItem();
+
+    void clone(HAbstractItem* rhs){
+        memcpy(this, rhs, sizeof(HTextItem));
+    }
 
     virtual void add();
     virtual void remove();
@@ -92,9 +125,15 @@ public:
     };
 
     TEXT_TYPE text_type;
-    QString text;
+    char text[MAXLEN_STR];
     int font_size;
     int font_color;
+};
+
+class HItemFactory
+{
+public:
+static HAbstractItem* createItem(HAbstractItem::TYPE type);
 };
 
 #endif // HABSTRACTITEM_H
