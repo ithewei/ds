@@ -1,14 +1,9 @@
 #ifndef HADDTEXTWIDGET_H
 #define HADDTEXTWIDGET_H
 
-#include <QWidget>
-#include <QComboBox>
-#include <QLineEdit>
-#include <QFontDialog>
-#include <QColorDialog>
-#include <QButtonGroup>
-
+#include "qtheaders.h"
 #include "ds_def.h"
+#include "hcolorwidget.h"
 
 class HAddTextWidget : public QDialog
 {
@@ -21,6 +16,7 @@ signals:
 public slots:
     void selectFont();
     void selectColor();
+    void onNewColor(QColor color);
     void onCategoryChanged(int index);
     void onFontSizeChanged(int index);
     virtual void accept();

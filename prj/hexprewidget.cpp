@@ -123,9 +123,7 @@ HExpreWidget::HExpreWidget(QWidget *parent) : QWidget(parent)
     initConnect();
 }
 
-#include <QBoxLayout>
 #include <QDirIterator>
-#include <QScrollBar>
 void HExpreWidget::initList(QListWidget* list, QString dir){
     list->setMovement(QListView::Static);
     list->setViewMode(QListView::IconMode);
@@ -418,8 +416,6 @@ void HExpreWidget::onSelectExpre(QListWidgetItem* item){
     }
 }
 
-#include <QMessageBox>
-#include <QInputDialog>
 void HExpreWidget::onMkdir(){
     QString label = QInputDialog::getText(this, tr("新建分类"), tr("请输入一个分类名称："));
     if (label.length() == 0)
@@ -500,7 +496,6 @@ void HExpreWidget::onRmdir(){
     }
 }
 
-#include <QFileDialog>
 #include <QStandardPaths>
 void HExpreWidget::onAdd(QString& str){
 //    const QFileDialog::Options options = QFileDialog::DontUseNativeDialog;

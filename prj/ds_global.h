@@ -2,17 +2,6 @@
 #define DS_GLOBAL_H
 
 #include <QtCore/qglobal.h>
-#include <QApplication>
-#include <QDesktopWidget>
-
-#include <QWidget>
-#include <QLabel>
-#include <QPushButton>
-
-#include <QBoxLayout>
-
-#include <QMouseEvent>
-#include <QKeyEvent>
 
 #if defined(DS_LIBRARY)
 #  define DSSHARED_EXPORT Q_DECL_EXPORT

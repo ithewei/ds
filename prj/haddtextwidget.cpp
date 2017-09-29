@@ -7,17 +7,11 @@ HAddTextWidget::HAddTextWidget(QWidget *parent) : QDialog(parent)
     initConnect();
 }
 
-#include <QGridLayout>
-#include <QLabel>
-#include <QPushButton>
 #include <QIntValidator>
-#include <QButtonGroup>
-#include <QRadioButton>
 void HAddTextWidget::initUI(){
     setFixedSize(QSize(480,390));
-    setStyleSheet("background-color: #FFFFF0");
 
-    int default_font_size = 32;
+    int default_font_size = 48;
     QColor default_font_color = Qt::white;
 
     setWindowTitle("添加文字");
@@ -90,7 +84,11 @@ void HAddTextWidget::initUI(){
     }
     hbox->addWidget(m_cmbFontSize);
     hbox->addStretch();
-    m_btnColor = new QPushButton("颜色选择");
+    hbox->addWidget(new QLabel("颜色"));
+    m_btnColor = new QPushButton;
+    m_btnColor->setFixedWidth(100);
+    m_btnColor->setFlat(true);
+    m_btnColor->setStyleSheet("background-color: #FFFFFF; border:2px solid gray;");
     hbox->addWidget(m_btnColor);
     grid->addLayout(hbox, row, 1);
 
@@ -103,7 +101,7 @@ void HAddTextWidget::initUI(){
     pal.setColor(QPalette::Foreground, default_font_color);
     m_labelPreview->setPalette(pal);
     QFont font = m_labelPreview->font();
-    font.setPointSize(default_font_size);
+    font.setPointSize(default_font_size*0.8);
     m_labelPreview->setFont(font);
     m_labelPreview->setText("123中文ABC");
     grid->addWidget(m_labelPreview, row, 1);
@@ -149,18 +147,38 @@ void HAddTextWidget::selectFont(){
     }
 }
 
-#include <QFileDialog>
 void HAddTextWidget::selectColor(){
-    QColorDialog::ColorDialogOptions options = QColorDialog::DontUseNativeDialog;
-    const QColor color = QColorDialog::getColor(Qt::white, this, "Select Color", options);
+//    QColorDialog::ColorDialogOptions options = QColorDialog::DontUseNativeDialog;
+//    const QColor color = QColorDialog::getColor(Qt::white, this, "Select Color", options);
 
+//    if (color.isValid()) {
+//        m_TextItem.font_color = color.rgb() & 0x00FFFFFF;
+//        qDebug("color=%x", m_TextItem.font_color);
+
+//        QPalette pal = m_labelPreview->palette();
+//        pal.setColor(QPalette::Foreground, color);
+//        m_labelPreview->setPalette(pal);
+//    }
+
+    HColorWidget* cp = new HColorWidget(this);
+    QObject::connect( cp, SIGNAL(newColor(QColor)), this, SLOT(onNewColor(QColor)) );
+    QPoint ptBotoom = m_btnColor->mapToGlobal(QPoint(0,m_btnColor->height()));
+    cp->setWindowFlags(Qt::Popup);
+    cp->setAttribute(Qt::WA_DeleteOnClose);
+    cp->move(ptBotoom.x(), ptBotoom.y());
+    cp->show();
+}
+
+void HAddTextWidget::onNewColor(QColor color){
     if (color.isValid()) {
         m_TextItem.font_color = color.rgb() & 0x00FFFFFF;
-        qDebug("color=%x", m_TextItem.font_color);
+        qDebug("color=#%06x", m_TextItem.font_color);
 
         QPalette pal = m_labelPreview->palette();
         pal.setColor(QPalette::Foreground, color);
         m_labelPreview->setPalette(pal);
+
+        m_btnColor->setStyleSheet(QString::asprintf("background-color: #%06x; border:2px solid gray;", m_TextItem.font_color));
     }
 }
 
@@ -182,28 +200,30 @@ void HAddTextWidget::onCategoryChanged(int index){
 
 void HAddTextWidget::onFontSizeChanged(int index){
     QFont font = m_labelPreview->font();
-    font.setPointSize(m_cmbFontSize->currentText().toInt());
+    font.setPointSize(m_cmbFontSize->currentText().toInt()*0.8);
     m_labelPreview->setFont(font);
 }
 
 void HAddTextWidget::accept(){
     //int iCategory = m_cmbCategory->currentIndex();
     int iCategory = m_grpCategory->checkedId();
+    QString text;
     if (iCategory == 0){
         m_TextItem.text_type = HTextItem::LABEL;
-        m_TextItem.text = m_editText->text();
+        text = m_editText->text();
     }else if (iCategory == 1){
         m_TextItem.text_type = HTextItem::TIME;
-        m_TextItem.text = "__%%TIMER%%__";
+        text = "__%%TIMER%%__";
     }else if (iCategory == 2){
         m_TextItem.text_type = HTextItem::WATCHER;
-        m_TextItem.text = "__%%WATCHER%%__";
+        text = "__%%WATCHER%%__";
     }else if (iCategory == 3){
         m_TextItem.text_type = HTextItem::SUBTITLE;
-        m_TextItem.text = "__%%subtitle_index%%__";
-        m_TextItem.text += QString::asprintf("|%d", m_editText->text().toInt());
-        qDebug(m_TextItem.text.toLocal8Bit().constData());
+        text = "__%%subtitle_index%%__";
+        text += QString::asprintf("|%d", m_editText->text().toInt());
+        qDebug(text.toLocal8Bit().constData());
     }
+    strncpy(m_TextItem.text, text.toLocal8Bit().constData(), MAXLEN_STR);
     m_TextItem.font_size = m_cmbFontSize->currentText().toInt();
 
     QDialog::accept();

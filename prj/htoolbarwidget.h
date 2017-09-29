@@ -1,9 +1,7 @@
 #ifndef HTOOLBARWIDGET_H
 #define HTOOLBARWIDGET_H
 
-#include <QWidget>
-#include <QPushButton>
-#include <QSlider>
+#include "qtheaders.h"
 
 class HToolbarWidget : public QWidget
 {

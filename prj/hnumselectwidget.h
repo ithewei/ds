@@ -1,8 +1,7 @@
 #ifndef HNUMSELECTWIDGET_H
 #define HNUMSELECTWIDGET_H
 
-#include <QWidget>
-#include <QPushButton>
+#include "qtheaders.h"
 #include "hrcloader.h"
 
 #define NUM_ICON_WIDTH      64

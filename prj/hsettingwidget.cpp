@@ -8,7 +8,6 @@ HSettingWidget::HSettingWidget(QWidget* parent)
     initConnect();
 }
 
-#include <QGridLayout>
 #include <QIntValidator>
 void HSettingWidget::initUI(){
     setFixedSize(QSize(300,300));

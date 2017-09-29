@@ -1,9 +1,7 @@
 #ifndef HTITLEBARWIDGET_H
 #define HTITLEBARWIDGET_H
 
-#include <QWidget>
-#include <QLabel>
-#include <QPushButton>
+#include "qtheaders.h"
 
 class HTitlebarWidget : public QWidget
 {

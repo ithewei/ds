@@ -1,4 +1,5 @@
 #include "hnumselectwidget.h"
+#include "hrcloader.h"
 
 HNumSelectWidget::HNumSelectWidget(QWidget *parent) : QWidget(parent)
 {

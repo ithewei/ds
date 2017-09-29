@@ -1,8 +1,7 @@
 #ifndef HOPERATETARGET_H
 #define HOPERATETARGET_H
 
-#include <QObject>
-#include <QLabel>
+#include "qtheaders.h"
 #include "habstractitem.h"
 
 class HOperateTargetWidget : public QLabel

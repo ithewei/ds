@@ -149,13 +149,15 @@ void HNetwork::onQueryOverlayReply(QNetworkReply* reply){
             }
 
             if (obj_picture.contains("path")){
-                item.src = dir_trans;
-                item.src += obj_picture.value("path").toString();
+                QString src;
+                src = dir_trans;
+                src += obj_picture.value("path").toString();
+                strncpy(item.src, src.toLocal8Bit().constData(), MAXLEN_STR);
             }
 
             m_vecPictures.push_back(item);
             qDebug("id=%d,x=%d,y=%d,w=%d,h=%d,src=%s", item.id, item.rc.x(), item.rc.y(), item.rc.width(), item.rc.height(),
-                   item.src.toLocal8Bit().constData());
+                   item.src);
         }
     }
 
@@ -179,7 +181,8 @@ void HNetwork::onQueryOverlayReply(QNetworkReply* reply){
             }
 
             if (obj_text.contains("content")){
-                item.text = obj_text.value("content").toString();
+                QString text = obj_text.value("content").toString();
+                strncpy(item.text, text.toLocal8Bit().constData(), MAXLEN_STR);
             }
 
             if (obj_text.contains("font_size")){
@@ -196,13 +199,14 @@ void HNetwork::onQueryOverlayReply(QNetworkReply* reply){
             QFontMetrics fm(font);
             int h = fm.height();
             int w = 256;
-            if (item.text.contains("__%%TIMER%%__")){
+            QString text = item.text;
+            if (text.contains("__%%TIMER%%__")){
                 item.text_type = HTextItem::TIME;
                 w = fm.width("2017-09-10 12:34:56");
-            }else if (item.text.contains("__%%WATCHER%%__")){
+            }else if (text.contains("__%%WATCHER%%__")){
                 item.text_type = HTextItem::WATCHER;
                 w = fm.width("00:00:00:0");
-            }else if (item.text.contains("__%%subtitle_index%%__")){
+            }else if (text.contains("__%%subtitle_index%%__")){
                 item.text_type = HTextItem::SUBTITLE;
                 w = 360;
             }else{
@@ -215,7 +219,7 @@ void HNetwork::onQueryOverlayReply(QNetworkReply* reply){
 
             m_vecTexts.push_back(item);
             qDebug("id=%d,x=%d,y=%d,w=%d,h=%d,content=%s,font_size=%d,font_color=0x%x", item.id, item.rc.x(), item.rc.y(), item.rc.width(), item.rc.height(),
-                   item.text.toLocal8Bit().constData(),item.font_size, item.font_color);
+                   item.text,item.font_size, item.font_color);
         }
     }
 
@@ -225,7 +229,7 @@ void HNetwork::onQueryOverlayReply(QNetworkReply* reply){
 }
 
 void HNetwork::addPicture(HPictureItem &item){
-    QString src = item.src.right(item.src.length() - strlen(dir_trans));
+    QString src = item.src + strlen(dir_trans);
     QJsonObject obj;
     obj.insert("src", src);
     obj.insert("x", item.rc.x());
