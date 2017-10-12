@@ -341,8 +341,6 @@ void HGeneralGLWidget::initConnect(){
 
 void HGeneralGLWidget::showTitlebar(bool bShow){
     if (bShow){
-        HNetwork::instance()->queryVoice();
-
         DsSvrItem* item = g_dsCtx->getItem(srvid);
         if (item){
             m_titlebar->m_label->setText(item->title.c_str());
@@ -594,11 +592,19 @@ void HCombGLWidget::initUI(){
 
     QVBoxLayout* vbox = new QVBoxLayout;
     vbox->setMargin(2);
+    vbox->setSpacing(1);
 
     m_titlebar = new HCombTitlebarWidget;
     m_titlebar->setFixedHeight(TOOL_BAR_HEIGHT);
     m_titlebar->hide();
     vbox->addWidget(m_titlebar);
+
+    vbox->addStretch();
+
+    m_wdgText = new HAddTextWidget;
+    m_wdgText->hide();
+    vbox->addWidget(m_wdgText);
+    vbox->setAlignment(m_wdgText, Qt::AlignCenter);
 
     vbox->addStretch();
 
@@ -642,6 +648,7 @@ void HCombGLWidget::initConnect(){
     QObject::connect( m_toolbar->m_btnZoomOut, SIGNAL(clicked(bool)), this, SLOT(onZoomOut()) );
 
     QObject::connect( m_wdgExpre, SIGNAL(expreSelected(QString&)), this, SLOT(onExpreSelected(QString&)) );
+    QObject::connect( m_wdgText, SIGNAL(accepted()), this, SLOT(onTextAccepted()) );
 }
 
 void HCombGLWidget::showTitlebar(bool bShow){
@@ -736,12 +743,12 @@ HOperateTarget* HCombGLWidget::getItemByPos(QPoint pt, HAbstractItem::TYPE type)
 
     if (type == HAbstractItem::ALL){
         if (m_virtualTarget && m_virtualTarget->wdg){
-            if (m_virtualTarget->wdg->isVisible() && m_virtualTarget->wdg->geometry().contains(pt))
+            if (m_virtualTarget->wdg->isVisible() )//&& m_virtualTarget->wdg->geometry().contains(pt))
                 return m_virtualTarget;
         }
 
         if (m_targetShow && m_targetShow->wdg){
-            if (m_targetShow->wdg->isVisible() && m_targetShow->wdg->geometry().contains(pt))
+            if (m_targetShow->wdg->isVisible() )//&& m_targetShow->wdg->geometry().contains(pt))
                 return m_targetShow;
         }
     }
@@ -880,16 +887,24 @@ void HCombGLWidget::onZoomIn(){
     showTargetWidget();
 
     if (m_target && m_target->wdg){
-        QRect rc = m_target->wdg->geometry();
-        QPoint ptCenter = rc.center();
-        int w = rc.width() * 1.1;
-        int h = rc.height() * 1.1;
-        if (w > width())
-            w = width();
-        if (h > height())
-            h = height();
-        QRect rcDst = adjustPos(QRect(ptCenter.x() - w/2, ptCenter.y() - h/2, w, h ));
-        m_target->wdg->setGeometry(rcDst);
+        QRect rc = m_target->wdg->geometry();    
+        if (m_target->pItem->type == HAbstractItem::TEXT){
+            HTextItem* item = (HTextItem*)(m_target->pItem);
+            if (item->font_size < 96){
+                item->font_size += 2;
+                updateTargetWidget(rc.topLeft(), item);
+            }
+        }else{
+            QPoint ptCenter = rc.center();
+            int w = rc.width() * 1.1;
+            int h = rc.height() * 1.1;
+            if (w > width())
+                w = width();
+            if (h > height())
+                h = height();
+            QRect rcDst = adjustPos(QRect(ptCenter.x() - w/2, ptCenter.y() - h/2, w, h ));
+            m_target->wdg->setGeometry(rcDst);
+        }
     }
 }
 
@@ -898,15 +913,23 @@ void HCombGLWidget::onZoomOut(){
 
     if (m_target && m_target->wdg){
         QRect rc = m_target->wdg->geometry();
-        QPoint ptCenter = rc.center();
-        int w = rc.width() * 0.9;
-        int h = rc.height() * 0.9;
-        if (w < 2)
-            w = 2;
-        if (h < 2)
-            h = 2;
-        QRect rcDst = adjustPos(QRect(ptCenter.x() - w/2, ptCenter.y() - h/2, w, h ));
-        m_target->wdg->setGeometry(rcDst);
+        if (m_target->pItem->type == HAbstractItem::TEXT){
+            HTextItem* item = (HTextItem*)(m_target->pItem);
+            if (item->font_size > 8){
+                item->font_size -= 2;
+                updateTargetWidget(rc.topLeft(), item);
+            }
+        }else{
+            QPoint ptCenter = rc.center();
+            int w = rc.width() * 0.9;
+            int h = rc.height() * 0.9;
+            if (w < 2)
+                w = 2;
+            if (h < 2)
+                h = 2;
+            QRect rcDst = adjustPos(QRect(ptCenter.x() - w/2, ptCenter.y() - h/2, w, h ));
+            m_target->wdg->setGeometry(rcDst);
+        }
     }
 }
 
@@ -923,51 +946,53 @@ void HCombGLWidget::onSetting(){
 }
 
 void HCombGLWidget::showText(){
-    HAddTextWidget dlg(this);
-    dlg.setWindowFlags(Qt::Dialog | Qt::FramelessWindowHint | Qt::X11BypassWindowManagerHint);
-    int w = dlg.width();
-    int h = dlg.height();
-    dlg.move(x() + (width() - w)/2, y() + m_toolbar->y() - h);
-    if (dlg.exec() == QDialog::Accepted){
-        HTextItem* pItem = new HTextItem(dlg.m_TextItem);
-        QString str;
-        if (pItem->text_type == HTextItem::LABEL){
-            str = pItem->text;
-        }else if (pItem->text_type == HTextItem::TIME){
-            str = QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss");
-        }else if (pItem->text_type == HTextItem::WATCHER){
-            str = "00:00:00:0";
-        }else if (pItem->text_type == HTextItem::SUBTITLE){
-            str = "字幕";
-        }
-        m_virtualTarget->attachItem(pItem);
-        m_virtualTarget->attachWidget(m_targetWdg);
-        m_virtualTarget->wdg->setPixmap(QPixmap());
-        m_virtualTarget->wdg->setText(str);
-        QFont font = m_virtualTarget->wdg->font();
-        font.setPointSize(pItem->font_size*0.8);
-        font.setLetterSpacing(QFont::AbsoluteSpacing,2);
-        m_virtualTarget->wdg->setFont(font);
+    m_wdgText->setVisible(!m_wdgText->isVisible());
+}
 
-        QPalette pal = m_virtualTarget->wdg->palette();
-        pal.setColor(QPalette::Foreground, pItem->font_color);
-        m_virtualTarget->wdg->setPalette(pal);
-
-        QFontMetrics fm(font);
-        int w = fm.width(str) + 20;
-        int h = fm.height();
-        m_virtualTarget->wdg->setGeometry(QRect((width()-w)/2, (height()-h)/2, w, h));
-        m_virtualTarget->wdg->show();
-
-        m_target = m_virtualTarget;
-        onTargetChanged();
+void HCombGLWidget::updateTargetWidget(QPoint pt, HTextItem* pItem){
+    QFont font = m_targetWdg->font();
+    font.setPixelSize(pItem->font_size * width() / g_dsCtx->m_tComb.width);
+    font.setLetterSpacing(QFont::AbsoluteSpacing,0);
+    QString str;
+    if (pItem->text_type == HTextItem::LABEL){
+        str = pItem->text;
+        font.setLetterSpacing(QFont::AbsoluteSpacing,4);
+    }else if (pItem->text_type == HTextItem::TIME){
+        str = QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss");
+    }else if (pItem->text_type == HTextItem::WATCHER){
+        str = "00:00:00:0";
+    }else if (pItem->text_type == HTextItem::SUBTITLE){
+        str = "字幕";
     }
+    m_targetWdg->setPixmap(QPixmap());
+    m_targetWdg->setText(str);
+    m_targetWdg->setFont(font);
+    QPalette pal = m_targetWdg->palette();
+    pal.setColor(QPalette::Foreground, pItem->font_color);
+    m_targetWdg->setPalette(pal);
+
+    QFontMetrics fm(font);
+    int w = fm.width(str)+20;
+    int h = fm.height();
+    m_targetWdg->setGeometry(QRect(pt.x(), pt.y(), w, h));
+    m_targetWdg->show();
+}
+
+void HCombGLWidget::onTextAccepted(){
+    HTextItem* pItem = new HTextItem(m_wdgText->m_TextItem);
+    m_virtualTarget->attachItem(pItem);
+    updateTargetWidget(QPoint(200,200), pItem);
+    m_virtualTarget->attachWidget(m_targetWdg);
+
+    m_target = m_virtualTarget;
+    onTargetChanged();
 }
 
 void HCombGLWidget::showExpre(){
     int w = m_wdgExpre->width();
     int h = m_wdgExpre->height();
-    m_wdgExpre->move(x() + (width() - w)/2, y() + m_toolbar->y() - h);
+    QPoint ptLeftTop = m_toolbar->mapToGlobal(QPoint(0,0));
+    m_wdgExpre->move(x() + (width() - w)/2, ptLeftTop.y() - h);
     m_wdgExpre->show();
 }
 
@@ -1015,6 +1040,8 @@ bool HCombGLWidget::showTargetWidget(){
             QPixmap pixmap;
             pixmap.load(pItem->src);
             m_target->wdg->setPixmap(pixmap);
+        }if (m_target->pItem->type == HAbstractItem::TEXT){
+            m_target->wdg->setPixmap(QPixmap());
         }else{
             m_target->wdg->setPixmap(grab(m_target->rcDraw));
         }

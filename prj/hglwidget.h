@@ -190,6 +190,7 @@ public slots:
     void showExpre();
     void onExpreSelected(QString& filepath);
     void showText();
+    void onTextAccepted();
     void onSetting();
 
 protected:
@@ -213,6 +214,7 @@ protected:
     QRect scaleToDraw(QRect rc);
 
     bool showTargetWidget();
+    void updateTargetWidget(QPoint pt, HTextItem* pItem);
 
 private:
     std::vector<HOperateTarget> m_vecScreens;
@@ -229,6 +231,7 @@ private:
     HCombToolbarWidget*  m_toolbar;
     HChangeColorWidget* m_wdgTrash;
     HExpreWidget* m_wdgExpre;
+    HAddTextWidget* m_wdgText;
 
     int m_location;
     bool m_bMouseMoving;

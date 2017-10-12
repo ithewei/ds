@@ -1,7 +1,7 @@
 #include "haddtextwidget.h"
 #include "hrcloader.h"
 
-HAddTextWidget::HAddTextWidget(QWidget *parent) : QDialog(parent)
+HAddTextWidget::HAddTextWidget(QWidget *parent) : QWidget(parent)
 {
     initUI();
     initConnect();
@@ -10,6 +10,11 @@ HAddTextWidget::HAddTextWidget(QWidget *parent) : QDialog(parent)
 #include <QIntValidator>
 void HAddTextWidget::initUI(){
     setFixedSize(QSize(480,390));
+    setAutoFillBackground(true);
+    QPalette pal = palette();
+    pal.setColor(QPalette::Background, QColor(255,255,255));
+    pal.setColor(QPalette::Foreground, QColor(0,0,0));
+    setPalette(pal);
 
     int default_font_size = 48;
     QColor default_font_color = Qt::white;
@@ -97,7 +102,7 @@ void HAddTextWidget::initUI(){
     grid->addWidget(label, row, 0);
     m_labelPreview = new QLabel;
     m_labelPreview->setStyleSheet("background-color: #696969");
-    QPalette pal = m_labelPreview->palette();
+    pal = m_labelPreview->palette();
     pal.setColor(QPalette::Foreground, default_font_color);
     m_labelPreview->setPalette(pal);
     QFont font = m_labelPreview->font();
@@ -190,7 +195,7 @@ void HAddTextWidget::onCategoryChanged(int index){
         m_editText->setText("yyyy-MM-dd HH:mm:ss");
         m_editText->setReadOnly(true);
     }else if (index == 2){
-        m_editText->setText("HH:mm:ss.zzz");
+        m_editText->setText("HH:mm:ss:z");
         m_editText->setReadOnly(true);
     }else if (index == 3){
         m_editText->setText("请输入字幕轨");
@@ -226,5 +231,11 @@ void HAddTextWidget::accept(){
     strncpy(m_TextItem.text, text.toLocal8Bit().constData(), MAXLEN_STR);
     m_TextItem.font_size = m_cmbFontSize->currentText().toInt();
 
-    QDialog::accept();
+    hide();
+    emit accepted();
+}
+
+void HAddTextWidget::reject(){
+    hide();
+    emit rejected();
 }

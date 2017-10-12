@@ -29,10 +29,12 @@ HNetwork::HNetwork() : QObject()
     QObject::connect( m_nam_query_overlay, SIGNAL(finished(QNetworkReply*)), this, SLOT(onQueryOverlayReply(QNetworkReply*)) );
 
     m_nam_micphone = new QNetworkAccessManager(this);
-    //QObject::connect( m_nam_micphone, SIGNAL(finished(QNetworkReply*)), this, SLOT(onQueryMicphone(QNetworkReply*)) );
 
     m_nam_voice = new QNetworkAccessManager(this);
-    QObject::connect( m_nam_voice, SIGNAL(finished(QNetworkReply*)), this, SLOT(onQueryVoiceReply(QNetworkReply*)) );
+    QObject::connect( m_nam_voice, SIGNAL(finished(QNetworkReply*)), this, SLOT(queryVoice()) );
+
+    m_nam_query_voice = new QNetworkAccessManager(this);
+    QObject::connect( m_nam_query_voice, SIGNAL(finished(QNetworkReply*)), this, SLOT(onQueryVoiceReply(QNetworkReply*)) );
 
     queryVoice();
 }
@@ -194,8 +196,9 @@ void HNetwork::onQueryOverlayReply(QNetworkReply* reply){
             }
 
             QFont font;
-            font.setPointSize(item.font_size*0.8);
-            font.setLetterSpacing(QFont::AbsoluteSpacing, 2);
+            font.setPixelSize(item.font_size);
+            font.setLetterSpacing(QFont::AbsoluteSpacing, 0);
+            font.setWordSpacing(0);
             QFontMetrics fm(font);
             int h = fm.height();
             int w = 256;
@@ -211,6 +214,8 @@ void HNetwork::onQueryOverlayReply(QNetworkReply* reply){
                 w = 360;
             }else{
                 item.text_type = HTextItem::LABEL;
+                font.setLetterSpacing(QFont::AbsoluteSpacing, 4);
+                QFontMetrics fm(font);
                 w = fm.width(item.text);
             }
             int x = item.rc.x();
@@ -331,22 +336,6 @@ void HNetwork::removeText(HTextItem& item){
     m_nam_remove_overlay->post(QNetworkRequest(QUrl(url_remove_overlay)), bytes);
 }
 
-//void HNetwork::onQueryMicphone(QNetworkReply* reply){
-//    QJsonDocument doc = QJsonDocument::fromJson(reply->readAll());
-//    if (doc.isObject()){
-//        QJsonObject obj = doc.object();
-//        if (obj.contains("id")){
-//            int micphone = obj.value("id").toInt();
-//        }
-//    }
-
-//    reply->deleteLater();
-//}
-
-//void HNetwork::queryMicphone(){
-//    m_nam_micphone->get(QNetworkRequest(QUrl(url_micphone)));
-//}
-
 void HNetwork::setMicphone(int srvid){
     QString json = QString::asprintf("{\"id\":%d}", srvid);
     qDebug(json.toUtf8().constData());
@@ -354,7 +343,7 @@ void HNetwork::setMicphone(int srvid){
 }
 
 void HNetwork::queryVoice(){
-    m_nam_voice->get(QNetworkRequest(QUrl(url_voice)));
+    m_nam_query_voice->get(QNetworkRequest(QUrl(url_voice)));
 }
 
 void HNetwork::onQueryVoiceReply(QNetworkReply *reply){

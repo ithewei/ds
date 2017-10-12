@@ -4,7 +4,8 @@
 HOperateTargetWidget::HOperateTargetWidget(QWidget* parent)
     : QLabel(parent)
 {
-       setStyleSheet("border:3px dashed red;");
+    setStyleSheet("border:3px dashed red;");
+    setMargin(0);
 }
 
 void HOperateTargetWidget::setPixmap(const QPixmap& pixmap){

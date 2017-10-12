@@ -67,7 +67,7 @@ void* HDsContext::thread_gui(void* param){
 
     HDsContext* pObj = (HDsContext*)param;
 
-    //qputenv("QT_IM_MODULE", QByteArray("qtvirtualkeyboard"));
+    qputenv("QT_IM_MODULE", QByteArray("qtvirtualkeyboard"));
     int argc = 0;
     QApplication app(argc, NULL);
 
@@ -923,10 +923,10 @@ int HDsContext::push_video(int srvid, const av_picture* pic){
 //                    item->tex_yuv.width = w >> 2;
 //                    item->tex_yuv.height = h >> 2;
                     if (srvid == 1){
-                        item->tex_yuv.width = m_tLayout.items[m_tLayout.itemCnt-1].width();
+                        item->tex_yuv.width = m_tLayout.items[m_tLayout.itemCnt-1].width() >> 2 << 2;
                         item->tex_yuv.height = m_tLayout.items[m_tLayout.itemCnt-1].height();
                     }else{
-                        item->tex_yuv.width = m_tLayout.items[0].width();
+                        item->tex_yuv.width = m_tLayout.items[0].width() >> 2 << 2;
                         item->tex_yuv.height = m_tLayout.items[0].height();
                     }
                 }else{
