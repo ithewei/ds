@@ -10,7 +10,7 @@
 #define CATEGORY_HEIGHT     48
 
 #define EXPRE_WIDTH         572
-#define EXPRE_HEIGHT        390
+#define EXPRE_HEIGHT        392
 
 #include <list>
 struct ExpreRecord{

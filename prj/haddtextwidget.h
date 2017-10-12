@@ -5,13 +5,15 @@
 #include "ds_def.h"
 #include "hcolorwidget.h"
 
-class HAddTextWidget : public QDialog
+class HAddTextWidget : public QWidget
 {
     Q_OBJECT
 public:
     explicit HAddTextWidget(QWidget *parent = 0);
 
 signals:
+    void accepted();
+    void rejected();
 
 public slots:
     void selectFont();
@@ -19,7 +21,8 @@ public slots:
     void onNewColor(QColor color);
     void onCategoryChanged(int index);
     void onFontSizeChanged(int index);
-    virtual void accept();
+    void accept();
+    void reject();
 
 protected:
     void initUI();

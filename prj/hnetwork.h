@@ -40,7 +40,7 @@ public:
     //void queryMicphone();
     void setMicphone(int srvid);
 
-    void queryVoice();
+
     void setVoice(int srvid, int a);
 
 signals:
@@ -49,7 +49,8 @@ signals:
 public slots:
     void queryOverlayInfo();
     void onQueryOverlayReply(QNetworkReply* reply);
-    //void onQueryMicphone(QNetworkReply*);
+
+    void queryVoice();
     void onQueryVoiceReply(QNetworkReply* reply);
 
 public:
@@ -66,6 +67,7 @@ private:
     QNetworkAccessManager* m_nam_modify_overlay;
     QNetworkAccessManager* m_nam_micphone;
     QNetworkAccessManager* m_nam_voice;
+    QNetworkAccessManager* m_nam_query_voice;
 };
 
 #endif // HNETWORK_H
