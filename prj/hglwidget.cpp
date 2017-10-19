@@ -2,7 +2,6 @@
 #include "hglwidget.h"
 #include "hdsctx.h"
 #include "hrcloader.h"
-#include "ds.h"
 #include <QTimer>
 #include "hmainwidget.h"
 
@@ -28,30 +27,11 @@ bool HGLWidget::showToolWidgets(bool bShow){
 }
 
 void HGLWidget::onStart(){
-    DsSvrItem* item = g_dsCtx->getItem(srvid);
-    if (item && item->ifcb){
-        qDebug("srvid=%d startplay", srvid);
-        //item->bPause = false;
-        if (srvid == 1){
-            item->ifcb->onservice_callback(ifservice_callback::e_service_cb_chr, libchar(), OOK_FOURCC('P', 'A', 'U', 'S'), 0, 0, NULL);
-        }else{
-            item->ifcb->onservice_callback(ifservice_callback::e_service_cb_pause, libchar(), OOK_FOURCC('P', 'A', 'U', 'S'), 0, 0, NULL);
-        }
-    }
-
+    g_dsCtx->pause(srvid, false);
 }
 
 void HGLWidget::onPause(){    
-    DsSvrItem* item = g_dsCtx->getItem(srvid);
-    if (item && item->ifcb){
-        qDebug("srvid=%d ifservice_callback::e_service_cb_pause", srvid);
-        //item->bPause = true;
-        if (srvid == 1){
-            item->ifcb->onservice_callback(ifservice_callback::e_service_cb_chr, libchar(), OOK_FOURCC('P', 'A', 'U', 'S'), 0, 0, NULL);
-        }else{
-            item->ifcb->onservice_callback(ifservice_callback::e_service_cb_pause, libchar(), OOK_FOURCC('P', 'A', 'U', 'S'), 0, 1, NULL);
-        }
-    }
+    g_dsCtx->pause(srvid, true);
     setStatus(PAUSE | status(MINOR_STATUS_MASK));
 }
 
@@ -648,7 +628,7 @@ void HCombGLWidget::initConnect(){
     QObject::connect( m_toolbar->m_btnZoomOut, SIGNAL(clicked(bool)), this, SLOT(onZoomOut()) );
 
     QObject::connect( m_wdgExpre, SIGNAL(expreSelected(QString&)), this, SLOT(onExpreSelected(QString&)) );
-    QObject::connect( m_wdgText, SIGNAL(accepted()), this, SLOT(onTextAccepted()) );
+    QObject::connect( m_wdgText, SIGNAL(newTextItem(HTextItem)), this, SLOT(onTextAccepted(HTextItem)) );
 }
 
 void HCombGLWidget::showTitlebar(bool bShow){
@@ -825,6 +805,9 @@ void HCombGLWidget::onCombChanged(){
             HOperateTarget target(&g_dsCtx->m_tComb.items[i]);
             target.rcDraw = scaleToDraw(target.pItem->rc);
             m_vecScreens.push_back(target);
+
+            if (g_dsCtx->m_tComb.micphone != 0 && g_dsCtx->m_tComb.items[i].srvid == g_dsCtx->m_tComb.micphone)
+                HNetwork::instance()->setMicphone(0);
         }
     }
 
@@ -879,8 +862,9 @@ void HCombGLWidget::onOK(){
 
         m_target->detachItem();
         m_target->detachWidget();
-        m_target = NULL;
     }
+
+    m_target = NULL;
 }
 
 void HCombGLWidget::onZoomIn(){
@@ -978,8 +962,8 @@ void HCombGLWidget::updateTargetWidget(QPoint pt, HTextItem* pItem){
     m_targetWdg->show();
 }
 
-void HCombGLWidget::onTextAccepted(){
-    HTextItem* pItem = new HTextItem(m_wdgText->m_TextItem);
+void HCombGLWidget::onTextAccepted(HTextItem item){
+    HTextItem* pItem = new HTextItem(item);
     m_virtualTarget->attachItem(pItem);
     updateTargetWidget(QPoint(200,200), pItem);
     m_virtualTarget->attachWidget(m_targetWdg);
@@ -1145,14 +1129,16 @@ void HCombGLWidget::paintGL(){
 
     // draw focused target outline
     if (m_target && m_target->wdg == NULL){
-        DrawInfo di;
-        QRect rc = m_target->rcDraw;
-        di.left = rc.x();
-        di.top = rc.y();
-        di.right = rc.right();
-        di.bottom = rc.bottom();
-        di.color = g_dsCtx->m_tInit.focus_outlinecolor;
-        drawRect(&di, 3);
+        if (m_toolbar->isVisible() || m_target->isModifiable()){
+            DrawInfo di;
+            QRect rc = m_target->rcDraw;
+            di.left = rc.x();
+            di.top = rc.y();
+            di.right = rc.right();
+            di.bottom = rc.bottom();
+            di.color = g_dsCtx->m_tInit.focus_outlinecolor;
+            drawRect(&di, 3);
+        }
     }
 }
 

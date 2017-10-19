@@ -43,16 +43,16 @@ void HAddTextWidget::initUI(){
     btnLabel->setChecked(true);
     QRadioButton* btnTime = new QRadioButton("时间");
     QRadioButton* btnWatch = new QRadioButton("秒表");
-    QRadioButton* btnSubtitle = new QRadioButton("字幕");
+    //QRadioButton* btnSubtitle = new QRadioButton("字幕");
     m_grpCategory->addButton(btnLabel, 0);
     m_grpCategory->addButton(btnTime, 1);
     m_grpCategory->addButton(btnWatch, 2);
-    m_grpCategory->addButton(btnSubtitle, 3);
+    //m_grpCategory->addButton(btnSubtitle, 3);
     QHBoxLayout* hbox = new QHBoxLayout;
     hbox->addWidget(btnLabel);
     hbox->addWidget(btnTime);
     hbox->addWidget(btnWatch);
-    hbox->addWidget(btnSubtitle);
+    //hbox->addWidget(btnSubtitle);
     grid->addLayout(hbox, row, 1);
 
     ++row;
@@ -134,6 +134,10 @@ void HAddTextWidget::initUI(){
     grid->addLayout(hbox, row, 1);
 
     setLayout(grid);
+
+    m_colorSelector = new HColorWidget(this);
+    m_colorSelector->setWindowFlags(Qt::Popup);
+    QObject::connect( m_colorSelector, SIGNAL(newColor(QColor)), this, SLOT(onNewColor(QColor)) );
 }
 
 void HAddTextWidget::initConnect(){
@@ -165,13 +169,17 @@ void HAddTextWidget::selectColor(){
 //        m_labelPreview->setPalette(pal);
 //    }
 
-    HColorWidget* cp = new HColorWidget(this);
-    QObject::connect( cp, SIGNAL(newColor(QColor)), this, SLOT(onNewColor(QColor)) );
+//    HColorWidget* cp = new HColorWidget;
+//    QObject::connect( cp, SIGNAL(newColor(QColor)), this, SLOT(onNewColor(QColor)) );
+//    QPoint ptBotoom = m_btnColor->mapToGlobal(QPoint(0,m_btnColor->height()));
+//    cp->setWindowFlags(Qt::Popup);
+//    cp->setAttribute(Qt::WA_DeleteOnClose);
+//    cp->move(ptBotoom.x(), ptBotoom.y());
+//    cp->show();
+
     QPoint ptBotoom = m_btnColor->mapToGlobal(QPoint(0,m_btnColor->height()));
-    cp->setWindowFlags(Qt::Popup);
-    cp->setAttribute(Qt::WA_DeleteOnClose);
-    cp->move(ptBotoom.x(), ptBotoom.y());
-    cp->show();
+    m_colorSelector->move(ptBotoom.x(), ptBotoom.y());
+    m_colorSelector->show();
 }
 
 void HAddTextWidget::onNewColor(QColor color){
@@ -233,6 +241,7 @@ void HAddTextWidget::accept(){
 
     hide();
     emit accepted();
+    emit newTextItem(m_TextItem);
 }
 
 void HAddTextWidget::reject(){
