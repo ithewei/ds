@@ -86,6 +86,7 @@ signals:
     void sigProgressNty(int srvid, int progress);
 
 public slots:
+    void pause(int srvid, bool bPause);
 
 public:
 #ifdef WIN32

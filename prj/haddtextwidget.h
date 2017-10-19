@@ -14,6 +14,7 @@ public:
 signals:
     void accepted();
     void rejected();
+    void newTextItem(HTextItem);
 
 public slots:
     void selectFont();
@@ -35,6 +36,8 @@ public:
     QComboBox* m_cmbFontSize;
     QPushButton* m_btnColor;
     QLabel* m_labelPreview;
+
+    HColorWidget* m_colorSelector;
 
     HTextItem m_TextItem;
 };

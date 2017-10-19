@@ -83,12 +83,14 @@ struct DsScreenInfo{
     int itemCnt;
 
     COMB_TYPE comb_type;
+    int micphone;
 
     DsScreenInfo(){
         width = 0;
         height = 0;
         itemCnt = 0;
         comb_type = UNKNOW;
+        micphone = 0;
     }
 };
 
@@ -100,6 +102,8 @@ struct DsSvrItem{
     int src_type;
 
     std::string title;
+    int width;
+    int height;
     Texture tex_yuv;
     bool bUpdateVideo;
     QMutex  mutex;
@@ -123,6 +127,8 @@ struct DsSvrItem{
     }
 
     void init(){
+        width = 0;
+        height = 0;
         title.clear();
         tex_yuv.release();
         bUpdateVideo = true;

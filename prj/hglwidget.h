@@ -190,7 +190,7 @@ public slots:
     void showExpre();
     void onExpreSelected(QString& filepath);
     void showText();
-    void onTextAccepted();
+    void onTextAccepted(HTextItem item);
     void onSetting();
 
 protected:

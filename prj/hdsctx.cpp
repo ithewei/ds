@@ -510,6 +510,9 @@ int HDsContext::parse_comb_xml(const char* xml){
         if (w < 0 || h < 0)
             continue;
 
+        if (a && !bV)
+            ci.micphone = u; // record micphone
+
         ci.items[ci.itemCnt].id = ci.itemCnt;
         ci.items[ci.itemCnt].rc.setRect(x,y,w,h);
         ci.items[ci.itemCnt].a = a;
@@ -845,7 +848,7 @@ int HDsContext::parse_taskinfo_xml(const char* xml){
         if(outputspeed > -1)
             __snprintf(cont, 128, "发 送 %d/%d (%dkps)", outputpkgs[0], outputpkgs[1], outputspeed);
         else
-            __snprintf(cont, 128, "发 送 %d/%d", outputpkgs[0], outputpkgs[1]);
+            __snprintf(cont, 128, "发 送 %d (%dkps)", outputpkgs[0], outputpkgs[1]);
         s_cont += "\r\n";
         s_cont += cont;
     }
@@ -917,8 +920,11 @@ int HDsContext::push_video(int srvid, const av_picture* pic){
     case OOK_FOURCC('Y', 'V', '1', '2'):
         {
             item->mutex.lock();
-            if(!item->tex_yuv.data)
-            {
+            if (w != item->width || h != item->height || !item->tex_yuv.data){
+                item->tex_yuv.release();
+                item->width = w;
+                item->height = h;
+
                 if (scale_mode == BIG_VIDEO_SCALE && h > 720){
 //                    item->tex_yuv.width = w >> 2;
 //                    item->tex_yuv.height = h >> 2;
@@ -1140,4 +1146,17 @@ HScreenItem* HDsContext::getHScreenItem(int srvid){
     }
 
     return item;
+}
+
+void HDsContext::pause(int srvid, bool bPause){
+    DsSvrItem* item = getItem(srvid);
+    if (item && item->ifcb){
+        qDebug("srvid=%d ifservice_callback::e_service_cb_pause", srvid);
+        //item->bPause = true;
+        if (srvid == 1){
+            item->ifcb->onservice_callback(ifservice_callback::e_service_cb_chr, libchar(), OOK_FOURCC('P', 'A', 'U', 'S'), 0, 0, NULL);
+        }else{
+            item->ifcb->onservice_callback(ifservice_callback::e_service_cb_pause, libchar(), OOK_FOURCC('P', 'A', 'U', 'S'), 0, bPause, NULL);
+        }
+    }
 }
