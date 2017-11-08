@@ -19,28 +19,29 @@ void HMainWidget::initUI(){
     qDebug("");
     setWindowFlags(Qt::Window | Qt::FramelessWindowHint);
     setWindowTitle("Anystreaming Director");
+    setFocus();
+
     if (m_ctx->m_tLayout.width == 0 || m_ctx->m_tLayout.height == 0){
        m_ctx->m_tLayout.width  = QApplication::desktop()->width();
        m_ctx->m_tLayout.height = QApplication::desktop()->height();
     }
     setGeometry(0,0,m_ctx->m_tLayout.width, m_ctx->m_tLayout.height);
+
     setAutoFillBackground(true);
     QPalette pal = palette();
     pal.setColor(QPalette::Background, Qt::black);
     setPalette(pal);
 
     for (int i = 0; i < m_ctx->m_tLayout.itemCnt; ++i){
-        // last is comb window,srvid = 1
-
         HGLWidget* wdg;
         if (i == m_ctx->m_tLayout.itemCnt - 1){
             wdg = new HCombGLWidget(this);
-            wdg->srvid = 1;
-            m_mapGLWdg[1] = wdg;
+            wdg->srvid = 1; // comb srvid = 1
         }else{
             wdg = new HGeneralGLWidget(this);
             wdg->srvid = 0;
         }
+        wdg->wndid = i+1;
         wdg->setGeometry(m_ctx->m_tLayout.items[i]);
         wdg->setTitleColor(m_ctx->m_tInit.titcolor);
         wdg->setOutlineColor(m_ctx->m_tInit.outlinecolor);
@@ -77,7 +78,6 @@ void HMainWidget::initUI(){
 
 void HMainWidget::initConnect(){
     qDebug("");
-    setFocus(); // set key focus
 
     QObject::connect( m_ctx, SIGNAL(actionChanged(int)), this, SLOT(onActionChanged(int)) );
     QObject::connect( m_ctx, SIGNAL(videoPushed(int,bool)), this, SLOT(onvideoPushed(int,bool)) );
@@ -103,24 +103,42 @@ void HMainWidget::initConnect(){
     }
 }
 
-HGLWidget* HMainWidget::getGLWdgBysrvid(int srvid){
-    std::map<int, HGLWidget*>::iterator iter = m_mapGLWdg.find(srvid);
-    if (iter != m_mapGLWdg.end()){
-        HGLWidget* wdg = iter->second;
-        if (wdg->srvid == srvid){
-            return wdg;
-        }
-    }
-
+HGLWidget* HMainWidget::getGLWdgByWndid(int wndid){
     for (int i = 0; i < m_vecGLWdg.size(); ++i){
-        if (m_vecGLWdg[i]->srvid == 0){
-            m_vecGLWdg[i]->srvid = srvid;
-            m_mapGLWdg[srvid] = m_vecGLWdg[i];
+        if (m_vecGLWdg[i]->wndid == wndid)
             return m_vecGLWdg[i];
-        }
     }
 
     return NULL;
+}
+
+HGLWidget* HMainWidget::getGLWdgBysrvid(int srvid){
+    for (int i = 0; i < m_vecGLWdg.size(); ++i){
+        HGLWidget* wdg = m_vecGLWdg[i];
+        if (wdg->srvid == srvid)
+            return wdg;
+    }
+
+    // not found, return min_wndid
+    int min_wndid = 10000;
+    HGLWidget* wdg = NULL;
+    for (int i = 0; i < m_vecGLWdg.size(); ++i){
+        if (m_vecGLWdg[i]->isResetStatus() && m_vecGLWdg[i]->isVisible() && m_vecGLWdg[i]->wndid < min_wndid){
+            wdg = m_vecGLWdg[i];
+            min_wndid = wdg->wndid;
+        }
+    }
+
+    if (wdg){
+        wdg->srvid = srvid;
+        g_dsCtx->resizeForScale(srvid, wdg->width(), wdg->height());
+    }
+
+    return wdg;
+}
+
+HGLWidget* HMainWidget::getGLWdgByPos(QPoint pt){
+    return getGLWdgByPos(pt.x(), pt.y());
 }
 
 HGLWidget* HMainWidget::getGLWdgByPos(int x, int y){
@@ -144,7 +162,7 @@ void HMainWidget::keyPressEvent(QKeyEvent *event){
             break;
         case Qt::Key_Escape:
         {
-            close();
+            m_ctx->setAction(0);
             event->accept();
         }
             break;
@@ -164,7 +182,7 @@ void HMainWidget::mouseMoveEvent(QMouseEvent *event){
     if (!wdg)
         return;
 
-    if (wdg->status(MAJOR_STATUS_MASK) == PLAYING && !m_labelDrag->isVisible() && wdg->srvid != 1){
+    if (!wdg->isResetStatus() && !m_labelDrag->isVisible() && wdg->srvid != 1){
         m_dragSrcWdg = wdg;
         m_labelDrag->setPixmap( QPixmap::fromImage(wdg->grabFramebuffer()).scaled(DRAG_WIDTH, DRAG_HEIGHT) );
         m_labelDrag->show();
@@ -186,22 +204,17 @@ void HMainWidget::mouseReleaseEvent(QMouseEvent *event){
         if (m_dragSrcWdg != wdg){
             if (wdg->srvid == 1){
                 // pick comb's source
-//                DsEvent evt;
-//                evt.type = DS_EVENT_PICK;
-//                evt.src_srvid = m_dragSrcWdg->srvid;
-//                evt.dst_srvid = 1;
-//                evt.dst_x = event->x() - wdg->x();
-//                evt.dst_y = event->y() - wdg->y();
-//                m_ctx->handle_event(evt);
                 HOperateTarget* target = ((HCombGLWidget*)wdg)->getItemByPos(QPoint(event->x()-wdg->x(), event->y()-wdg->y()), HAbstractItem::SCREEN);
                 if (target)
                     changeScreenSource(target->pItem->id, m_dragSrcWdg->srvid);
             }else{
-                // exchange position
-                QRect rcSrc = m_dragSrcWdg->geometry();
-                QRect rcDst = wdg->geometry();
-                wdg->setGeometry(rcSrc);
-                m_dragSrcWdg->setGeometry(rcDst);
+                // exchange srvid
+                int srvid_src = m_dragSrcWdg->srvid;
+                int srvid_dst = wdg->srvid;
+                m_dragSrcWdg->resetStatus();
+                wdg->resetStatus();
+                m_dragSrcWdg->srvid = srvid_dst;
+                wdg->srvid = srvid_src;
             }
         }
     }else{ // normal clicked
@@ -215,11 +228,10 @@ void HMainWidget::onTimerRepaint(){
     for (int i = 0; i < m_vecGLWdg.size(); ++i){
         HGLWidget* wdg = m_vecGLWdg[i];
         DsSvrItem* item = m_ctx->getItem(wdg->srvid);
-        if (wdg->status(MAJOR_STATUS_MASK) == PLAYING && item && item->v_input != wdg->m_nPreFrame){
-            wdg->update();
-        }
-        if (item)
+        if (item && !wdg->isResetStatus() && item->v_input != wdg->m_nPreFrame){
+            wdg->repaint();
             item->bUpdateVideo = true;
+        }   
     }
 }
 
@@ -293,8 +305,6 @@ void HMainWidget::onFullScreen(){
 
     pSender->setWindowFlags(Qt::Window);
     pSender->showFullScreen();
-
-    m_ctx->fullscreen(((HGLWidget*)pSender)->srvid, true);
 }
 
 void HMainWidget::onExitFullScreen(){
@@ -303,8 +313,6 @@ void HMainWidget::onExitFullScreen(){
     pSender->setWindowFlags(Qt::SubWindow);
     pSender->setGeometry(m_rcSavedGeometry);
     pSender->showNormal();
-
-    m_ctx->fullscreen(((HGLWidget*)pSender)->srvid, false);
 }
 
 void HMainWidget::onGLWdgClicked(){

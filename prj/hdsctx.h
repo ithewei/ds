@@ -74,8 +74,6 @@ public:
         emit sigStop(srvid);
     }
 
-    void fullscreen(int srvid, bool bFull);
-
 signals:
     void actionChanged(int action);
     void videoPushed(int srvid, bool bFirstFrame);
@@ -87,6 +85,7 @@ signals:
 
 public slots:
     void pause(int srvid, bool bPause);
+    void resizeForScale(int srvid, int w, int h);
 
 public:
 #ifdef WIN32
@@ -104,7 +103,6 @@ public:
     int display_mode;
     int frames;
     int scale_mode;
-    int filter;
 
     DsInitInfo m_tInit;
     DsLayoutInfo m_tLayout;

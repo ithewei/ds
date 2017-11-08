@@ -98,12 +98,16 @@ struct DsScreenInfo{
 #include "qglwidgetimpl.h"
 struct DsSvrItem{
     bool bPause;
+    bool bVoice;
 
     int src_type;
 
     std::string title;
-    int width;
-    int height;
+    int pic_w;
+    int pic_h;
+    bool bShow;
+    int show_w;
+    int show_h;
     Texture tex_yuv;
     bool bUpdateVideo;
     QMutex  mutex;
@@ -116,8 +120,6 @@ struct DsSvrItem{
     unsigned int v_input;
     ifservice_callback * ifcb;
 
-    bool bVoice;
-
     DsSvrItem(){
         init();
     }
@@ -127,14 +129,20 @@ struct DsSvrItem{
     }
 
     void init(){
-        width = 0;
-        height = 0;
+        bPause = false;
+        bVoice = false;
+        bShow = true;
+        show_w = 0;
+        show_h = 0;
+        pic_w = 0;
+        pic_h = 0;
+
         title.clear();
         tex_yuv.release();
         bUpdateVideo = true;
 
         src_type = 0;
-        bPause = false;
+
         a_channels = 0;
         a_average[0] = 0;
         a_average[1] = 0;
@@ -144,7 +152,12 @@ struct DsSvrItem{
         v_input = 0;
 
         ifcb = NULL;
-        bVoice = false;
+    }
+
+    bool canShow(){
+        if (!bPause && bShow && show_w > 0 && show_h > 0)
+            return true;
+        return false;
     }
 };
 

@@ -36,13 +36,7 @@ void HGLWidget::onPause(){
 }
 
 void HGLWidget::onStop(){
-    setStatus(STOP);
-    m_mapIcons.clear();
-    m_nPreFrame = 0;
-
-    if (srvid != 1){// srvid=1 is comb,reserve
-        srvid = 0;
-    }
+    resetStatus();
 }
 
 #include "hffmpeg.h"
@@ -109,6 +103,33 @@ void HGLWidget::mouseMoveEvent(QMouseEvent* e){
 
     e->ignore();
 }
+
+void HGLWidget::resizeEvent(QResizeEvent* e){
+    if (!isResetStatus())
+        g_dsCtx->resizeForScale(srvid, e->size().width(), e->size().height());
+
+    QGLWidgetImpl::resizeEvent(e);
+}
+
+void HGLWidget::showEvent(QShowEvent* e){
+    DsSvrItem* item = g_dsCtx->getItem(srvid);
+    if (item)
+        item->bShow = true;
+}
+
+void HGLWidget::hideEvent(QHideEvent* e){
+    DsSvrItem* item = g_dsCtx->getItem(srvid);
+    if (item)
+        item->bShow = false;
+}
+
+//void HGLWidget::enterEvent(QEvent* e){
+//    showToolWidgets(true);
+//}
+
+//void HGLWidget::leaveEvent(QEvent* e){
+//    showToolWidgets(false);
+//}
 
 void HGLWidget::addIcon(int type, int x, int y, int w, int h){
     if (m_mapIcons.find(type) == m_mapIcons.end()){
@@ -379,9 +400,10 @@ void HGeneralGLWidget::showToolbar(bool bShow){
 bool HGeneralGLWidget::showToolWidgets(bool bShow){
     HGLWidget::showToolWidgets(bShow);
 
-    if (bShow){
-        if (!(status(MAJOR_STATUS_MASK) == PAUSE || status(MAJOR_STATUS_MASK) == PLAYING))
-            return false;
+    if (isResetStatus()){
+        showTitlebar(false);
+        showToolbar(false);
+        return false;
     }
 
     showTitlebar(bShow);
@@ -488,7 +510,7 @@ void HGeneralGLWidget::drawOutline(){
 void HGeneralGLWidget::paintGL(){
     HGLWidget::paintGL();
 
-    if (status(MAJOR_STATUS_MASK) == PLAYING || status(MAJOR_STATUS_MASK) == PAUSE){
+    if (!isResetStatus()){
         drawSelectNum();
         drawSound();
     }
@@ -1026,8 +1048,14 @@ bool HCombGLWidget::showTargetWidget(){
             m_target->wdg->setPixmap(pixmap);
         }if (m_target->pItem->type == HAbstractItem::TEXT){
             m_target->wdg->setPixmap(QPixmap());
-        }else{
-            m_target->wdg->setPixmap(grab(m_target->rcDraw));
+        }else if (m_target->pItem->type == HAbstractItem::SCREEN){
+            HScreenItem* pItem = (HScreenItem*)m_target->pItem;
+            if (pItem->v){
+                //m_target->wdg->setPixmap(grab(m_target->rcDraw));
+                m_target->wdg->setPixmap(QPixmap::fromImage(grabFramebuffer().copy(m_target->rcDraw)));
+            }else{
+                m_target->wdg->setPixmap(QPixmap());
+            }
         }
         m_target->wdg->setGeometry(m_target->rcDraw);
         m_target->wdg->show();
