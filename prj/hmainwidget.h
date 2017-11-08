@@ -23,8 +23,10 @@ public:
 protected:
     void initUI();
     void initConnect();
+    HGLWidget* getGLWdgByPos(QPoint pt);
     HGLWidget* getGLWdgByPos(int x, int y);
     HGLWidget* getGLWdgBysrvid(int srvid);
+    HGLWidget* getGLWdgByWndid(int wndid);
     virtual void keyPressEvent(QKeyEvent *event);
     virtual void mousePressEvent(QMouseEvent *event);
     virtual void mouseMoveEvent(QMouseEvent *event);
@@ -53,7 +55,6 @@ public slots:
 private:
     HDsContext* m_ctx;
     std::vector<HGLWidget*> m_vecGLWdg;
-    std::map<int, HGLWidget*> m_mapGLWdg; // srvid : HGLWidget
     HGLWidget* m_focusGLWdg;
 
     QPushButton* m_btnLeftExpand;

@@ -142,7 +142,6 @@ HDsContext::HDsContext()
     display_mode = DISPLAY_MODE_TIMER;
     frames = 25;
     scale_mode = BIG_VIDEO_SCALE;
-    filter = 0;
 
     m_curTick = 0;
     m_lastTick = 0;
@@ -515,8 +514,8 @@ int HDsContext::parse_comb_xml(const char* xml){
 
         ci.items[ci.itemCnt].id = ci.itemCnt;
         ci.items[ci.itemCnt].rc.setRect(x,y,w,h);
-        ci.items[ci.itemCnt].a = a;
-        ci.items[ci.itemCnt].v = bV;
+        ci.items[ci.itemCnt].a = u && a;
+        ci.items[ci.itemCnt].v = u && bV;
         ci.items[ci.itemCnt].srvid = u;
         strncpy(ci.items[ci.itemCnt].src, src.toLocal8Bit().constData(), MAXLEN_STR);
 
@@ -874,18 +873,16 @@ void HDsContext::initFont(std::string& path, int h){
     }
 }
 
-void HDsContext::fullscreen(int srvid, bool bFull){
+void HDsContext::resizeForScale(int srvid, int w, int h){
+    qDebug("rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr %d %d", w, h);
     DsSvrItem* item = getItem(srvid);
     if (item){
         item->mutex.lock();
-        if (bFull){
-            filter = srvid;
-            scale_mode = NONE_SCALE;
-        }else{
-            filter = 0;
-            scale_mode = BIG_VIDEO_SCALE;
+        item->show_w = w;
+        item->show_h = h;
+        if (scale_mode == BIG_VIDEO_SCALE){
+            item->tex_yuv.release();
         }
-        item->tex_yuv.release();
         item->mutex.unlock();
     }
 }
@@ -896,19 +893,22 @@ int HDsContext::push_video(int srvid, const av_picture* pic){
         return -1;
 
     DsSvrItem* item = getItem(srvid);
-    if (!item || item->bPause)
+    if (!item)
         return -2;
 
-    if (filter != 0 && filter != srvid)
+    if (!item->canShow()){
+        // must request a widget to show.
+        emit videoPushed(srvid, false);
         return -3;
-
-    m_curTick = (unsigned int)chsc_gettick();
+    }
 
     if (!item->bUpdateVideo)
-        return 0;
+        return -4;
 
     if (display_mode == DISPLAY_MODE_TIMER)
         item->bUpdateVideo = false;
+
+    m_curTick = (unsigned int)chsc_gettick();
 
     int w = pic->width;
     int h = pic->height;
@@ -920,29 +920,27 @@ int HDsContext::push_video(int srvid, const av_picture* pic){
     case OOK_FOURCC('Y', 'V', '1', '2'):
         {
             item->mutex.lock();
-            if (w != item->width || h != item->height || !item->tex_yuv.data){
+            //  resolution changed or yuv not malloc
+            if (w != item->pic_w || h != item->pic_h || !item->tex_yuv.data){
                 item->tex_yuv.release();
-                item->width = w;
-                item->height = h;
+                item->pic_w = w;
+                item->pic_h = h;
+                bFirstFrame = true;
 
-                if (scale_mode == BIG_VIDEO_SCALE && h > 720){
-//                    item->tex_yuv.width = w >> 2;
-//                    item->tex_yuv.height = h >> 2;
-                    if (srvid == 1){
-                        item->tex_yuv.width = m_tLayout.items[m_tLayout.itemCnt-1].width() >> 2 << 2;
-                        item->tex_yuv.height = m_tLayout.items[m_tLayout.itemCnt-1].height();
-                    }else{
-                        item->tex_yuv.width = m_tLayout.items[0].width() >> 2 << 2;
-                        item->tex_yuv.height = m_tLayout.items[0].height();
-                    }
+                if (scale_mode == BIG_VIDEO_SCALE && item->pic_w > item->show_w && item->pic_h > item->show_h){
+                    qDebug("iiiiiiiiiiiiiiiiiiiiiiiii");
+                    item->tex_yuv.width = item->show_w >> 2 << 2;
+                    item->tex_yuv.height = item->show_h;
                 }else{
-                    item->tex_yuv.width = w;
-                    item->tex_yuv.height = h;
+                    qDebug("eeeeeeeeeeeeeeeeeeeeeee");
+                    item->tex_yuv.width = item->pic_w;
+                    item->tex_yuv.height = item->pic_h;
                 }
+
                 item->tex_yuv.data = (unsigned char *)malloc(item->tex_yuv.width * item->tex_yuv.height * 3 / 2);
                 item->tex_yuv.type = GL_I420;
-                bFirstFrame = true;
-                qDebug("malloc w=%d,h=%d", item->tex_yuv.width, item->tex_yuv.height);
+                qDebug("malloc %d*%d, pic=%d*%d, show=%d*%d", item->tex_yuv.width, item->tex_yuv.height,
+                       item->pic_w, item->pic_h, item->show_w, item->show_h);
             }
 
             int y_size = item->tex_yuv.width * item->tex_yuv.height;
@@ -958,7 +956,7 @@ int HDsContext::push_video(int srvid, const av_picture* pic){
                 s_u = pic->data[2];
             }
 
-            if (scale_mode == BIG_VIDEO_SCALE && h > 720){
+            if (scale_mode == BIG_VIDEO_SCALE && item->pic_w > item->show_w && item->pic_h > item->show_h){
                 SwsContext* pSwsCtx = sws_getContext(w,h,AV_PIX_FMT_YUV420P, item->tex_yuv.width,item->tex_yuv.height,AV_PIX_FMT_YUV420P, SWS_BICUBIC, NULL, NULL, NULL);
                 uint8_t* src_date[3];
                 src_date[0] = s_y;
@@ -1036,11 +1034,12 @@ int HDsContext::push_audio(int srvid, const av_pcmbuff* pcm){
         return -1;
 
     DsSvrItem* item = getItem(srvid);
-    if (!item || item->bPause)
+    if (!item)
         return -2;
 
-    if (filter != 0 && filter != srvid)
+    if (!item->canShow()){
         return -3;
+    }
 
     // just comb window play audio
     if (srvid == 1){

@@ -51,6 +51,18 @@ public:
             repaint();
         }
     }
+    inline bool isResetStatus(){
+        return srvid == 0 && m_status == STOP;
+    }
+    inline void resetStatus(){
+        if (srvid != 1){// srvid=1 is comb,reserve
+            srvid = 0;
+        }
+        m_status = STOP;
+        m_nPreFrame = 0;
+        m_mapIcons.clear();
+        repaint();
+    }
 
     void addIcon(int type, int x, int y, int w, int h);
     void removeIcon(int type);
@@ -87,21 +99,26 @@ protected:
     virtual void mousePressEvent(QMouseEvent* event);
     virtual void mouseReleaseEvent(QMouseEvent* event);
     virtual void mouseMoveEvent(QMouseEvent* e);
+    virtual void resizeEvent(QResizeEvent* e);
+    virtual void showEvent(QShowEvent* e);
+    virtual void hideEvent(QHideEvent* e);
+//    virtual void enterEvent(QEvent* e);
+//    virtual void leaveEvent(QEvent* e);
 
 public:
-    int srvid;
+    int wndid;
 
-    bool m_bDrawInfo;
+    int srvid;
+    int m_status;
+    int m_nPreFrame; // previous frame cnt;
+    std::map<int ,DrawInfo> m_mapIcons; // type : DrawInfo
 
     QLabel* m_snapshot;
+    bool m_bDrawInfo;
+    bool m_bFullScreen;
 
     int m_titcolor;
     int m_outlinecolor;
-
-    int m_status;
-    int m_nPreFrame; // previous frame cnt;
-
-    std::map<int ,DrawInfo> m_mapIcons; // type : DrawInfo
 
     ulong m_tmMousePressed;
     QPoint m_ptMousePressed;
