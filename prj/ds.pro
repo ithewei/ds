@@ -45,7 +45,10 @@ SOURCES += \
     hsettingwidget.cpp \
     habstractitem.cpp \
     hoperatetarget.cpp \
-    hcolorwidget.cpp
+    hcolorwidget.cpp \
+    heffectwidget.cpp \
+    hringbuffer.cpp \
+    hlayout.cpp
 
 HEADERS += \
         ds.h \
@@ -70,7 +73,10 @@ HEADERS += \
     habstractitem.h \
     hoperatetarget.h \
     hcolorwidget.h \
-    qtheaders.h
+    qtheaders.h \
+    heffectwidget.h \
+    hringbuffer.h \
+    hlayout.h
 
 unix {
     target.path = /usr/lib

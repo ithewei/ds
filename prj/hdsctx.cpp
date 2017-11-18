@@ -1,6 +1,7 @@
 #include "hdsctx.h"
 #include "hrcloader.h"
 #include "hmainwidget.h"
+#include "ds.h"
 
 HDsContext* g_dsCtx = NULL;
 HMainWidget* g_mainWdg = NULL;
@@ -112,7 +113,7 @@ void* HDsContext::thread_gui(void* param){
     progress->setValue(50);
     app.processEvents();
 
-    g_mainWdg = new HMainWidget(pObj);
+    g_mainWdg = new HMainWidget;
 
     splash->showMessage("Loading completed!", Qt::AlignCenter, Qt::white);
     progress->setValue(100);
@@ -139,23 +140,15 @@ HDsContext::HDsContext()
     ref     = 1;
     init    = 0;
     action  = -1;
-    display_mode = DISPLAY_MODE_TIMER;
-    frames = 25;
-    scale_mode = BIG_VIDEO_SCALE;
 
     m_curTick = 0;
     m_lastTick = 0;
 
-    m_trans = new transaction;
     m_audioPlay = new HAudioPlay;
+    m_playaudio_srvid = 1;
 }
 
 HDsContext::~HDsContext(){
-    if (m_trans){
-        m_trans->release();
-        m_trans = NULL;
-    }
-
     if (m_audioPlay){
         delete m_audioPlay;
         m_audioPlay = NULL;
@@ -238,15 +231,8 @@ int HDsContext::parse_init_xml(const char* xml){
                 m_tInit.info     = atoi(v.c_str());
             else if(n == "infcolor")
                 m_tInit.infcolor      = (unsigned int)strtoul(v.c_str(), NULL, 16);
-
-            else if(n == "title")
-                m_tInit.title     = atoi(v.c_str());
             else if(n == "titcolor")
                 m_tInit.titcolor      = (unsigned int)strtoul(v.c_str(), NULL, 16);
-            else if(n == "scale_method")
-                m_tInit.scale_method = (int)strtoul(v.c_str(), NULL, 16);
-            else if(n == "pause_method")
-                m_tInit.pause_method= atoi(v.c_str());
         }
     }
 
@@ -260,7 +246,7 @@ int HDsContext::parse_init_xml(const char* xml){
         <head>
             <param n="width"  v="1280" />
             <param n="height" v="800"  />
-            <param n="frames" v="15"   />
+            <param n="fps" v="15"   />
         </head>
         <body>
             <item>
@@ -335,17 +321,30 @@ int HDsContext::parse_layout_xml(const char* xml_file){
         const std::string & n = e->get_attribute("n");
         const std::string & v = e->get_attribute("v");
 
-        if(n == "width")
+        if (n == "autolayout"){
+            m_tInit.autolayout = atoi(v.c_str());
+        }else if (n == "row"){
+            m_tInit.row = atoi(v.c_str());
+        }else if (n == "col"){
+            m_tInit.col = atoi(v.c_str());
+        }else if(n == "width"){
             m_tLayout.width     = atoi(v.c_str());
-        else if(n == "height")
+        }else if(n == "height"){
             m_tLayout.height    = atoi(v.c_str());
-        else if(n == "frames"){
-            frames = atoi(v.c_str());
-            if (frames < 1)
-                frames = 25;
-            else if (frames > 30)
-                frames = 30;
-            qDebug("frames=%d", frames);
+        }else if(n == "fps"){
+            m_tInit.fps = atoi(v.c_str());
+        }else if (n == "display_mode"){
+            m_tInit.display_mode = atoi(v.c_str());
+        }else if (n == "scale_mode"){
+            m_tInit.scale_mode = atoi(v.c_str());
+        }else if (n == "drawtitle"){
+            m_tInit.drawtitle = atoi(v.c_str());
+        }else if (n == "drawfps"){
+            m_tInit.drawfps = atoi(v.c_str());
+        }else if (n == "drawnum"){
+            m_tInit.drawnum = atoi(v.c_str());
+        }else if (n == "drawaudio"){
+            m_tInit.drawaudio = atoi(v.c_str());
         }
     }
 
@@ -698,9 +697,6 @@ int HDsContext::parse_taskinfo_xml(const char* xml){
         }
     }
 
-    if (buffer[0] < 0 || queue[0] < 0)
-        return -5;
-
     const ook::xml_element * elem_outputpkgs  = ook::xml_parser::get_element(item, "<outputpkgs>");
     const ook::xml_element * udptransfer = NULL;
     udptrf_s us;
@@ -874,14 +870,19 @@ void HDsContext::initFont(std::string& path, int h){
 }
 
 void HDsContext::resizeForScale(int srvid, int w, int h){
-    qDebug("rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr %d %d", w, h);
+    qDebug("rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr %d %d", w, h);
     DsSvrItem* item = getItem(srvid);
     if (item){
         item->mutex.lock();
         item->show_w = w;
         item->show_h = h;
-        if (scale_mode == BIG_VIDEO_SCALE){
+        if (m_tInit.scale_mode == BIG_VIDEO_SCALE){
             item->tex_yuv.release();
+
+            if (item->pSwsCtx){
+                sws_freeContext(item->pSwsCtx);
+                item->pSwsCtx = NULL;
+            }
         }
         item->mutex.unlock();
     }
@@ -896,137 +897,131 @@ int HDsContext::push_video(int srvid, const av_picture* pic){
     if (!item)
         return -2;
 
+    int w = pic->width;
+    int h = pic->height;
+    if (pic->fourcc != OOK_FOURCC('I', '4', '2', '0') && pic->fourcc != OOK_FOURCC('Y', 'V', '1', '2'))
+        return -4;
+
+
+    item->mutex.lock();
+    bool bFirst = false;
+    if (w != item->pic_w || h != item->pic_h || !item->video_buffer){
+        item->pic_w = w;
+        item->pic_h = h;
+        if (item->video_buffer){
+            delete item->video_buffer;
+            item->video_buffer = NULL;
+        }
+        item->video_buffer = new HRingBuffer(w*h*3/2, 10);
+        bFirst = true;
+    }
+
+    char* ptr = item->video_buffer->write();
+    if (ptr){
+        int y_size = w*h;
+        char * y = ptr;
+        char * u = y + y_size;
+        char * v = u + (y_size >> 2);
+        char * s_y = (char*)pic->data[0];
+        char * s_u = (char*)pic->data[1];
+        char * s_v = (char*)pic->data[2];
+        if(pic->fourcc == OOK_FOURCC('Y', 'V', '1', '2'))
+        {
+            char* tmp = s_u;
+            s_u = s_v;
+            s_v = tmp;
+        }
+        for(int i = 0; i < h; ++i)
+        {
+            memcpy(y, s_y, w);
+            y   += w;
+            s_y += pic->stride[0];
+        }
+        h >>= 1;
+        w >>= 1;
+        for(int i = 0; i < h; ++i)
+        {
+            memcpy(u, s_u, w);
+            memcpy(v, s_v, w);
+            u   += w;
+            v   += w;
+            s_u += pic->stride[1];
+            s_v += pic->stride[2];
+        }
+    }
+    item->mutex.unlock();
+
+    emit videoPushed(srvid, bFirst);
+}
+
+int HDsContext::pop_video(int srvid){
+    if (action < 1)
+        return -1;
+
+    DsSvrItem* item = getItem(srvid);
+    if (!item)
+        return -2;
+
     if (!item->canShow()){
-        // must request a widget to show.
-        emit videoPushed(srvid, false);
         return -3;
     }
 
-    if (!item->bUpdateVideo)
+    if (!item->video_buffer)
         return -4;
 
-    if (display_mode == DISPLAY_MODE_TIMER)
-        item->bUpdateVideo = false;
-
-    m_curTick = (unsigned int)chsc_gettick();
-
-    int w = pic->width;
-    int h = pic->height;
-    bool bFirstFrame = false;
-
-    switch(pic->fourcc)
-    {
-    case OOK_FOURCC('I', '4', '2', '0'):
-    case OOK_FOURCC('Y', 'V', '1', '2'):
-        {
-            item->mutex.lock();
-            //  resolution changed or yuv not malloc
-            if (w != item->pic_w || h != item->pic_h || !item->tex_yuv.data){
-                item->tex_yuv.release();
-                item->pic_w = w;
-                item->pic_h = h;
-                bFirstFrame = true;
-
-                if (scale_mode == BIG_VIDEO_SCALE && item->pic_w > item->show_w && item->pic_h > item->show_h){
-                    qDebug("iiiiiiiiiiiiiiiiiiiiiiiii");
-                    item->tex_yuv.width = item->show_w >> 2 << 2;
-                    item->tex_yuv.height = item->show_h;
-                }else{
-                    qDebug("eeeeeeeeeeeeeeeeeeeeeee");
-                    item->tex_yuv.width = item->pic_w;
-                    item->tex_yuv.height = item->pic_h;
-                }
-
-                item->tex_yuv.data = (unsigned char *)malloc(item->tex_yuv.width * item->tex_yuv.height * 3 / 2);
-                item->tex_yuv.type = GL_I420;
-                qDebug("malloc %d*%d, pic=%d*%d, show=%d*%d", item->tex_yuv.width, item->tex_yuv.height,
-                       item->pic_w, item->pic_h, item->show_w, item->show_h);
-            }
-
-            int y_size = item->tex_yuv.width * item->tex_yuv.height;
-            unsigned char * y = item->tex_yuv.data;
-            unsigned char * u = y + y_size;
-            unsigned char * v = u + (y_size >> 2);
-            unsigned char * s_y = pic->data[0];
-            unsigned char * s_u = pic->data[1];
-            unsigned char * s_v = pic->data[2];
-            if(pic->fourcc == OOK_FOURCC('Y', 'V', '1', '2'))
-            {
-                s_v = pic->data[1];
-                s_u = pic->data[2];
-            }
-
-            if (scale_mode == BIG_VIDEO_SCALE && item->pic_w > item->show_w && item->pic_h > item->show_h){
-                SwsContext* pSwsCtx = sws_getContext(w,h,AV_PIX_FMT_YUV420P, item->tex_yuv.width,item->tex_yuv.height,AV_PIX_FMT_YUV420P, SWS_BICUBIC, NULL, NULL, NULL);
-                uint8_t* src_date[3];
-                src_date[0] = s_y;
-                src_date[1] = s_u;
-                src_date[2] = s_v;
-                uint8_t* dst_data[3];
-                dst_data[0] = y;
-                dst_data[1] = u;
-                dst_data[2] = v;
-                int stride[3];
-                stride[0] = item->tex_yuv.width;
-                stride[1] = stride[2] = item->tex_yuv.width / 2;
-                sws_scale(pSwsCtx, src_date, pic->stride, 0, h, dst_data, stride);
-                sws_freeContext(pSwsCtx);
-            }else{
-                for(int i = 0; i < h; ++i)
-                {
-                    memcpy(y, s_y, w);
-                    y   += w;
-                    s_y += pic->stride[0];
-                }
-                h >>= 1;
-                w >>= 1;
-                for(int i = 0; i < h; ++i)
-                {
-                    memcpy(u, s_u, w);
-                    memcpy(v, s_v, w);
-                    u   += w;
-                    v   += w;
-                    s_u += pic->stride[1];
-                    s_v += pic->stride[2];
-                }
-            }
-            item->mutex.unlock();
-        }
-        break;
-#if 0
-    case OOK_FOURCC('Y', 'U', 'Y', '2'):
-    case OOK_FOURCC('Y', 'U', 'Y', 'V'):
-    case OOK_FOURCC('U', 'Y', 'V', 'Y'):
-    case OOK_FOURCC('H', 'D', 'Y', 'C'):
-        {
-            if(!tex_yuv[srvid].data)
-            {
-                tex_yuv[srvid].data = (unsigned char *)malloc(w * h * 2);
-                qDebug("malloc w=%d,h=%d", w, h);
-            }
-
-            unsigned char * y   = tex_yuv[srvid].data;
-            unsigned char * s_y = pic->data[0];
-            w <<= 1;
-            for(int i = 0; i < h; i++)
-            {
-                memcpy(y, s_y, w);
-                y   += w;
-                s_y += pic->stride[0];
-            }
-            tex_yuv[srvid].width = pic->width;
-            tex_yuv[srvid].height = pic->height;
-            //tex_yuv[srvid].type = GL_I420;
-        }
-        break;
-#endif
-    default:
-        return -3000;
+    int retcode = -5;
+    item->mutex.lock();
+    char* ptr = item->video_buffer->read();
+    if (!ptr){
+        qDebug("read to fast");
     }
+    if (ptr){
+        if (!item->tex_yuv.data){
+            if (m_tInit.scale_mode == BIG_VIDEO_SCALE && item->pic_w > item->show_w && item->pic_h > item->show_h){
+                item->tex_yuv.width = item->show_w >> 2 << 2;
+                item->tex_yuv.height = item->show_h;
 
-    emit videoPushed(srvid, bFirstFrame);
+                item->pSwsCtx = sws_getContext(item->pic_w,item->pic_h,AV_PIX_FMT_YUV420P,
+                                                     item->tex_yuv.width,item->tex_yuv.height,AV_PIX_FMT_YUV420P,
+                                                     SWS_POINT, NULL, NULL, NULL);
+            }else{
+                item->tex_yuv.width = item->pic_w;
+                item->tex_yuv.height = item->pic_h;
+            }
 
-    return 0;
+            item->tex_yuv.data = (unsigned char *)malloc(item->tex_yuv.width * item->tex_yuv.height * 3 / 2);
+            item->tex_yuv.type = GL_I420;
+            qDebug("malloc %d*%d, pic=%d*%d, show=%d*%d", item->tex_yuv.width, item->tex_yuv.height,
+                   item->pic_w, item->pic_h, item->show_w, item->show_h);
+        }
+
+        if (item->pic_w == item->tex_yuv.width && item->pic_h == item->tex_yuv.height){
+            memcpy(item->tex_yuv.data, ptr, item->pic_w*item->pic_h*3/2);
+        }else{
+            uint8_t* src_date[3];
+            src_date[0] = (unsigned char*)ptr;
+            int src_ysize = item->pic_w * item->pic_h;
+            src_date[1] = src_date[0] + src_ysize;
+            src_date[2] = src_date[1] + (src_ysize >> 2);
+            int src_stride[3];
+            src_stride[0] = item->pic_w;
+            src_stride[1] = src_stride[2] = item->pic_w >> 1;
+            uint8_t* dst_data[3];
+            int dst_ysize = item->tex_yuv.width * item->tex_yuv.height;
+            dst_data[0] = item->tex_yuv.data;
+            dst_data[1] = dst_data[0] + dst_ysize;
+            dst_data[2] = dst_data[1] + (dst_ysize >> 2);
+            int dst_stride[3];
+            dst_stride[0] = item->tex_yuv.width;
+            dst_stride[1] = dst_stride[2] = item->tex_yuv.width >> 1;
+            sws_scale(item->pSwsCtx, src_date, src_stride, 0, item->pic_h, dst_data, dst_stride);
+        }
+
+        retcode = 0;
+    }
+    item->mutex.unlock();
+
+    return retcode;
 }
 
 int HDsContext::push_audio(int srvid, const av_pcmbuff* pcm){
@@ -1041,8 +1036,7 @@ int HDsContext::push_audio(int srvid, const av_pcmbuff* pcm){
         return -3;
     }
 
-    // just comb window play audio
-    if (srvid == 1){
+    if (srvid == m_playaudio_srvid){
         m_audioPlay->pushAudio((av_pcmbuff*)pcm);
     }
 
@@ -1077,64 +1071,6 @@ int HDsContext::push_audio(int srvid, const av_pcmbuff* pcm){
     return 0;
 }
 
-void* thread_http_req(void* param){
-    char* szReq = (char*)param;
-    qDebug(szReq);
-
-    http_client * clt = new http_client(g_dsCtx->m_trans);
-    clt->tracegrade = 4;
-
-    std::string strRes;
-    if(clt->request(url_handle_event, szReq, 3000))
-    {
-        clt->query(strRes, 2000);
-        qDebug(strRes.c_str());
-    }
-
-    free(szReq);
-    clt->close();
-    clt->release();
-
-    pthread_exit(NULL);
-}
-
-void HDsContext::handle_event(DsEvent& event){
-    qDebug("");
-
-    // scale comb x y
-    int x = event.dst_x;
-    int y = event.dst_y;
-    if (x != -1 && y != -1 && m_tLayout.combW && m_tLayout.combH){
-        x *= (double)m_tComb.width / (double)m_tLayout.combW;
-        y *= (double)m_tComb.height / (double)m_tLayout.combH;
-    }
-
-    char* szReq = (char*)malloc(512); // 在调用线程中注意释放
-    if (event.type == DS_EVENT_PICK){
-        __snprintf(szReq,
-                   512,
-                   "director.pick\r\n"
-                   "pos=%d\r\n"
-                   "pos=%d (%d,%d)\r\n",
-                   event.src_srvid,
-                   event.dst_srvid,
-                   x,
-                   y);
-    }else if (event.type == DS_EVENT_STOP){
-        __snprintf(szReq,
-                   512,
-                   "director.dclick\r\n"
-                   "pos=%d (%d,%d)\r\n",
-                   event.dst_srvid,
-                   x,
-                   y);
-    }
-
-    pthread_t pth;
-    pthread_create(&pth, NULL, thread_http_req, szReq);
-    pthread_detach(pth);
-}
-
 HScreenItem* HDsContext::getHScreenItem(int srvid){
     HScreenItem* item = NULL;
     for (int i = 0; i < m_tComb.itemCnt; ++i){
@@ -1157,5 +1093,12 @@ void HDsContext::pause(int srvid, bool bPause){
         }else{
             item->ifcb->onservice_callback(ifservice_callback::e_service_cb_pause, libchar(), OOK_FOURCC('P', 'A', 'U', 'S'), 0, bPause, NULL);
         }
+    }
+}
+
+void HDsContext::setPlayaudioSrvid(int id){
+    if (m_playaudio_srvid != id){
+        m_audioPlay->stopPlay();
+        m_playaudio_srvid = id;
     }
 }

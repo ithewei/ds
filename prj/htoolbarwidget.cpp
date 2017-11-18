@@ -2,48 +2,25 @@
 #include "ds_global.h"
 #include "hrcloader.h"
 
-HToolbarWidget::HToolbarWidget(QWidget *parent) : QWidget(parent)
-{
+HToolbarWidget::HToolbarWidget(QWidget *parent) : HWidget(parent){
     initUI();
-    initConnection();
+    initConnect();
 }
 
 void HToolbarWidget::initUI(){
-    setAutoFillBackground(true);
-    QPalette pal = palette();
-    pal.setColor(QPalette::Background, QColor(105,105,105,204));
-    pal.setColor(QPalette::Foreground, QColor(255,255,255));
-    setPalette(pal);
+    setBgFg(this, QColor(105,105,105,204), QColor(255,255,255));
 
-    QHBoxLayout* hbox = new QHBoxLayout;
-
-    hbox->setContentsMargins(5,1,5,1);
-    hbox->setSpacing(10);
+    QHBoxLayout* hbox = genHBoxLayout();
 
     QSize sz(64,64);
 
-    m_btnStart = new QPushButton;
-    m_btnStart->setFixedSize(sz);
-    m_btnStart->setIcon(QIcon(HRcLoader::instance()->icon_start));
-    m_btnStart->setIconSize(sz);
-    m_btnStart->setFlat(true);
+    m_btnStart = genPushButton(sz, HRcLoader::instance()->icon_start);
     m_btnStart->hide();
     hbox->addWidget(m_btnStart);
 
-    m_btnPause = new QPushButton;
-    m_btnPause->setFixedSize(sz);
-    m_btnPause->setIcon(QIcon(HRcLoader::instance()->icon_pause));
-    m_btnPause->setIconSize(sz);
-    m_btnPause->setFlat(true);
+    m_btnPause = genPushButton(sz, HRcLoader::instance()->icon_pause);
     m_btnPause->show();
     hbox->addWidget(m_btnPause);
-
-//    m_btnStop = new QPushButton;
-//    m_btnStop->setFixedSize(sz);
-//    m_btnStop->setIcon(QIcon(HRcLoader::instance()->icon_stop));
-//    m_btnStop->setIconSize(sz);
-//    m_btnStop->setFlat(true);
-//    hbox->addWidget(m_btnStop);
 
     m_slider = new QSlider;
     m_slider->setOrientation(Qt::Horizontal);
@@ -86,25 +63,19 @@ void HToolbarWidget::initUI(){
                             "}"
                             );
     hbox->addWidget(m_slider);
-    //hbox->setStretchFactor(m_slider, 1);
 
     hbox->addSpacing(10);
 
     setLayout(hbox);
 }
 
-void HToolbarWidget::initConnection(){
-    QObject::connect( m_btnStart, SIGNAL(clicked(bool)), m_btnStart, SLOT(hide()) );
-    QObject::connect( m_btnStart, SIGNAL(clicked(bool)), m_btnPause, SLOT(show()) );
-
-    QObject::connect( m_btnPause, SIGNAL(clicked(bool)), m_btnPause, SLOT(hide()) );
-    QObject::connect( m_btnPause, SIGNAL(clicked(bool)), m_btnStart, SLOT(show()) );
+void HToolbarWidget::initConnect(){
+    connectButtons(m_btnStart, m_btnPause);
 
     QObject::connect( m_slider, SIGNAL(actionTriggered(int)), this, SLOT(onSlider(int)) );
     QObject::connect( m_slider, SIGNAL(sliderReleased()), this, SLOT(onSlider()) );
 }
 
-#include <QEvent>
 bool HToolbarWidget::event(QEvent *e){
     switch (e->type()){
     case QEvent::MouseButtonPress:
@@ -130,117 +101,62 @@ void HToolbarWidget::onSlider(int action){
 }
 
 //<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-HCombToolbarWidget::HCombToolbarWidget(QWidget *parent) : QWidget(parent)
-{
+HCombToolbarWidget::HCombToolbarWidget(QWidget *parent) : HWidget(parent){
     initUI();
-    initConnection();
+    initConnect();
 }
 
 void HCombToolbarWidget::initUI(){
-    setAutoFillBackground(true);
-    QPalette pal = palette();
-    pal.setColor(QPalette::Background, QColor(105,105,105,204));
-    pal.setColor(QPalette::Foreground, QColor(255,255,255));
-    setPalette(pal);
+    setBgFg(this, QColor(105,105,105,204), QColor(255,255,255));
 
-    QHBoxLayout* hbox = new QHBoxLayout;
-
-    hbox->setContentsMargins(5,1,5,1);
-    hbox->setSpacing(20);
+    QHBoxLayout* hbox = genHBoxLayout();
 
     QSize sz(64,64);
 
-    m_btnStart = new QPushButton;
-    m_btnStart->setFixedSize(sz);
-    m_btnStart->setIcon(QIcon(HRcLoader::instance()->icon_start));
-    m_btnStart->setIconSize(sz);
-    m_btnStart->setFlat(true);
+    m_btnStart = genPushButton(sz, HRcLoader::instance()->icon_start);
     m_btnStart->hide();
     hbox->addWidget(m_btnStart);
 
-    m_btnPause = new QPushButton;
-    m_btnPause->setFixedSize(sz);
-    m_btnPause->setIcon(QIcon(HRcLoader::instance()->icon_pause));
-    m_btnPause->setIconSize(sz);
-    m_btnPause->setFlat(true);
+    m_btnPause = genPushButton(sz, HRcLoader::instance()->icon_pause);
     m_btnPause->show();
     hbox->addWidget(m_btnPause);
 
-//    m_btnStop = new QPushButton;
-//    m_btnStop->setFixedSize(sz);
-//    m_btnStop->setIcon(QIcon(HRcLoader::instance()->icon_stop));
-//    m_btnStop->setIconSize(sz);
-//    m_btnStop->setFlat(true);
-//    hbox->addWidget(m_btnStop);
-
     hbox->addStretch();
 
-    m_btnText = new QPushButton;
-    m_btnText->setFixedSize(sz);
-    m_btnText->setIcon(QIcon(HRcLoader::instance()->icon_text));
-    m_btnText->setIconSize(sz);
-    m_btnText->setFlat(true);
+    m_btnText = genPushButton(sz, HRcLoader::instance()->icon_text);
     hbox->addWidget(m_btnText);
 
-    m_btnExpre = new QPushButton;
-    m_btnExpre->setFixedSize(sz);
-    m_btnExpre->setIcon(QIcon(HRcLoader::instance()->icon_expre));
-    m_btnExpre->setIconSize(sz);
-    m_btnExpre->setFlat(true);
+    m_btnExpre = genPushButton(sz, HRcLoader::instance()->icon_expre);
     hbox->addWidget(m_btnExpre);
 
-    m_btnZoomOut = new QPushButton;
-    m_btnZoomOut->setFixedSize(sz);
-    m_btnZoomOut->setIcon(QIcon(HRcLoader::instance()->icon_zoomout));
-    m_btnZoomOut->setIconSize(sz);
-    m_btnZoomOut->setFlat(true);
+    m_btnEffect = genPushButton(sz, HRcLoader::instance()->icon_effect);
+    m_btnEffect->hide();
+    hbox->addWidget(m_btnEffect);
+
+    m_btnZoomOut = genPushButton(sz, HRcLoader::instance()->icon_zoomout);
     hbox->addWidget(m_btnZoomOut);
 
-    m_btnZoomIn = new QPushButton;
-    m_btnZoomIn->setFixedSize(sz);
-    m_btnZoomIn->setIcon(QIcon(HRcLoader::instance()->icon_zoomin));
-    m_btnZoomIn->setIconSize(sz);
-    m_btnZoomIn->setFlat(true);
+    m_btnZoomIn = genPushButton(sz, HRcLoader::instance()->icon_zoomin);
     hbox->addWidget(m_btnZoomIn);
 
-    m_btnSetting = new QPushButton;
-    m_btnSetting->setFixedSize(sz);
-    m_btnSetting->setIcon(QIcon(HRcLoader::instance()->icon_setting));
-    m_btnSetting->setIconSize(sz);
-    m_btnSetting->setFlat(true);
+    m_btnSetting = genPushButton(sz, HRcLoader::instance()->icon_setting);
     m_btnSetting->hide();
     hbox->addWidget(m_btnSetting);
 
-    m_btnOK = new QPushButton;
-    m_btnOK->setFixedSize(sz);
-    m_btnOK->setIcon(QIcon(HRcLoader::instance()->icon_ok));
-    m_btnOK->setIconSize(sz);
-    m_btnOK->setFlat(true);
+    m_btnOK = genPushButton(sz, HRcLoader::instance()->icon_ok);
     hbox->addWidget(m_btnOK);
 
-    m_btnTrash = new QPushButton;
-    m_btnTrash->setFixedSize(sz);
-    m_btnTrash->setIcon(QIcon(HRcLoader::instance()->icon_trash));
-    m_btnTrash->setIconSize(sz);
-    m_btnTrash->setFlat(true);
+    m_btnTrash = genPushButton(sz, HRcLoader::instance()->icon_trash);
     hbox->addWidget(m_btnTrash);
 
-    m_btnUndo = new QPushButton;
-    m_btnUndo->setFixedSize(sz);
-    m_btnUndo->setIcon(QIcon(HRcLoader::instance()->icon_undo));
-    m_btnUndo->setIconSize(sz);
-    m_btnUndo->setFlat(true);
+    m_btnUndo = genPushButton(sz, HRcLoader::instance()->icon_undo);
     hbox->addWidget(m_btnUndo);
 
     setLayout(hbox);
 }
 
-void HCombToolbarWidget::initConnection(){
-    QObject::connect( m_btnStart, SIGNAL(clicked(bool)), m_btnStart, SLOT(hide()) );
-    QObject::connect( m_btnStart, SIGNAL(clicked(bool)), m_btnPause, SLOT(show()) );
-
-    QObject::connect( m_btnPause, SIGNAL(clicked(bool)), m_btnPause, SLOT(hide()) );
-    QObject::connect( m_btnPause, SIGNAL(clicked(bool)), m_btnStart, SLOT(show()) );
+void HCombToolbarWidget::initConnect(){
+    connectButtons(m_btnStart, m_btnPause);
 }
 
 bool HCombToolbarWidget::event(QEvent *e){

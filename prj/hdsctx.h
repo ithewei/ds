@@ -1,12 +1,6 @@
 #ifndef HDSCONTEXT_H
 #define HDSCONTEXT_H
 
-#define DISPLAY_MODE_REALTIME      1  // realtime display
-#define DISPLAY_MODE_TIMER         2  // timer by fps
-
-#define NONE_SCALE                 0
-#define BIG_VIDEO_SCALE            1
-
 #include <QObject>
 #include "ds_def.h"
 #include "ds_global.h"
@@ -33,7 +27,6 @@ public:
     void initFont(std::string& path, int h);
 
     void start_gui_thread();
-    void handle_event(DsEvent& event);
 
     HScreenItem* getHScreenItem(int srvid);
 
@@ -44,10 +37,10 @@ public:
     }
 
     int push_video(int srvid, const av_picture* pic);
+    int pop_video(int srvid);
     int push_audio(int srvid, const av_pcmbuff* pcm);
 
     void setAction(int action) {
-        qDebug("");
         if (this->action != action){
             this->action = action;
             emit actionChanged(action);
@@ -66,13 +59,17 @@ public:
         }
     }
     void stop(int srvid){
-        qDebug("");
         DsSvrItem* item = getItem(srvid);
         if (item){
             item->init();
         }
         emit sigStop(srvid);
     }
+
+    void pause(int srvid, bool bPause);
+    void resizeForScale(int srvid, int w, int h);
+
+    void setPlayaudioSrvid(int id);
 
 signals:
     void actionChanged(int action);
@@ -82,10 +79,6 @@ signals:
     void quit();
     void combChanged();
     void sigProgressNty(int srvid, int progress);
-
-public slots:
-    void pause(int srvid, bool bPause);
-    void resizeForScale(int srvid, int w, int h);
 
 public:
 #ifdef WIN32
@@ -100,9 +93,6 @@ public:
     int init;
     QMutex m_mutex;
     int action; // window show or hide
-    int display_mode;
-    int frames;
-    int scale_mode;
 
     DsInitInfo m_tInit;
     DsLayoutInfo m_tLayout;
@@ -115,13 +105,14 @@ public:
 
     FTGLPixmapFont* m_pFont;
     HAudioPlay* m_audioPlay;
-    transaction* m_trans;
 
     DsSvrItem m_tItems[DIRECTOR_MAX_SERVS];
 
     std::string m_strTaskInfo;
     uint m_curTick;
     uint m_lastTick;
+
+    int m_playaudio_srvid;
 };
 
 extern HDsContext* g_dsCtx;

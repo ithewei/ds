@@ -5,7 +5,7 @@
 #include "ds_def.h"
 #include "hcolorwidget.h"
 
-class HAddTextWidget : public QWidget
+class HAddTextWidget : public HWidget
 {
     Q_OBJECT
 public:
@@ -17,10 +17,9 @@ signals:
     void newTextItem(HTextItem);
 
 public slots:
-    void selectFont();
+    void onCategoryChanged(int index);
     void selectColor();
     void onNewColor(QColor color);
-    void onCategoryChanged(int index);
     void onFontSizeChanged(int index);
     void accept();
     void reject();
@@ -31,7 +30,7 @@ protected:
 
 public:
     QButtonGroup* m_grpCategory;
-    //QComboBox* m_cmbCategory;
+
     QLineEdit* m_editText;
     QComboBox* m_cmbFontSize;
     QPushButton* m_btnColor;
@@ -39,6 +38,7 @@ public:
 
     HColorWidget* m_colorSelector;
 
+public:
     HTextItem m_TextItem;
 };
 

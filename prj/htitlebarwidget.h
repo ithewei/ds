@@ -3,7 +3,7 @@
 
 #include "qtheaders.h"
 
-class HTitlebarWidget : public QWidget
+class HTitlebarWidget : public HWidget
 {
     Q_OBJECT
 public:
@@ -11,7 +11,7 @@ public:
 
 protected:
     void initUI();
-    void initConnection();
+    void initConnect();
     virtual bool event(QEvent *e);
 
 public:
@@ -36,7 +36,7 @@ public:
     QPushButton* m_btnExitFullScreen;
 };
 
-class HCombTitlebarWidget : public QWidget
+class HCombTitlebarWidget : public HWidget
 {
     Q_OBJECT
 public:
@@ -44,17 +44,22 @@ public:
 
 protected:
     void initUI();
-    void initConnection();
+    void initConnect();
     virtual bool event(QEvent *e);
 
 public:
     QLabel* m_label;
+
     QPushButton* m_btnFullScreen;
     QPushButton* m_btnExitFullScreen;
+
     QPushButton* m_btnPinb;
     QPushButton* m_btnPinr;
+
     QPushButton* m_btnDrawInfo;
+
     QPushButton* m_btnSnapshot;
+
     QPushButton* m_btnStartRecord;
     QPushButton* m_btnStopRecord;
 };
