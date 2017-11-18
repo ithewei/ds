@@ -1,65 +1,47 @@
 #include "hnumselectwidget.h"
 #include "hrcloader.h"
 
-HNumSelectWidget::HNumSelectWidget(QWidget *parent) : QWidget(parent)
-{
+HNumSelectWidget::HNumSelectWidget(QWidget *parent) : HWidget(parent){
     initUI();
     initConnect();
 }
 
 void HNumSelectWidget::initUI(){
-    setFixedSize(MAX_NUM_ICON*(NUM_ICON_WIDTH+10)+2, NUM_ICON_HEIGHT+2);
+    setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Minimum);
 
     QHBoxLayout* hbox = new QHBoxLayout;
-
     hbox->setMargin(1);
 
-    hbox->addStretch();
-
+    QSize sz(NUM_ICON_WIDTH,NUM_ICON_HEIGHT);
     for (int i = 0; i < MAX_NUM_ICON; ++i){
-        m_numSelects[i] = new HNumWidget;
-        m_numSelects[i]->m_nNum = i+1;
-        m_numSelects[i]->setFixedSize(NUM_ICON_WIDTH,NUM_ICON_HEIGHT);
-        m_numSelects[i]->setIcon(QIcon(HRcLoader::instance()->icon_numb[i]));
-        m_numSelects[i]->setIconSize(QSize(NUM_ICON_WIDTH,NUM_ICON_HEIGHT));
-        m_numSelects[i]->setFlat(true);
+        m_numSelects[i] = genPushButton(sz, HRcLoader::instance()->icon_numb[i]);
         hbox->addWidget(m_numSelects[i]);
 
-        m_numCancels[i] = new HNumWidget;
-        m_numCancels[i]->m_nNum = i+1;
-        m_numCancels[i]->setFixedSize(NUM_ICON_WIDTH,NUM_ICON_HEIGHT);
-        m_numCancels[i]->setIcon(QIcon(HRcLoader::instance()->icon_numr[i]));
-        m_numCancels[i]->setIconSize(QSize(NUM_ICON_WIDTH,NUM_ICON_HEIGHT));
-        m_numCancels[i]->setFlat(true);
+        m_numCancels[i] = genPushButton(sz, HRcLoader::instance()->icon_numr[i]);
         m_numCancels[i]->hide();
         hbox->addWidget(m_numCancels[i]);
 
         hbox->addSpacing(10);
     }
 
-    hbox->addStretch();
-
     setLayout(hbox);
 }
 
+#include <QSignalMapper>
 void HNumSelectWidget::initConnect(){
+    QSignalMapper* smSelect = new QSignalMapper(this);
+    QObject::connect(smSelect, SIGNAL(mapped(int)), this, SIGNAL(numSelected(int)) );
+
+    QSignalMapper* smCancel = new QSignalMapper(this);
+    QObject::connect(smCancel, SIGNAL(mapped(int)), this, SIGNAL(numCanceled(int)) );
+
     for (int i = 0; i < MAX_NUM_ICON; ++i){
-        QObject::connect(m_numSelects[i], SIGNAL(clicked(bool)), m_numSelects[i], SLOT(hide()) );
-        QObject::connect(m_numSelects[i], SIGNAL(clicked(bool)), m_numCancels[i], SLOT(show()) );
-        QObject::connect(m_numSelects[i], SIGNAL(clicked(bool)), this, SLOT(onSelected()) );
+        connectButtons(m_numSelects[i], m_numCancels[i]);
 
-        QObject::connect(m_numCancels[i], SIGNAL(clicked(bool)), m_numCancels[i], SLOT(hide()) );
-        QObject::connect(m_numCancels[i], SIGNAL(clicked(bool)), m_numSelects[i], SLOT(show()) );
-        QObject::connect(m_numCancels[i], SIGNAL(clicked(bool)), this, SLOT(onCanceled()) );
+        smSelect->setMapping(m_numSelects[i], i+1);
+        QObject::connect(m_numSelects[i], SIGNAL(clicked(bool)), smSelect, SLOT(map()) );
+
+        smSelect->setMapping(m_numCancels[i], i+1);
+        QObject::connect(m_numCancels[i], SIGNAL(clicked(bool)), smCancel, SLOT(map()) );
     }
-}
-
-void HNumSelectWidget::onSelected(){
-    HNumWidget* wdg = (HNumWidget*)sender();
-    emit numSelected(wdg->m_nNum);
-}
-
-void HNumSelectWidget::onCanceled(){
-    HNumWidget* wdg = (HNumWidget*)sender();
-    emit numCanceled(wdg->m_nNum);
 }

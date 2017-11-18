@@ -6,31 +6,40 @@
 #include "hglwidget.h"
 #include "ds_global.h"
 #include "hdsctx.h"
-
-#define MAXNUM_GLWIDGET 8
+#include "hlayout.h"
 
 #define DRAG_WIDTH      192
 #define DRAG_HEIGHT     108
 
 class HDsContext;
-class HMainWidget : public QMainWindow
+class HMainWidget : public HWidget
 {
     Q_OBJECT
+
+    enum EOperate{
+        EXCHANGE = 1,
+        MERGE = 2,
+    };
+
 public:
-    explicit HMainWidget(HDsContext *ctx, QWidget *parent = nullptr);
-    ~HMainWidget();
+    explicit HMainWidget(QWidget *parent = nullptr);
 
 protected:
     void initUI();
     void initConnect();
+    virtual void keyPressEvent(QKeyEvent *e);
+    virtual void mousePressEvent(QMouseEvent *e);
+    virtual void mouseMoveEvent(QMouseEvent *e);
+    virtual void mouseReleaseEvent(QMouseEvent *e);
+
     HGLWidget* getGLWdgByPos(QPoint pt);
     HGLWidget* getGLWdgByPos(int x, int y);
     HGLWidget* getGLWdgBysrvid(int srvid);
     HGLWidget* getGLWdgByWndid(int wndid);
-    virtual void keyPressEvent(QKeyEvent *event);
-    virtual void mousePressEvent(QMouseEvent *event);
-    virtual void mouseMoveEvent(QMouseEvent *event);
-    virtual void mouseReleaseEvent(QMouseEvent *event);
+
+    void changeScreenSource(int index, int srvid);
+    void updateGLWdgsByLayout();
+    void mergeGLWdg(int lt, int rb);
 
 signals:
 
@@ -43,25 +52,40 @@ public slots:
     void onStop(int srvid);
     void onProgressNty(int srvid, int progress);
 
-    void onFullScreen();
-    void onExitFullScreen();
+    void onFullScreen(bool);
     void onGLWdgClicked();
 
+#if LAYOUT_TYPE_OUTPUT_AND_MV
     void expand();
     void fold();
+#endif
 
-    void changeScreenSource(int index, int srvid);
+    void setLayout(int row, int col);
+    void onMerge();
 
 private:
-    HDsContext* m_ctx;
+    HLayout m_layout;
+
+private:
     std::vector<HGLWidget*> m_vecGLWdg;
     HGLWidget* m_focusGLWdg;
 
+#if LAYOUT_TYPE_OUTPUT_AND_MV
     QPushButton* m_btnLeftExpand;
     QPushButton* m_btnRightFold;
     HMainToolbar* m_toolbar;
+#endif
 
+#if LAYOUT_TYPE_ONLY_MV
+    HStyleToolbar* m_toolbar;
+#endif
+
+    bool m_bMouseMoving;
+    QPoint m_ptMousePressed;
+
+    EOperate m_eOperate;
     QLabel* m_labelDrag;
+    QLabel* m_labelRect;
     HGLWidget* m_dragSrcWdg;
 
     QTimer timer_repaint;

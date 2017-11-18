@@ -4,18 +4,27 @@
 #include "hrcloader.h"
 #include <QTimer>
 #include "hmainwidget.h"
+#include "ds.h"
 
 HGLWidget::HGLWidget(QWidget *parent)
     : QGLWidgetImpl(parent)
 {
+    wndid = 0;
+    srvid = 0;
+
+    fps = 0;
+    framecnt = 0;
     m_status = STOP;
     m_tmMousePressed = 0;
 
     m_bDrawInfo = true;
+    m_bFullScreen = false;
 
     m_snapshot = new QLabel(this);
     m_snapshot->setStyleSheet("border:5px double #ADFF2F");
     m_snapshot->hide();
+
+    setMouseTracking(true);
 }
 
 HGLWidget::~HGLWidget(){
@@ -96,12 +105,19 @@ void HGLWidget::mouseReleaseEvent(QMouseEvent* event){
 
 void HGLWidget::mouseMoveEvent(QMouseEvent* e){
     // add delay to prevent misopration
+#if LAYOUT_TYPE_OUTPUT_AND_MV
     if ((e->timestamp() - m_tmMousePressed < 100)){
         e->accept();
         return;
     }
+#endif
 
     e->ignore();
+}
+
+void HGLWidget::mouseDoubleClickEvent(QMouseEvent* e){
+    m_bFullScreen = !m_bFullScreen;
+    emit fullScreen(m_bFullScreen);
 }
 
 void HGLWidget::resizeEvent(QResizeEvent* e){
@@ -123,13 +139,17 @@ void HGLWidget::hideEvent(QHideEvent* e){
         item->bShow = false;
 }
 
-//void HGLWidget::enterEvent(QEvent* e){
-//    showToolWidgets(true);
-//}
+void HGLWidget::enterEvent(QEvent* e){
+#if LAYOUT_TYPE_ONLY_MV
+    showToolWidgets(true);
+#endif
+}
 
-//void HGLWidget::leaveEvent(QEvent* e){
-//    showToolWidgets(false);
-//}
+void HGLWidget::leaveEvent(QEvent* e){
+#if LAYOUT_TYPE_ONLY_MV
+    showToolWidgets(false);
+#endif
+}
 
 void HGLWidget::addIcon(int type, int x, int y, int w, int h){
     if (m_mapIcons.find(type) == m_mapIcons.end()){
@@ -159,15 +179,33 @@ Texture* HGLWidget::getTexture(int type){
     return NULL;
 }
 
+void HGLWidget::calFps(){
+    if (framecnt == 0)
+        timer_elapsed.restart();
+
+    if (timer_elapsed.elapsed() > 1000){
+        fps = framecnt;
+        framecnt = 0;
+    }else{
+        ++framecnt;
+    }
+}
+
+void HGLWidget::drawFps(){
+    DrawInfo di;
+    di.left = width() - 100;
+    di.top = 2;
+    di.color = 0x0000FFFF;
+    char szFps[8];
+    snprintf(szFps, 8, "FPS:%d", fps);
+    drawStr(g_dsCtx->m_pFont, szFps, &di);
+}
+
 void HGLWidget::drawVideo(){
     DsSvrItem* item = g_dsCtx->getItem(srvid);
     if (item){
-        item->mutex.lock();
-        if (item->tex_yuv.data && item->tex_yuv.width > 0 && item->tex_yuv.height > 0){
+        if (item->tex_yuv.data && item->tex_yuv.width != 0 && item->tex_yuv.height != 0)
             drawYUV(&item->tex_yuv);
-            m_nPreFrame = item->v_input;
-        }
-        item->mutex.unlock();
     }
 }
 
@@ -244,6 +282,8 @@ void HGLWidget::drawOutline(){
 }
 
 void HGLWidget::paintGL(){
+    calFps();
+
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
 
@@ -255,29 +295,31 @@ void HGLWidget::paintGL(){
         di.left = width()/2 - 50;
         di.top = height()/2 - 20;
         di.color = 0xFFFFFFFF;
-        drawStr(g_dsCtx->m_pFont, "NO VIDEO!", &di);
+        drawStr(g_dsCtx->m_pFont, "无视频", &di);
         break;
     case NOSIGNAL:
         di.left = width()/2 - 50;
         di.top = height()/2 - 20;
         di.color = 0xFFFFFFFF;
-        drawStr(g_dsCtx->m_pFont, "NO SIGNAL!", &di);
+        drawStr(g_dsCtx->m_pFont, "无信号", &di);
         break;
     case PAUSE:
     case PLAYING:
         if (m_status & PLAY_VIDEO){
             drawVideo();
+            if (m_bDrawInfo && g_dsCtx->m_tInit.drawfps)
+                drawFps();
         }
 
         if (m_status & PLAY_AUDIO){
-            if (m_bDrawInfo){
+            if (m_bDrawInfo && g_dsCtx->m_tInit.drawaudio){
                 drawAudio();
             }
         }
         break;
     }
 
-    if (m_bDrawInfo){
+    if (m_bDrawInfo && g_dsCtx->m_tInit.drawtitle){
         drawTitle();
     }
 
@@ -320,15 +362,17 @@ void HGeneralGLWidget::initUI(){
 }
 
 void HGeneralGLWidget::initConnect(){
-    QObject::connect( m_titlebar->m_btnFullScreen, SIGNAL(clicked(bool)), this, SIGNAL(fullScreen()) );
-    QObject::connect( m_titlebar->m_btnExitFullScreen, SIGNAL(clicked(bool)), this, SIGNAL(exitFullScreen()) );
+    QObject::connect( m_titlebar->m_btnFullScreen, SIGNAL(clicked(bool)), this, SLOT(onFullScreen()) );
+    QObject::connect( m_titlebar->m_btnExitFullScreen, SIGNAL(clicked(bool)), this, SLOT(onExitFullScreen()) );
     QObject::connect( m_titlebar->m_btnDrawInfo, SIGNAL(clicked(bool)), this, SLOT(toggleDrawInfo()) );
     QObject::connect( m_titlebar->m_btnSnapshot, SIGNAL(clicked(bool)), this, SLOT(snapshot()) );
     //QObject::connect( m_titlebar->m_btnStartRecord, SIGNAL(clicked(bool)), this, SLOT(startRecord()) );
     //QObject::connect( m_titlebar->m_btnStopRecord, SIGNAL(clicked(bool)), this, SLOT(stopRecord()) );
+#if LAYOUT_TYPE_OUTPUT_AND_MV
     QObject::connect( m_titlebar->m_btnNum, SIGNAL(clicked(bool)), this, SLOT(showNumSelector()) );
     QObject::connect( m_titlebar->m_btnMicphoneOpened, SIGNAL(clicked(bool)), this, SLOT(closeMicphone()) );
     QObject::connect( m_titlebar->m_btnMicphoneClosed, SIGNAL(clicked(bool)), this, SLOT(openMicphone()) );
+#endif
     QObject::connect( m_titlebar->m_btnVoice, SIGNAL(clicked(bool)), this, SLOT(onVoice()) );
     QObject::connect( m_titlebar->m_btnMute, SIGNAL(clicked(bool)), this ,SLOT(onMute()) );
 
@@ -343,6 +387,8 @@ void HGeneralGLWidget::initConnect(){
 void HGeneralGLWidget::showTitlebar(bool bShow){
     if (bShow){
         DsSvrItem* item = g_dsCtx->getItem(srvid);
+
+#if LAYOUT_TYPE_OUTPUT_AND_MV
         if (item){
             m_titlebar->m_label->setText(item->title.c_str());
         }
@@ -369,6 +415,25 @@ void HGeneralGLWidget::showTitlebar(bool bShow){
                 m_titlebar->m_btnMute->show();
             }
         }
+#endif
+
+#if LAYOUT_TYPE_ONLY_MV
+        if (item){
+            QString title = QString::asprintf("%02d %s", wndid, item->title.c_str());
+            m_titlebar->m_label->setText(title);
+        }
+
+        m_titlebar->m_btnVoice->hide();
+        m_titlebar->m_btnMute->show();
+        if (g_dsCtx->m_playaudio_srvid == srvid){
+            m_titlebar->m_btnMute->hide();
+            m_titlebar->m_btnVoice->show();
+        }
+#endif
+
+        m_titlebar->m_btnExitFullScreen->setVisible(m_bFullScreen);
+        m_titlebar->m_btnFullScreen->setVisible(!m_bFullScreen);
+
         m_titlebar->show();
     }else{
         m_titlebar->hide();
@@ -458,11 +523,23 @@ void HGeneralGLWidget::closeMicphone(){
 }
 
 void HGeneralGLWidget::onVoice(){
-    HNetwork::instance()->setVoice(srvid, 0);
+#if LAYOUT_TYPE_OUTPUT_AND_MV
+        HNetwork::instance()->setVoice(srvid, 0);
+#endif
+
+#if LAYOUT_TYPE_ONLY_MV
+        g_dsCtx->setPlayaudioSrvid(0);
+#endif
 }
 
-void HGeneralGLWidget::onMute(){
+void HGeneralGLWidget::onMute(){   
+#if LAYOUT_TYPE_OUTPUT_AND_MV
     HNetwork::instance()->setVoice(srvid, 1);
+#endif
+
+#if LAYOUT_TYPE_ONLY_MV
+        g_dsCtx->setPlayaudioSrvid(srvid);
+#endif
 }
 
 void HGeneralGLWidget::drawSelectNum(){
@@ -481,16 +558,13 @@ void HGeneralGLWidget::drawSelectNum(){
 }
 
 void HGeneralGLWidget::drawSound(){
-    HScreenItem* item = g_dsCtx->getHScreenItem(srvid);
-    if (item && item->a){
-        DrawInfo di;
-        Texture *tex = getTexture(HAVE_AUDIO);
-        di.right = width() - 1;
-        di.top = 1;
-        di.left = di.right - 32 + 1;
-        di.bottom = di.top + 32 - 1;
-        drawTex(tex, &di);
-    }
+    DrawInfo di;
+    Texture *tex = getTexture(HAVE_AUDIO);
+    di.right = width() - 1;
+    di.top = 1;
+    di.left = di.right - 32 + 1;
+    di.bottom = di.top + 32 - 1;
+    drawTex(tex, &di);
 }
 
 void HGeneralGLWidget::drawOutline(){
@@ -499,7 +573,7 @@ void HGeneralGLWidget::drawOutline(){
     di.top = 0;
     di.right = width() - 1;
     di.bottom = height() - 1;
-    if (m_titlebar->isVisible()){
+    if (m_titlebar->isVisible() && !isResetStatus()){
         di.color = g_dsCtx->m_tInit.focus_outlinecolor;
     }else{
         di.color = m_outlinecolor;
@@ -511,8 +585,19 @@ void HGeneralGLWidget::paintGL(){
     HGLWidget::paintGL();
 
     if (!isResetStatus()){
-        drawSelectNum();
-        drawSound();
+#if LAYOUT_TYPE_OUTPUT_AND_MV
+        HScreenItem* item = g_dsCtx->getHScreenItem(srvid);
+        if (item && item->a){
+            drawSound();
+        }
+        if (m_bDrawInfo && g_dsCtx->m_tInit.drawnum)
+            drawSelectNum();
+#endif
+
+#if LAYOUT_TYPE_ONLY_MV
+        if (g_dsCtx->m_playaudio_srvid == srvid)
+            drawSound();
+#endif
     }
 }
 
@@ -623,14 +708,17 @@ void HCombGLWidget::initUI(){
 
     m_wdgExpre = new HExpreWidget(this);
     m_wdgExpre->setWindowFlags(Qt::Popup);
+
+    m_wdgEffect = new HEffectWidget(this);
+    m_wdgEffect->setWindowFlags(Qt::Popup);
 }
 
 void HCombGLWidget::initConnect(){
     QObject::connect( g_dsCtx, SIGNAL(combChanged()), this, SLOT(onCombChanged()) );
     QObject::connect( HNetwork::instance(), SIGNAL(overlayChanged()), this, SLOT(onOverlayChanged()) );
 
-    QObject::connect( m_titlebar->m_btnFullScreen, SIGNAL(clicked(bool)), this, SIGNAL(fullScreen()) );
-    QObject::connect( m_titlebar->m_btnExitFullScreen, SIGNAL(clicked(bool)), this, SIGNAL(exitFullScreen()) );
+    QObject::connect( m_titlebar->m_btnFullScreen, SIGNAL(clicked(bool)), this, SLOT(onFullScreen()) );
+    QObject::connect( m_titlebar->m_btnExitFullScreen, SIGNAL(clicked(bool)), this, SLOT(onExitFullScreen()) );
     QObject::connect( m_titlebar->m_btnPinb, SIGNAL(clicked(bool)), this, SLOT(lockTools()) );
     QObject::connect( m_titlebar->m_btnPinr, SIGNAL(clicked(bool)), this, SLOT(unlockTools()) );
     QObject::connect( m_titlebar->m_btnDrawInfo, SIGNAL(clicked(bool)), this, SLOT(toggleDrawInfo()) );
@@ -648,6 +736,7 @@ void HCombGLWidget::initConnect(){
     QObject::connect( m_toolbar->m_btnSetting, SIGNAL(clicked(bool)), this, SLOT(onSetting()) );
     QObject::connect( m_toolbar->m_btnZoomIn, SIGNAL(clicked(bool)), this, SLOT(onZoomIn()) );
     QObject::connect( m_toolbar->m_btnZoomOut, SIGNAL(clicked(bool)), this, SLOT(onZoomOut()) );
+    QObject::connect( m_toolbar->m_btnEffect, SIGNAL(clicked(bool)), this, SLOT(showEffect()) );
 
     QObject::connect( m_wdgExpre, SIGNAL(expreSelected(QString&)), this, SLOT(onExpreSelected(QString&)) );
     QObject::connect( m_wdgText, SIGNAL(newTextItem(HTextItem)), this, SLOT(onTextAccepted(HTextItem)) );
@@ -955,6 +1044,14 @@ void HCombGLWidget::showText(){
     m_wdgText->setVisible(!m_wdgText->isVisible());
 }
 
+void HCombGLWidget::showEffect(){
+    int w = m_wdgEffect->width();
+    int h = m_wdgEffect->height();
+    QPoint ptLeftTop = m_toolbar->mapToGlobal(QPoint(0,0));
+    m_wdgEffect->move(x() + (width() - w)/2, ptLeftTop.y() - h);
+    m_wdgEffect->show();
+}
+
 void HCombGLWidget::updateTargetWidget(QPoint pt, HTextItem* pItem){
     QFont font = m_targetWdg->font();
     font.setPixelSize(pItem->font_size * width() / g_dsCtx->m_tComb.width);
@@ -1146,6 +1243,7 @@ void HCombGLWidget::paintGL(){
     HGLWidget::paintGL();
 
     if (g_dsCtx->m_tInit.info){
+        qDebug("ddddddddddddddddddddddddddddddddddddd");
         drawTaskInfo();
     }
 

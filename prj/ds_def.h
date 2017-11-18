@@ -3,35 +3,58 @@
 
 #include <QRect>
 
-#define MAXNUM_LAYOUT   8
+#define MAXNUM_LAYOUT   64
 #define MAXNUM_COMB_SCREEN     8
 
-#define DIRECTOR_MAX_SERVS		   16
-#define DIRECTOR_MAX_ITEMS   		6
+#define DIRECTOR_MAX_SERVS		   65 // srvid = 1 reserve
+
+#define DISPLAY_MODE_REALTIME      1  // realtime display
+#define DISPLAY_MODE_TIMER         2  // timer by fps
+
+#define NONE_SCALE                 0
+#define BIG_VIDEO_SCALE            1
 
 struct DsInitInfo{
     int audio;
     int play_audio;
     int info;
-    int title;
     unsigned int infcolor;
     unsigned int titcolor;
     unsigned int outlinecolor;
     unsigned int focus_outlinecolor;
-    int scale_method;
-    int pause_method;
+
+    int display_mode;
+    int scale_mode;
+    int fps;
+    int drawtitle;
+    int drawfps;
+    int drawnum;
+    int drawaudio;
+
+    int autolayout;
+    int row;
+    int col;
 
     DsInitInfo(){
         audio = 1;
         play_audio = 0;
         info  = 0;
-        title  = 1;
         infcolor = 0x00FF00FF;
         titcolor = 0xFF5A1EFF;
         outlinecolor = 0xFFFFFFFF;
         focus_outlinecolor = 0xFF0000FF;
-        scale_method = 0;
-        pause_method = 0;
+
+        display_mode = DISPLAY_MODE_TIMER;
+        scale_mode = BIG_VIDEO_SCALE;
+        fps = 25;
+        drawtitle = 1;
+        drawfps = 0;
+        drawnum = 1;
+        drawaudio = 1;
+
+        autolayout = 0;
+        row = 0;
+        col = 0;
     }
 };
 
@@ -51,21 +74,6 @@ struct DsLayoutInfo{
         combW = 0;
         combH = 0;
     }
-};
-
-#define DS_EVENT_PICK               0x01
-#define DS_EVENT_STOP               0x02
-
-struct DsEvent{
-    int type;
-
-    int src_srvid;
-    int src_x;
-    int src_y;
-
-    int dst_srvid;
-    int dst_x;
-    int dst_y;
 };
 
 #include "habstractitem.h"
@@ -96,6 +104,8 @@ struct DsScreenInfo{
 
 #include <QMutex>
 #include "qglwidgetimpl.h"
+#include "hringbuffer.h"
+#include "hffmpeg.h"
 struct DsSvrItem{
     bool bPause;
     bool bVoice;
@@ -108,9 +118,10 @@ struct DsSvrItem{
     bool bShow;
     int show_w;
     int show_h;
-    Texture tex_yuv;
-    bool bUpdateVideo;
+    HRingBuffer* video_buffer;
     QMutex  mutex;
+    Texture tex_yuv;
+    SwsContext* pSwsCtx; // for scale
 
     int a_channels;
     unsigned short a_average[2];
@@ -125,10 +136,26 @@ struct DsSvrItem{
     }
 
     ~DsSvrItem(){
+        free();
+    }
 
+    void free(){
+        if (video_buffer){
+            delete video_buffer;
+            video_buffer = NULL;
+        }
+
+        tex_yuv.release();
+
+        if (pSwsCtx){
+            sws_freeContext(pSwsCtx);
+            pSwsCtx = NULL;
+        }
     }
 
     void init(){
+        free();
+
         bPause = false;
         bVoice = false;
         bShow = true;
@@ -138,8 +165,9 @@ struct DsSvrItem{
         pic_h = 0;
 
         title.clear();
+        video_buffer = NULL;
         tex_yuv.release();
-        bUpdateVideo = true;
+        pSwsCtx = NULL;
 
         src_type = 0;
 

@@ -48,6 +48,7 @@ public:
     QPixmap icon_mkdir;
     QPixmap icon_rmdir;
     QPixmap icon_add;
+    QPixmap icon_sub;
     QPixmap icon_micphone;
     QPixmap icon_micphone_gray;
     QPixmap icon_setting;
@@ -57,6 +58,18 @@ public:
     QPixmap icon_zoomout;
     QPixmap icon_pinb;
     QPixmap icon_pinr;
+
+    QPixmap icon_effect;
+    QPixmap icon_mosaic;
+    QPixmap icon_blur;
+
+    QPixmap icon_style1;
+    QPixmap icon_style2;
+    QPixmap icon_style4;
+    QPixmap icon_style9;
+    QPixmap icon_style16;
+    QPixmap icon_return;
+    QPixmap icon_merge;
 
     Texture tex_sound;
     Texture tex_numr[MAX_NUM_ICON];

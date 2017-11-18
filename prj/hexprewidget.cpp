@@ -3,7 +3,20 @@
 #include "hdsctx.h"
 
 #define CATEGORY_INDEX  Qt::UserRole + 100
-#define EXPRE_FILEPATH  Qt::UserRole + 200
+#define FILEPATH  Qt::UserRole + 200
+#define ACTION    Qt::UserRole + 300
+
+enum EXPRE_ACTION{
+    // expre
+    SELECT = 1,
+    REMOVE = 2,
+
+    // mode
+    ADD_MODE = 10,
+
+    REMOVE_MODE = 11,
+    SELECT_MODE = 12
+};
 
 const char* dir_upload = "/var/www/transcoder/Upload/";
 const char* dir_usb = "/usb/";
@@ -117,14 +130,36 @@ void HExportWidget::initList(QListWidget* list, QString dir){
 }
 //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
-HExpreWidget::HExpreWidget(QWidget *parent) : QWidget(parent)
-{
+HExpreWidget::HExpreWidget(QWidget *parent) : HWidget(parent){
     initUI();
     initConnect();
 }
 
+QListWidgetItem* HExpreWidget::genListWidgetItem(QPixmap pixmap){
+    QListWidgetItem* item = new QListWidgetItem;
+    item->setIcon(pixmap);
+    item->setSizeHint(QSize(EXPRE_ICON_WIDTH, EXPRE_ICON_HEIGHT));
+    item->setBackgroundColor(QColor(255,255,0,128));
+
+    return item;
+}
+
+QListWidgetItem* HExpreWidget::genListWidgetItem(QString img_file){
+    QPixmap pixmap;
+    pixmap.load(img_file);
+    if (!pixmap.isNull()){
+        pixmap.scaled(EXPRE_ICON_WIDTH,EXPRE_ICON_HEIGHT);
+        QListWidgetItem* item =  genListWidgetItem(pixmap);
+        item->setData(FILEPATH, img_file);
+        item->setData(ACTION, SELECT);
+        return item;
+    }
+
+    return NULL;
+}
+
 #include <QDirIterator>
-void HExpreWidget::initList(QListWidget* list, QString dir){
+void HExpreWidget::initList(QListWidget* list, QString filepath){
     list->setMovement(QListView::Static);
     list->setViewMode(QListView::IconMode);
     list->setIconSize(QSize(EXPRE_ICON_WIDTH,EXPRE_ICON_HEIGHT));
@@ -133,33 +168,24 @@ void HExpreWidget::initList(QListWidget* list, QString dir){
     list->setSpacing(5);
     list->setFixedWidth(EXPRE_WIDTH-2);
 
-    QString filepath = dir_upload;
-    filepath += dir;
-    QDirIterator iter(filepath, QDir::Files);
-
-    QListWidgetItem* item = new QListWidgetItem;
-    item->setIcon(HRcLoader::instance()->icon_add);
-    item->setSizeHint(QSize(EXPRE_ICON_WIDTH, EXPRE_ICON_HEIGHT));
-    item->setBackgroundColor(QColor(255,255,0,128));
-    item->setData(EXPRE_FILEPATH,filepath);
+    QListWidgetItem* item = genListWidgetItem(HRcLoader::instance()->icon_add);
+    item->setData(ACTION, ADD_MODE);
     list->addItem(item);
 
+    QDirIterator iter(filepath, QDir::Files);
+    bool bHave = false;
     while (iter.hasNext()){
         QString file = iter.next();
-        QPixmap pixmap;
-        pixmap.load(file);
-        if (!pixmap.isNull()){
-            pixmap.scaled(EXPRE_ICON_WIDTH,EXPRE_ICON_HEIGHT);
-            QListWidgetItem* item = new QListWidgetItem;
-            item->setIcon(pixmap);
-            item->setSizeHint(QSize(EXPRE_ICON_WIDTH, EXPRE_ICON_HEIGHT));
-            item->setBackgroundColor(QColor(255,255,0,128));
-            item->setData(EXPRE_FILEPATH,file);
-            list->addItem(item);
-        }
+        QListWidgetItem* item = genListWidgetItem(file);
+        list->addItem(item);
+        bHave = true;
     }
 
-    QObject::connect( list, SIGNAL(itemClicked(QListWidgetItem*)), this, SLOT(onSelectExpre(QListWidgetItem*)) );
+    if (bHave){
+        QListWidgetItem* item = genListWidgetItem(HRcLoader::instance()->icon_sub);
+        item->setData(ACTION, REMOVE_MODE);
+        list->addItem(item);
+    }
 
     list->verticalScrollBar()->setStyleSheet("QScrollBar:vertical"
                                            "{"
@@ -327,11 +353,13 @@ void HExpreWidget::genUI(){
         item->setTextAlignment(Qt::AlignCenter);
         item->setText(record.label);
         item->setData(CATEGORY_INDEX, i);
+        item->setData(FILEPATH, QString(dir_upload)+record.dir);
         m_listCategory->addItem(item);
 
         QListWidget* list = new QListWidget;
         m_stack->addWidget(list);
-        initList(list, record.dir);
+        initList(list, item->data(FILEPATH).toString());
+        QObject::connect( list, SIGNAL(itemClicked(QListWidgetItem*)), this, SLOT(onSelectExpre(QListWidgetItem*)) );
     }
 
     m_listCategory->setCurrentRow(0);
@@ -364,19 +392,12 @@ void HExpreWidget::initUI(){
 
     hbox->addStretch();
 
-    m_btnMkdir = new QPushButton;
-    m_btnMkdir->setFixedSize(CATEGORY_HEIGHT,CATEGORY_HEIGHT);
-    m_btnMkdir->setIcon(QIcon(HRcLoader::instance()->icon_mkdir));
-    m_btnMkdir->setIconSize(QSize(CATEGORY_HEIGHT,CATEGORY_HEIGHT));
-    m_btnMkdir->setFlat(true);
+    QSize sz(CATEGORY_HEIGHT,CATEGORY_HEIGHT);
+    m_btnMkdir = genPushButton(sz, HRcLoader::instance()->icon_mkdir);
     m_btnMkdir->hide();
     hbox->addWidget(m_btnMkdir);
 
-    m_btnRmdir = new QPushButton;
-    m_btnRmdir->setFixedSize(CATEGORY_HEIGHT,CATEGORY_HEIGHT);
-    m_btnRmdir->setIcon(QIcon(HRcLoader::instance()->icon_rmdir));
-    m_btnRmdir->setIconSize(QSize(CATEGORY_HEIGHT,CATEGORY_HEIGHT));
-    m_btnRmdir->setFlat(true);
+    m_btnRmdir = genPushButton(sz, HRcLoader::instance()->icon_rmdir);
     m_btnRmdir->hide();
     hbox->addWidget(m_btnRmdir);
 
@@ -401,18 +422,74 @@ void HExpreWidget::onSelectCategory(QListWidgetItem* item){
 }
 
 void HExpreWidget::onSelectExpre(QListWidgetItem* item){
-    QString filepath = item->data(EXPRE_FILEPATH).toString();
+    QListWidget* list = item->listWidget();
+    QString filepath = m_listCategory->currentItem()->data(FILEPATH).toString();
     qDebug(filepath.toLocal8Bit().constData());
 
-    QFileInfo file(filepath);
-    if (!file.exists())
+    if (!list || !QDir(filepath).exists())
         return;
 
-    if (file.isFile()){
+    int action = item->data(ACTION).toInt();
+    switch (action){
+    case SELECT:
+    {
         hide();
-        emit expreSelected(filepath);
-    }else if(file.isDir()){
-        onAdd(filepath);
+        QString img_file = item->data(FILEPATH).toString();
+        emit expreSelected(img_file);
+    }
+        break;
+    case REMOVE:
+    {
+        QString img_file = item->data(FILEPATH).toString();
+        QFile(img_file).remove();
+        list->clear();
+        initList(list, filepath);
+    }
+        break;
+    case ADD_MODE:
+    {
+        HExportWidget dlg(this);
+        dlg.setWindowFlags(Qt::Dialog | Qt::FramelessWindowHint | Qt::X11BypassWindowManagerHint);
+
+        if (dlg.exec() == QDialog::Accepted){
+            QStringList files = dlg.selectedFiles();
+
+            for (int i = 0; i < files.size(); ++i){
+                QFileInfo file(files.at(i));
+                QString newfile(filepath);
+                newfile += "/";
+                newfile += file.fileName();
+                QFile::copy(files.at(i), newfile);
+            }
+
+            list->clear();
+            initList(list, filepath);
+        }
+        show();
+    }
+        break;
+    case REMOVE_MODE:
+    {
+        for (int i = 0; i < list->count(); ++i){
+            if (list->item(i)->data(ACTION).toInt() == SELECT){
+                list->item(i)->setBackgroundColor(QColor(255,0,0,255));
+                list->item(i)->setData(ACTION, REMOVE);
+            }
+        }
+        item->setData(ACTION, SELECT_MODE);
+    }
+        break;
+    case SELECT_MODE:
+    {
+        for (int i = 0; i < list->count(); ++i){
+            if (list->item(i)->data(ACTION).toInt() == REMOVE){
+                list->item(i)->setBackgroundColor(QColor(255,255,0,128));
+                list->item(i)->setData(ACTION, SELECT);
+            }
+        }
+        item->setData(ACTION, REMOVE_MODE);
+    }
+        break;
     }
 }
 
@@ -494,54 +571,4 @@ void HExpreWidget::onRmdir(){
         writeConf();
         genUI();
     }
-}
-
-#include <QStandardPaths>
-void HExpreWidget::onAdd(QString& str){
-//    const QFileDialog::Options options = QFileDialog::DontUseNativeDialog;
-//    QList<QUrl> urls;
-//         urls << QUrl::fromLocalFile("/var/www/transcoder/Upload")
-//              << QUrl::fromLocalFile(QStandardPaths::standardLocations(QStandardPaths::PicturesLocation).first())
-//              << QUrl::fromLocalFile("/usb");
-
-//    QString selectedFilter;
-//    QStringList files = QFileDialog::getOpenFileNames(
-//                                NULL, tr("导入图片"),
-//                                "/var/www/transcoder/Upload",
-//                                tr("Image files(*.png *.jpg *.bmp *.tga)"),
-//                                &selectedFilter,
-//                                options);
-
-//    for (int i = 0; i < files.size(); ++i){
-//        QFileInfo file(files.at(i));
-//        QString newfile(str);
-//        newfile += "/";
-//        newfile += file.fileName();
-//        QFile::copy(files.at(i), newfile);
-//    }
-//    genUI();
-
-//    QFileDialog dlg(this, tr("导入图片"),"/var/www/transcoder/Upload",tr("Image files(*.png *.jpg *.bmp *.tga)"));
-//    dlg.setOptions(options);
-//    dlg.setFileMode(QFileDialog::ExistingFiles);
-//    dlg.setSidebarUrls(urls);
-
-    HExportWidget dlg(this);
-    dlg.setWindowFlags(Qt::Dialog | Qt::FramelessWindowHint | Qt::X11BypassWindowManagerHint);
-
-    if (dlg.exec() == QDialog::Accepted){
-        QStringList files = dlg.selectedFiles();
-
-        for (int i = 0; i < files.size(); ++i){
-            QFileInfo file(files.at(i));
-            QString newfile(str);
-            newfile += "/";
-            newfile += file.fileName();
-            QFile::copy(files.at(i), newfile);
-
-            genUI();
-        }
-    }
-
-    show();
 }

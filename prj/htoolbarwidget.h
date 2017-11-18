@@ -3,7 +3,7 @@
 
 #include "qtheaders.h"
 
-class HToolbarWidget : public QWidget
+class HToolbarWidget : public HWidget
 {
     Q_OBJECT
 public:
@@ -18,7 +18,7 @@ public slots:
 
 protected:
     void initUI();
-    void initConnection();
+    void initConnect();
     virtual bool event(QEvent *e);
 
 public:
@@ -28,7 +28,7 @@ public:
     QSlider* m_slider;
 };
 
-class HCombToolbarWidget : public QWidget
+class HCombToolbarWidget : public HWidget
 {
     Q_OBJECT
 public:
@@ -36,7 +36,7 @@ public:
 
 protected:
     void initUI();
-    void initConnection();
+    void initConnect();
     virtual bool event(QEvent *e);
 
 public:
@@ -46,6 +46,7 @@ public:
 
     QPushButton* m_btnText;
     QPushButton* m_btnExpre;
+    QPushButton* m_btnEffect;
 
     QPushButton* m_btnZoomIn;
     QPushButton* m_btnZoomOut;

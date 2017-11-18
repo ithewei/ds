@@ -2,14 +2,14 @@
 #include "hdsctx.h"
 
 #define VERSION 7
-#define RELEASEINFO "5.7.1 @ 20170925"
+#define RELEASEINFO "5.7.1 @ 2017/11/17"
 
 DSSHARED_EXPORT int libversion()    { return VERSION; }
 DSSHARED_EXPORT int libchar()       { return OOK_FOURCC('D', 'I', 'R', 'C'); }
 DSSHARED_EXPORT int libtrace(int t) { return t; }
 
 DSSHARED_EXPORT int libinit(const char* xml, void* task, void** ctx){
-    qDebug("libinit version=%d,%s", VERSION, RELEASEINFO);
+//    qDebug("libinit version=%d,%s", VERSION, RELEASEINFO);
 
     if(!xml || !task || !ctx)
         return -1;
@@ -29,7 +29,7 @@ DSSHARED_EXPORT int libinit(const char* xml, void* task, void** ctx){
         g_dsCtx = new HDsContext;
 
         if (g_dsCtx->parse_init_xml(xml) != 0){
-            qWarning("parse_init_xml failed");
+            //qWarning("parse_init_xml failed");
             err = -1003;
             break;
         }
@@ -41,12 +41,12 @@ DSSHARED_EXPORT int libinit(const char* xml, void* task, void** ctx){
         strXmlPath += "director_service.xml";
         if(job_check_path(strXmlPath.c_str()) != 0)
         {
-            qWarning("not found director_service.xml");
+            //qWarning("not found director_service.xml");
             err = -1004;
             break;
         }
         if (g_dsCtx->parse_layout_xml(strXmlPath.c_str()) != 0){
-            qWarning("parse_layout_xml failed");
+            //qWarning("parse_layout_xml failed");
             err = -1005;
             break;
         }
@@ -78,7 +78,7 @@ DSSHARED_EXPORT int libinit(const char* xml, void* task, void** ctx){
             mask |= SERVICE_POSITION_AUDIO_AFDEC;
 
         *ctx = g_dsCtx;
-        qDebug("libinit ok");
+        //qDebug("libinit ok");
         return mask;
     }while(0);
 
@@ -91,6 +91,7 @@ DSSHARED_EXPORT int libinit(const char* xml, void* task, void** ctx){
 }
 
 DSSHARED_EXPORT int libstop(void* ctx){
+    //return 0;
     if (!ctx)
         return -1;
 
@@ -107,6 +108,7 @@ DSSHARED_EXPORT int libstop(void* ctx){
 }
 
 DSSHARED_EXPORT int liboper(int media_type, int data_type, int opt, void* param, void * ctx){
+    //return 0;
     if (!ctx)
         return -1;
 
@@ -134,6 +136,7 @@ DSSHARED_EXPORT int liboper(int media_type, int data_type, int opt, void* param,
                 if (param){
                     int srvid = *(int*)param;
                     if (srvid == 1){
+                        g_dsCtx->m_curTick = (unsigned int)chsc_gettick();
                         if (g_dsCtx->m_curTick > g_dsCtx->m_lastTick + 1000){
                             g_dsCtx->m_lastTick = g_dsCtx->m_curTick;
                             return 1;
@@ -231,6 +234,7 @@ DSSHARED_EXPORT int liboper(int media_type, int data_type, int opt, void* param,
         }
 
         ++g_dsCtx->getItem(srvid)->v_input;
+        //qDebug("push srvid=%d: frame=%d", srvid, g_dsCtx->getItem(srvid)->v_input);
         g_dsCtx->push_video(srvid, pic);
     }
         break;

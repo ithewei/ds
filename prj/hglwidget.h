@@ -8,6 +8,7 @@
 #include "htoolbarwidget.h"
 #include "hnumselectwidget.h"
 #include "hnetwork.h"
+#include <QElapsedTimer>
 
 #define TITLE_BAR_HEIGHT    50
 #define TOOL_BAR_HEIGHT     66
@@ -59,7 +60,7 @@ public:
             srvid = 0;
         }
         m_status = STOP;
-        m_nPreFrame = 0;
+        fps = 0;
         m_mapIcons.clear();
         repaint();
     }
@@ -74,11 +75,20 @@ public:
     virtual bool showToolWidgets(bool bShow = true);
 
 signals:
-    void fullScreen();
-    void exitFullScreen();
+    void fullScreen(bool);
     void clicked();
 
 public slots:
+    void onFullScreen() {
+        m_bFullScreen = true;
+        emit fullScreen(true);
+    }
+
+    void onExitFullScreen(){
+        m_bFullScreen = false;
+        emit fullScreen(false);
+    }
+
     void toggleDrawInfo() {m_bDrawInfo = !m_bDrawInfo;}
     void snapshot();
     void startRecord();
@@ -96,23 +106,30 @@ protected:
     virtual void drawOutline();
     virtual void paintGL();
 
-    virtual void mousePressEvent(QMouseEvent* event);
-    virtual void mouseReleaseEvent(QMouseEvent* event);
+    virtual void mousePressEvent(QMouseEvent* e);
+    virtual void mouseReleaseEvent(QMouseEvent* e);
     virtual void mouseMoveEvent(QMouseEvent* e);
+    virtual void mouseDoubleClickEvent(QMouseEvent* e);
     virtual void resizeEvent(QResizeEvent* e);
     virtual void showEvent(QShowEvent* e);
     virtual void hideEvent(QHideEvent* e);
-//    virtual void enterEvent(QEvent* e);
-//    virtual void leaveEvent(QEvent* e);
+    virtual void enterEvent(QEvent* e);
+    virtual void leaveEvent(QEvent* e);
+
+    void calFps();
+    void drawFps();
 
 public:
     int wndid;
-
     int srvid;
     int m_status;
-    int m_nPreFrame; // previous frame cnt;
     std::map<int ,DrawInfo> m_mapIcons; // type : DrawInfo
 
+    QElapsedTimer timer_elapsed;
+    int framecnt;
+    int fps;
+
+public:
     QLabel* m_snapshot;
     bool m_bDrawInfo;
     bool m_bFullScreen;
@@ -166,6 +183,7 @@ public:
 #include "hchangecolorwidget.h"
 #include "hexprewidget.h"
 #include "haddtextwidget.h"
+#include "heffectwidget.h"
 #include "hoperatetarget.h"
 
 class HCombGLWidget : public HGLWidget
@@ -209,6 +227,7 @@ public slots:
     void showText();
     void onTextAccepted(HTextItem item);
     void onSetting();
+    void showEffect();
 
 protected:
     void initUI();
@@ -243,12 +262,14 @@ private:
     HOperateTarget* m_targetPrev;
     HOperateTarget* m_targetShow;
 
+private:
     HOperateTargetWidget* m_targetWdg;
     HCombTitlebarWidget* m_titlebar;
     HCombToolbarWidget*  m_toolbar;
     HChangeColorWidget* m_wdgTrash;
     HExpreWidget* m_wdgExpre;
     HAddTextWidget* m_wdgText;
+    HEffectWidget* m_wdgEffect;
 
     int m_location;
     bool m_bMouseMoving;

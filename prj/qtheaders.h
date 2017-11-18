@@ -1,8 +1,9 @@
 #ifndef QTHEADERS_H
 #define QTHEADERS_H
 
-#include <QRect>
 #include <QPoint>
+#include <QSize>
+#include <QRect>
 #include <QTimer>
 
 #include <QApplication>
@@ -43,4 +44,39 @@
 #include <QPainter>
 #include <qdrawutil.h>
 
+//---define some widgets for unified style---------------------------------------------
+inline QPushButton* genPushButton(QSize sz, QPixmap pixmap, QWidget* parent = NULL){
+    QPushButton* btn = new QPushButton(parent);
+    btn->setFlat(true);
+    btn->setFixedSize(sz);
+    btn->setIconSize(sz);
+    btn->setIcon(pixmap.scaled(sz));
+    return btn;
+}
+
+inline QHBoxLayout* genHBoxLayout(){
+    QHBoxLayout* hbox = new QHBoxLayout;
+    hbox->setContentsMargins(5,1,5,1);
+    hbox->setSpacing(20);
+    return hbox;
+}
+
+inline void setBgFg(QWidget* wdg, QColor bg, QColor fg = Qt::black){
+    wdg->setAutoFillBackground(true);
+    QPalette pal = wdg->palette();
+    pal.setColor(QPalette::Background, bg);
+    pal.setColor(QPalette::Foreground, fg);
+    wdg->setPalette(pal);
+}
+
+inline void connectButtons(QPushButton* btn1, QPushButton* btn2){
+    QObject::connect(btn1, SIGNAL(clicked(bool)), btn1, SLOT(hide()) );
+    QObject::connect(btn1, SIGNAL(clicked(bool)), btn2, SLOT(show()) );
+
+    QObject::connect(btn2, SIGNAL(clicked(bool)), btn2, SLOT(hide()) );
+    QObject::connect(btn2, SIGNAL(clicked(bool)), btn1, SLOT(show()) );
+}
+
+typedef QWidget HWidget;
+//============================================================================
 #endif // QTHEADERS_H

@@ -43,7 +43,8 @@ public:
     QListWidget* m_listUsb;
 };
 
-class HExpreWidget : public QWidget
+#include <QListWidgetItem>
+class HExpreWidget : public HWidget
 {
     Q_OBJECT
 public:
@@ -57,12 +58,13 @@ public slots:
     void onSelectExpre(QListWidgetItem* item);
     void onMkdir();
     void onRmdir();
-    void onAdd(QString& str);
 
 protected:
     void readConf();
     void writeConf();
     void genUI();
+    QListWidgetItem* genListWidgetItem(QPixmap pixmap);
+    QListWidgetItem* genListWidgetItem(QString img_file);
     void initList(QListWidget* list, QString dir);
 
     void initUI();
@@ -74,6 +76,7 @@ public:
     QPushButton* m_btnMkdir;
     QPushButton* m_btnRmdir;
 
+public:
     ExpreConf m_conf;
 };
 

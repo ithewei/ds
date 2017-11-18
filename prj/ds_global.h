@@ -36,6 +36,8 @@ extern "C" {
     #include <ook/codecs/avdef.h>
 }
 
-#include "ds.h"
+#define LAYOUT_TYPE_ONLY_OUTPUT         0
+#define LAYOUT_TYPE_ONLY_MV             1
+#define LAYOUT_TYPE_OUTPUT_AND_MV       0
 
 #endif // DS_GLOBAL_H

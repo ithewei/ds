@@ -131,6 +131,10 @@ void HRcLoader::loadIcon(){
     icon_add.load(strImg.c_str());
 
     strImg = g_dsCtx->img_path;
+    strImg += "sub.png";
+    icon_sub.load(strImg.c_str());
+
+    strImg = g_dsCtx->img_path;
     strImg += "micphone.png";
     icon_micphone.load(strImg.c_str());
 
@@ -165,6 +169,46 @@ void HRcLoader::loadIcon(){
     strImg = g_dsCtx->img_path;
     strImg += "pinr.png";
     icon_pinr.load(strImg.c_str());
+
+    strImg = g_dsCtx->img_path;
+    strImg += "effect.png";
+    icon_effect.load(strImg.c_str());
+
+    strImg = g_dsCtx->img_path;
+    strImg += "mosaic.png";
+    icon_mosaic.load(strImg.c_str());
+
+    strImg = g_dsCtx->img_path;
+    strImg += "blur.jpg";
+    icon_blur.load(strImg.c_str());
+
+    strImg = g_dsCtx->img_path;
+    strImg += "style1.png";
+    icon_style1.load(strImg.c_str());
+
+    strImg = g_dsCtx->img_path;
+    strImg += "style2.png";
+    icon_style2.load(strImg.c_str());
+
+    strImg = g_dsCtx->img_path;
+    strImg += "style4.png";
+    icon_style4.load(strImg.c_str());
+
+    strImg = g_dsCtx->img_path;
+    strImg += "style9.png";
+    icon_style9.load(strImg.c_str());
+
+    strImg = g_dsCtx->img_path;
+    strImg += "style16.png";
+    icon_style16.load(strImg.c_str());
+
+    strImg = g_dsCtx->img_path;
+    strImg += "return.png";
+    icon_return.load(strImg.c_str());
+
+    strImg = g_dsCtx->img_path;
+    strImg += "merge.png";
+    icon_merge.load(strImg.c_str());
 }
 
 void HRcLoader::loadTexture(){
