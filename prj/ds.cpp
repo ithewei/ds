@@ -5,11 +5,18 @@
 #define RELEASEINFO "5.7.1 @ 2017/11/17"
 
 DSSHARED_EXPORT int libversion()    { return VERSION; }
-DSSHARED_EXPORT int libchar()       { return OOK_FOURCC('D', 'I', 'R', 'C'); }
+DSSHARED_EXPORT int libchar()       {
+#if LAYOUT_TYPE_ONLY_OUTPUT
+    return OOK_FOURCC('P', 'D', 'S', 'P');
+#else
+    return OOK_FOURCC('D', 'I', 'R', 'C');
+#endif
+}
 DSSHARED_EXPORT int libtrace(int t) { return t; }
 
 DSSHARED_EXPORT int libinit(const char* xml, void* task, void** ctx){
-//    qDebug("libinit version=%d,%s", VERSION, RELEASEINFO);
+    qInstallMessageHandler(myLogHandler);
+    qDebug("libinit version=%d,%s", VERSION, RELEASEINFO);
 
     if(!xml || !task || !ctx)
         return -1;
@@ -28,25 +35,33 @@ DSSHARED_EXPORT int libinit(const char* xml, void* task, void** ctx){
     do {
         g_dsCtx = new HDsContext;
 
-        if (g_dsCtx->parse_init_xml(xml) != 0){
-            //qWarning("parse_init_xml failed");
-            err = -1003;
-            break;
-        }
+//        if (g_dsCtx->parse_init_xml(xml) != 0){
+//            //qWarning("parse_init_xml failed");
+//            err = -1003;
+//            break;
+//        }
 
         task_info_s        * ti = (task_info_s        *)task;
         task_info_detail_s * tid = (task_info_detail_s *)ti->extra;
+
+#if LAYOUT_TYPE_ONLY_OUTPUT
+        DsSvrItem* item = g_dsCtx->getItem(1);
+        if (item){
+            item->ifcb = ti->ifcb;
+        }
+#endif
+
         std::string strXmlPath = tid->cur_path;
         APPENDSEPARTOR(strXmlPath)
         strXmlPath += "director_service.xml";
         if(job_check_path(strXmlPath.c_str()) != 0)
         {
-            //qWarning("not found director_service.xml");
+            qWarning("not found director_service.xml");
             err = -1004;
             break;
         }
         if (g_dsCtx->parse_layout_xml(strXmlPath.c_str()) != 0){
-            //qWarning("parse_layout_xml failed");
+            qWarning("parse_layout_xml failed");
             err = -1005;
             break;
         }
@@ -78,7 +93,7 @@ DSSHARED_EXPORT int libinit(const char* xml, void* task, void** ctx){
             mask |= SERVICE_POSITION_AUDIO_AFDEC;
 
         *ctx = g_dsCtx;
-        //qDebug("libinit ok");
+        qDebug("libinit ok");
         return mask;
     }while(0);
 
@@ -91,7 +106,6 @@ DSSHARED_EXPORT int libinit(const char* xml, void* task, void** ctx){
 }
 
 DSSHARED_EXPORT int libstop(void* ctx){
-    //return 0;
     if (!ctx)
         return -1;
 
@@ -108,7 +122,6 @@ DSSHARED_EXPORT int libstop(void* ctx){
 }
 
 DSSHARED_EXPORT int liboper(int media_type, int data_type, int opt, void* param, void * ctx){
-    //return 0;
     if (!ctx)
         return -1;
 
@@ -134,7 +147,11 @@ DSSHARED_EXPORT int liboper(int media_type, int data_type, int opt, void* param,
                 break;
             case SERVICE_OPT_TASKSTATUSREQ:
                 if (param){
+#if LAYOUT_TYPE_ONLY_OUTPUT
+                    int srvid = 1;
+#else
                     int srvid = *(int*)param;
+#endif
                     if (srvid == 1){
                         g_dsCtx->m_curTick = (unsigned int)chsc_gettick();
                         if (g_dsCtx->m_curTick > g_dsCtx->m_lastTick + 1000){
@@ -147,16 +164,33 @@ DSSHARED_EXPORT int liboper(int media_type, int data_type, int opt, void* param,
             case SERVICE_OPT_PREVSTOP:
                 if(param)
                 {
-                    int srvid = *(int *)param;
+#if LAYOUT_TYPE_ONLY_OUTPUT
+                    int srvid = 1;
+#else
+                    int srvid = *(int*)param;
+#endif
                     if (srvid < 1 || srvid > DIRECTOR_MAX_SERVS)
                         return -2;
                     g_dsCtx->stop(srvid);
                 }
                 break;
+            case SERVICE_OPT_SPACERTYPE:
+                qDebug("SERVICE_OPT_SPACERTYPE");
+                if (*(int *)param > 1){ // backup stream
+                    DsSvrItem* pItem = g_dsCtx->getItem(1);
+                    if (pItem && pItem->ifcb){
+                        pItem->ifcb->onservice_callback(ifservice_callback::e_service_cb_stampcacu, libchar(), 0, 0, 1, NULL);
+                    }
+                }
+                break;
             default:
                 if(opt > 0x1000)
                 {
+#if LAYOUT_TYPE_ONLY_OUTPUT
+                    int srvid = 1;
+#else
                     int srvid = opt - 0x1000;
+#endif
                     if (srvid < 1 || srvid > DIRECTOR_MAX_SERVS)
                         return -2;
 
@@ -183,7 +217,12 @@ DSSHARED_EXPORT int liboper(int media_type, int data_type, int opt, void* param,
                 return -2;
 
             const director_service_cont * dsc = (const director_service_cont *)param;
+#if LAYOUT_TYPE_ONLY_OUTPUT
+            int srvid = 1;
+#else
             int srvid = dsc->servid;
+#endif
+
             if(srvid < 1 || srvid > DIRECTOR_MAX_SERVS)
                 return -2;
 
@@ -219,7 +258,11 @@ DSSHARED_EXPORT int liboper(int media_type, int data_type, int opt, void* param,
         if(data_type != SERVICE_DATATYPE_PIC)
             return -4;
 
+#if LAYOUT_TYPE_ONLY_OUTPUT
+        int srvid = 1;
+#else
         int srvid = opt;
+#endif
         if (srvid < 1 || srvid > DIRECTOR_MAX_SERVS)
             return -5;
 
@@ -243,7 +286,11 @@ DSSHARED_EXPORT int liboper(int media_type, int data_type, int opt, void* param,
         if(data_type != SERVICE_DATATYPE_PCM)
             return -2;
 
+#if LAYOUT_TYPE_ONLY_OUTPUT
+        int srvid = 1;
+#else
         int srvid = opt;
+#endif
         if (srvid < 1 || srvid > DIRECTOR_MAX_SERVS)
             return -5;
 

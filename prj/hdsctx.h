@@ -17,7 +17,7 @@ public:
     ~HDsContext();
 
 public:
-    int parse_init_xml(const char* xml);
+    //int parse_init_xml(const char* xml); //DEPRECATED
     int parse_layout_xml(const char* xml_file);
     int parse_comb_xml(const char* xml);
     int parse_audio_xml(const char* xml);

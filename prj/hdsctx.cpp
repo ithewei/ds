@@ -164,7 +164,7 @@ HDsContext::~HDsContext(){
 void HDsContext::start_gui_thread(){
     qDebug("start_gui_thread<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<");
 
-    m_mutex.lock(); // unlock while gui create succeed
+    m_mutex.lock();
 
 #ifdef linux
     pthread_t pth;
@@ -179,6 +179,7 @@ void HDsContext::start_gui_thread(){
     //WaitForSingleObject((HANDLE)hThread_glut, INFINITE);
 #endif
 
+    // wait until gui create succeed
     m_mutex.lock();
     m_mutex.unlock();
     qDebug("start_gui_thread>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>");
@@ -192,52 +193,49 @@ void HDsContext::start_gui_thread(){
         </render>
     </complex>
  */
-int HDsContext::parse_init_xml(const char* xml){
-    qDebug(xml);
+//int HDsContext::parse_init_xml(const char* xml){
+//    qDebug(xml);
 
-    ook::xml_element root;
-    if(root.parse(xml, strlen(xml)) < 0)
-        return -1001;
-    if(root.tag_name() != "complex")
-        return -1002;
-    if(root.get_attribute("type") != "director_service")
-        return -1003;
+//    ook::xml_element root;
+//    if(root.parse(xml, strlen(xml)) < 0)
+//        return -1001;
+//    if(root.tag_name() != "complex")
+//        return -1002;
+//    if(root.get_attribute("type") != "director_service")
+//        return -1003;
 
-    ook::xml_parser::enum_childen(&root, NULL);
-    const ook::xml_element * render = NULL;
-    while(1)
-    {
-        render = ook::xml_parser::enum_childen(&root, "render");
-        if(!render)
-            break;
-        const std::string & oper = render->get_attribute("oper");
+//    ook::xml_parser::enum_childen(&root, NULL);
+//    const ook::xml_element * render = NULL;
+//    while(1)
+//    {
+//        render = ook::xml_parser::enum_childen(&root, "render");
+//        if(!render)
+//            break;
+//        const std::string & oper = render->get_attribute("oper");
 
-        ook::xml_parser::enum_childen(render, NULL);
-        const ook::xml_element * e = NULL;
-        while(1)
-        {
-            e = ook::xml_parser::enum_childen(render, "param");
-            if(!e)
-                break;
-            const std::string & n = e->get_attribute("n");
-            const std::string & v = e->get_attribute("v");
+//        ook::xml_parser::enum_childen(render, NULL);
+//        const ook::xml_element * e = NULL;
+//        while(1)
+//        {
+//            e = ook::xml_parser::enum_childen(render, "param");
+//            if(!e)
+//                break;
+//            const std::string & n = e->get_attribute("n");
+//            const std::string & v = e->get_attribute("v");
 
-            if(n == "audio")
-                m_tInit.audio    = atoi(v.c_str());
-            else if(n == "play_audio")
-                m_tInit.play_audio    = atoi(v.c_str());
+//            if(n == "audio")
+//                m_tInit.audio    = atoi(v.c_str());
+//            else if(n == "drawinfo")
+//                m_tInit.drawinfo     = atoi(v.c_str());
+//            else if(n == "infcolor")
+//                m_tInit.infcolor      = (unsigned int)strtoul(v.c_str(), NULL, 16);
+//            else if(n == "titcolor")
+//                m_tInit.titcolor      = (unsigned int)strtoul(v.c_str(), NULL, 16);
+//        }
+//    }
 
-            else if(n == "info")
-                m_tInit.info     = atoi(v.c_str());
-            else if(n == "infcolor")
-                m_tInit.infcolor      = (unsigned int)strtoul(v.c_str(), NULL, 16);
-            else if(n == "titcolor")
-                m_tInit.titcolor      = (unsigned int)strtoul(v.c_str(), NULL, 16);
-        }
-    }
-
-    return 0;
-}
+//    return 0;
+//}
 
 /*
 <?xml version="1.0" encoding="UTF-8" ?>
@@ -331,6 +329,8 @@ int HDsContext::parse_layout_xml(const char* xml_file){
             m_tLayout.width     = atoi(v.c_str());
         }else if(n == "height"){
             m_tLayout.height    = atoi(v.c_str());
+        }else if (n == "audio"){
+            m_tInit.audio = atoi(v.c_str());
         }else if(n == "fps"){
             m_tInit.fps = atoi(v.c_str());
         }else if (n == "display_mode"){
@@ -345,7 +345,12 @@ int HDsContext::parse_layout_xml(const char* xml_file){
             m_tInit.drawnum = atoi(v.c_str());
         }else if (n == "drawaudio"){
             m_tInit.drawaudio = atoi(v.c_str());
-        }
+        }else if(n == "drawinfo")
+            m_tInit.drawinfo     = atoi(v.c_str());
+        else if(n == "infcolor")
+            m_tInit.infcolor      = (unsigned int)strtoul(v.c_str(), NULL, 16);
+        else if(n == "titcolor")
+            m_tInit.titcolor      = (unsigned int)strtoul(v.c_str(), NULL, 16);
     }
 
     int i = 0;
@@ -914,6 +919,14 @@ int HDsContext::push_video(int srvid, const av_picture* pic){
         }
         item->video_buffer = new HRingBuffer(w*h*3/2, 10);
         bFirst = true;
+
+#if LAYOUT_TYPE_ONLY_OUTPUT
+        m_tComb.width = w;
+        m_tComb.height = h;
+        m_tComb.itemCnt = 1;
+        m_tComb.items[0].srvid = 1;
+        m_tComb.items[0].rc.setRect(0,0,w,h);
+#endif
     }
 
     char* ptr = item->video_buffer->write();
@@ -1088,11 +1101,15 @@ void HDsContext::pause(int srvid, bool bPause){
     if (item && item->ifcb){
         qDebug("srvid=%d ifservice_callback::e_service_cb_pause", srvid);
         //item->bPause = true;
+#if LAYOUT_TYPE_ONLY_OUTPUT
+        item->ifcb->onservice_callback(ifservice_callback::e_service_cb_pause, libchar(), 0, 0, bPause, NULL);
+#else
         if (srvid == 1){
             item->ifcb->onservice_callback(ifservice_callback::e_service_cb_chr, libchar(), OOK_FOURCC('P', 'A', 'U', 'S'), 0, 0, NULL);
         }else{
             item->ifcb->onservice_callback(ifservice_callback::e_service_cb_pause, libchar(), OOK_FOURCC('P', 'A', 'U', 'S'), 0, bPause, NULL);
         }
+#endif
     }
 }
 
