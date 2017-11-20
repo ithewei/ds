@@ -1,6 +1,7 @@
 #ifndef DS_DEF_H
 #define DS_DEF_H
 
+#include "ds_global.h"
 #include <QRect>
 
 #define MAXNUM_LAYOUT   64
@@ -15,46 +16,46 @@
 #define BIG_VIDEO_SCALE            1
 
 struct DsInitInfo{
-    int audio;
-    int play_audio;
-    int info;
     unsigned int infcolor;
     unsigned int titcolor;
     unsigned int outlinecolor;
     unsigned int focus_outlinecolor;
 
+    int autolayout;
+    int row;
+    int col;
+
+    int audio;
     int display_mode;
     int scale_mode;
     int fps;
+
+    int drawinfo;
     int drawtitle;
     int drawfps;
     int drawnum;
     int drawaudio;
 
-    int autolayout;
-    int row;
-    int col;
-
     DsInitInfo(){
-        audio = 1;
-        play_audio = 0;
-        info  = 0;
         infcolor = 0x00FF00FF;
         titcolor = 0xFF5A1EFF;
         outlinecolor = 0xFFFFFFFF;
         focus_outlinecolor = 0xFF0000FF;
 
+        autolayout = 0;
+        row = 0;
+        col = 0;
+
+        audio = 1;
         display_mode = DISPLAY_MODE_TIMER;
         scale_mode = BIG_VIDEO_SCALE;
         fps = 25;
+
+        drawinfo = 0;
         drawtitle = 1;
         drawfps = 0;
         drawnum = 1;
         drawaudio = 1;
-
-        autolayout = 0;
-        row = 0;
-        col = 0;
     }
 };
 

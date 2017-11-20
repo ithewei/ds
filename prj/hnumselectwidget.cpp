@@ -7,12 +7,11 @@ HNumSelectWidget::HNumSelectWidget(QWidget *parent) : HWidget(parent){
 }
 
 void HNumSelectWidget::initUI(){
-    setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Minimum);
+    setFixedSize(260, 66);
 
-    QHBoxLayout* hbox = new QHBoxLayout;
-    hbox->setMargin(1);
+    QHBoxLayout* hbox = genHBoxLayout();
 
-    QSize sz(NUM_ICON_WIDTH,NUM_ICON_HEIGHT);
+    QSize sz(64,64);
     for (int i = 0; i < MAX_NUM_ICON; ++i){
         m_numSelects[i] = genPushButton(sz, HRcLoader::instance()->icon_numb[i]);
         hbox->addWidget(m_numSelects[i]);
@@ -20,8 +19,6 @@ void HNumSelectWidget::initUI(){
         m_numCancels[i] = genPushButton(sz, HRcLoader::instance()->icon_numr[i]);
         m_numCancels[i]->hide();
         hbox->addWidget(m_numCancels[i]);
-
-        hbox->addSpacing(10);
     }
 
     setLayout(hbox);

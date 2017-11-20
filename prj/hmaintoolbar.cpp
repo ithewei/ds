@@ -16,10 +16,10 @@ void HWebContext::setAction(int action){
 }
 
 void HWebContext::toogleInfo(){
-    if (g_dsCtx->m_tInit.info)
-        g_dsCtx->m_tInit.info = 0;
+    if (g_dsCtx->m_tInit.drawinfo)
+        g_dsCtx->m_tInit.drawinfo = 0;
     else
-        g_dsCtx->m_tInit.info = 1;
+        g_dsCtx->m_tInit.drawinfo = 1;
 }
 
 void HWebContext::getSelectInfo(int id){
@@ -155,7 +155,7 @@ void HStyleToolbar::initUI(){
     m_btnStyle16 = genPushButton(sz, HRcLoader::instance()->icon_style16);
     hbox->addWidget(m_btnStyle16);
 
-    m_btnMerge = genPushButton(sz, HRcLoader::instance()->icon_style16);
+    m_btnMerge = genPushButton(sz, HRcLoader::instance()->icon_merge);
     m_btnMerge->setToolTip(tr("通过鼠标圈选，合并单元格"));
     hbox->addWidget(m_btnMerge);
 

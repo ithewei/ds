@@ -24,7 +24,9 @@ HGLWidget::HGLWidget(QWidget *parent)
     m_snapshot->setStyleSheet("border:5px double #ADFF2F");
     m_snapshot->hide();
 
+#if OPERATION_TYPE_MOUSE
     setMouseTracking(true);
+#endif
 }
 
 HGLWidget::~HGLWidget(){
@@ -139,14 +141,14 @@ void HGLWidget::hideEvent(QHideEvent* e){
         item->bShow = false;
 }
 
-void HGLWidget::enterEvent(QEvent* e){
-#if LAYOUT_TYPE_ONLY_MV
+void HGLWidget::enterEvent(QEvent* e){    
+#if OPERATION_TYPE_MOUSE
     showToolWidgets(true);
 #endif
 }
 
-void HGLWidget::leaveEvent(QEvent* e){
-#if LAYOUT_TYPE_ONLY_MV
+void HGLWidget::leaveEvent(QEvent* e){    
+#if OPERATION_TYPE_MOUSE
     showToolWidgets(false);
 #endif
 }
@@ -502,7 +504,7 @@ void HGeneralGLWidget::showNumSelector(){
     }
     int w = m_numSelector->width();
     int h = m_numSelector->height();
-    m_numSelector->setGeometry((width()-w)/2+x(), (height()-h)/2+y(), w, h);
+    m_numSelector->move(x() + (width()-w)/2, y() + (height()-h)/2);
     m_numSelector->show();
 }
 
@@ -1242,8 +1244,7 @@ void HCombGLWidget::drawTextInfo(){
 void HCombGLWidget::paintGL(){
     HGLWidget::paintGL();
 
-    if (g_dsCtx->m_tInit.info){
-        qDebug("ddddddddddddddddddddddddddddddddddddd");
+    if (g_dsCtx->m_tInit.drawinfo){
         drawTaskInfo();
     }
 

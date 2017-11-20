@@ -4,9 +4,6 @@
 #include "qtheaders.h"
 #include "hrcloader.h"
 
-#define NUM_ICON_WIDTH      64
-#define NUM_ICON_HEIGHT     64
-
 class HNumSelectWidget : public HWidget
 {
     Q_OBJECT

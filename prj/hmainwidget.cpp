@@ -14,7 +14,8 @@ void HMainWidget::initUI(){
     setWindowFlags(Qt::Window | Qt::FramelessWindowHint);
     setWindowTitle("Anystreaming Director");
     setFocus();
-#if LAYOUT_TYPE_ONLY_MV
+
+#if OPERATION_TYPE_MOUSE
     setMouseTracking(true);
 #endif
 
@@ -24,6 +25,11 @@ void HMainWidget::initUI(){
     g_dsCtx->m_tLayout.height = QApplication::desktop()->height();
     setGeometry(0,0,g_dsCtx->m_tLayout.width, g_dsCtx->m_tLayout.height);
     qDebug("screen_w=%d,screen_h=%d", width(), height());
+
+#if LAYOUT_TYPE_ONLY_OUTPUT
+    g_dsCtx->m_tLayout.itemCnt = 1;
+    g_dsCtx->m_tLayout.items[0].setRect(0,0,g_dsCtx->m_tLayout.width,g_dsCtx->m_tLayout.height);
+#endif
 
 #if LAYOUT_TYPE_ONLY_MV
     for (int i = 0; i < MAXNUM_LAYOUT; ++i){
@@ -44,9 +50,7 @@ void HMainWidget::initUI(){
     m_toolbar->setAttribute(Qt::WA_TranslucentBackground, true);
     m_toolbar->setGeometry(0, height()-MAIN_TOOBAR_HEIGHT, width(), MAIN_TOOBAR_HEIGHT);
     m_toolbar->hide();
-#endif
-
-#if LAYOUT_TYPE_OUTPUT_AND_MV
+#else
     for (int i = 0; i < g_dsCtx->m_tLayout.itemCnt; ++i){
         HGLWidget* wdg;
         if (i == g_dsCtx->m_tLayout.itemCnt - 1){
@@ -62,7 +66,9 @@ void HMainWidget::initUI(){
         wdg->setOutlineColor(g_dsCtx->m_tInit.outlinecolor);
         m_vecGLWdg.push_back(wdg);
     }
+#endif
 
+#if LAYOUT_TYPE_OUTPUT_AND_MV
     m_btnLeftExpand = new QPushButton(this);
     m_btnLeftExpand->setGeometry(width()-ICON_WIDTH-1, height()-ICON_HEIGHT-1, ICON_WIDTH, ICON_HEIGHT);
     m_btnLeftExpand->setIcon(QIcon(HRcLoader::instance()->icon_left_expand));
@@ -192,9 +198,13 @@ void HMainWidget::mousePressEvent(QMouseEvent *event){
 
 void HMainWidget::mouseMoveEvent(QMouseEvent *event){
     if (event->buttons() == Qt::NoButton){
+#if LAYOUT_TYPE_ONLY_OUTPUT
+        // LAYOUT_TYPE_ONLY_OUTPUT no toolbar
+#else
         if (event->y() > height() - MAIN_TOOBAR_HEIGHT && !m_toolbar->isVisible()){
                 m_toolbar->show();
         }
+#endif
     }else{
         HGLWidget* wdg = getGLWdgByPos(event->x(), event->y());
         if (!wdg)
@@ -353,6 +363,11 @@ void HMainWidget::fold(){
 #endif
 
 void HMainWidget::onFullScreen(bool  bFullScreen){
+#if LAYOUT_TYPE_ONLY_OUTPUT
+    if (!bFullScreen){
+        g_dsCtx->setAction(0);
+    }
+#else
     QWidget* pSender = (QWidget*)sender();
 
     if (bFullScreen){
@@ -374,6 +389,7 @@ void HMainWidget::onFullScreen(bool  bFullScreen){
             timer_repaint.start(1000/g_dsCtx->m_tInit.fps);
         }
     }
+#endif
 }
 
 void HMainWidget::onGLWdgClicked(){

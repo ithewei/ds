@@ -105,7 +105,6 @@ void HCombTitlebarWidget::initUI(){
     hbox->addWidget(m_btnSnapshot);
 
     m_btnDrawInfo = genPushButton(sz, HRcLoader::instance()->icon_info);
-    m_btnDrawInfo->hide();
     hbox->addWidget(m_btnDrawInfo);
 
     m_btnPinb = genPushButton(sz, HRcLoader::instance()->icon_pinb);
@@ -124,11 +123,18 @@ void HCombTitlebarWidget::initUI(){
     m_btnExitFullScreen->hide();
     hbox->addWidget(m_btnExitFullScreen);
 
+#if LAYOUT_TYPE_ONLY_OUTPUT
+    m_btnFullScreen->hide();
+    m_btnExitFullScreen->show();
+#endif
+
     setLayout(hbox);
 }
 
 void HCombTitlebarWidget::initConnect(){
+#if !LAYOUT_TYPE_ONLY_OUTPUT
     connectButtons(m_btnFullScreen, m_btnExitFullScreen);
+#endif
     connectButtons(m_btnPinb, m_btnPinr);
 }
 
