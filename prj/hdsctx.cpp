@@ -193,49 +193,49 @@ void HDsContext::start_gui_thread(){
         </render>
     </complex>
  */
-int HDsContext::parse_init_xml(const char* xml){
-    qDebug(xml);
+//int HDsContext::parse_init_xml(const char* xml){
+//    qDebug(xml);
 
-    ook::xml_element root;
-    if(root.parse(xml, strlen(xml)) < 0)
-        return -1001;
-    if(root.tag_name() != "complex")
-        return -1002;
-    if(root.get_attribute("type") != "director_service")
-        return -1003;
+//    ook::xml_element root;
+//    if(root.parse(xml, strlen(xml)) < 0)
+//        return -1001;
+//    if(root.tag_name() != "complex")
+//        return -1002;
+//    if(root.get_attribute("type") != "director_service")
+//        return -1003;
 
-    ook::xml_parser::enum_childen(&root, NULL);
-    const ook::xml_element * render = NULL;
-    while(1)
-    {
-        render = ook::xml_parser::enum_childen(&root, "render");
-        if(!render)
-            break;
-        const std::string & oper = render->get_attribute("oper");
+//    ook::xml_parser::enum_childen(&root, NULL);
+//    const ook::xml_element * render = NULL;
+//    while(1)
+//    {
+//        render = ook::xml_parser::enum_childen(&root, "render");
+//        if(!render)
+//            break;
+//        const std::string & oper = render->get_attribute("oper");
 
-        ook::xml_parser::enum_childen(render, NULL);
-        const ook::xml_element * e = NULL;
-        while(1)
-        {
-            e = ook::xml_parser::enum_childen(render, "param");
-            if(!e)
-                break;
-            const std::string & n = e->get_attribute("n");
-            const std::string & v = e->get_attribute("v");
+//        ook::xml_parser::enum_childen(render, NULL);
+//        const ook::xml_element * e = NULL;
+//        while(1)
+//        {
+//            e = ook::xml_parser::enum_childen(render, "param");
+//            if(!e)
+//                break;
+//            const std::string & n = e->get_attribute("n");
+//            const std::string & v = e->get_attribute("v");
 
-            if(n == "audio")
-                m_tInit.audio    = atoi(v.c_str());
-            else if(n == "drawinfo")
-                m_tInit.drawinfo     = atoi(v.c_str());
-            else if(n == "infcolor")
-                m_tInit.infcolor      = (unsigned int)strtoul(v.c_str(), NULL, 16);
-            else if(n == "titcolor")
-                m_tInit.titcolor      = (unsigned int)strtoul(v.c_str(), NULL, 16);
-        }
-    }
+//            if(n == "audio")
+//                m_tInit.audio    = atoi(v.c_str());
+//            else if(n == "drawinfo")
+//                m_tInit.drawinfo     = atoi(v.c_str());
+//            else if(n == "infcolor")
+//                m_tInit.infcolor      = (unsigned int)strtoul(v.c_str(), NULL, 16);
+//            else if(n == "titcolor")
+//                m_tInit.titcolor      = (unsigned int)strtoul(v.c_str(), NULL, 16);
+//        }
+//    }
 
-    return 0;
-}
+//    return 0;
+//}
 
 /*
 <?xml version="1.0" encoding="UTF-8" ?>
