@@ -482,7 +482,6 @@ void HColorWidget::initConnect(){
 }
 
 void HColorWidget::onColorWell(int r, int c){
-    qDebug("r=%d, c=%d", r, c);
     QColor color(cw->getRgb(r,c));
     emit newColor(color);
 }

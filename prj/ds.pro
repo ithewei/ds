@@ -6,8 +6,8 @@
 
 QT       += core widgets opengl webenginewidgets network
 
-#TARGET = director_service
-TARGET = pic_display_service
+TARGET = director_service
+#TARGET = pic_display_service
 TEMPLATE = lib
 
 DEFINES += DS_LIBRARY

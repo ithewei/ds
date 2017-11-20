@@ -196,7 +196,7 @@ void HGLWidget::calFps(){
 void HGLWidget::drawFps(){
     DrawInfo di;
     di.left = width() - 100;
-    di.top = 2;
+    di.top = 0;
     di.color = 0x0000FFFF;
     char szFps[8];
     snprintf(szFps, 8, "FPS:%d", fps);
@@ -273,6 +273,23 @@ void HGLWidget::drawTitle(){
     }
 }
 
+void HGLWidget::drawTaskInfo(){
+    DsSvrItem* item = g_dsCtx->getItem(srvid);
+    if (item){
+        DrawInfo di;
+        di.left = 0;
+        di.top = height() - g_dsCtx->m_pFont->LineHeight() - 3;
+        di.right = width()-1;
+        di.bottom = height()-1;
+        di.color = 0x000000FF;
+        di.left += 2;
+        di.top -= 2;
+        drawRect(&di, 1, true);
+        di.color = g_dsCtx->m_tInit.infcolor;
+        drawStr(g_dsCtx->m_pFont, item->taskinfo.c_str(), &di);
+    }
+}
+
 void HGLWidget::drawOutline(){
     DrawInfo di;
     di.left = 0;
@@ -318,11 +335,16 @@ void HGLWidget::paintGL(){
                 drawAudio();
             }
         }
-        break;
-    }
 
-    if (m_bDrawInfo && g_dsCtx->m_tInit.drawtitle){
-        drawTitle();
+        if (m_bDrawInfo && g_dsCtx->m_tInit.drawtitle){
+            drawTitle();
+        }
+
+        if (m_bDrawInfo && g_dsCtx->m_tInit.drawinfo){
+            drawTaskInfo();
+        }
+
+        break;
     }
 
     drawOutline();
@@ -1180,7 +1202,7 @@ void HCombGLWidget::drawTaskInfo(){
     if (g_dsCtx->m_pFont){
         int oldSize = g_dsCtx->m_pFont->FaceSize();
         g_dsCtx->m_pFont->FaceSize(32);
-        separator sept(g_dsCtx->m_strTaskInfo.c_str(), "\r\n");
+        separator sept(g_dsCtx->getItem(srvid)->taskinfo.c_str(), "\r\n");
         di.top = 10;
         di.left = 10;
         di.color = g_dsCtx->m_tInit.infcolor;

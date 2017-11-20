@@ -36,11 +36,11 @@ extern "C" {
     #include <ook/codecs/avdef.h>
 }
 
-#define LAYOUT_TYPE_ONLY_OUTPUT         1
-#define LAYOUT_TYPE_ONLY_MV             0
+#define LAYOUT_TYPE_ONLY_OUTPUT         0
+#define LAYOUT_TYPE_ONLY_MV             1
 #define LAYOUT_TYPE_OUTPUT_AND_MV       0
 
-#define OPERATION_TYPE_MOUSE   0
-#define OPERATION_TYPE_TOUCH   1
+#define OPERATION_TYPE_MOUSE   1
+#define OPERATION_TYPE_TOUCH   0
 
 #endif // DS_GLOBAL_H

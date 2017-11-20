@@ -103,6 +103,7 @@ protected:
     virtual void drawAudio();
     virtual void drawIcon();
     virtual void drawTitle();
+    virtual void drawTaskInfo();
     virtual void drawOutline();
     virtual void paintGL();
 
@@ -234,7 +235,7 @@ protected:
     void initConnect();
 
     virtual void drawOutline();
-    void drawTaskInfo();
+    virtual void drawTaskInfo();
     void drawScreenInfo();
     void drawPictureInfo();
     void drawTextInfo();

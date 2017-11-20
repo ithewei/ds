@@ -38,7 +38,7 @@ void HNumSelectWidget::initConnect(){
         smSelect->setMapping(m_numSelects[i], i+1);
         QObject::connect(m_numSelects[i], SIGNAL(clicked(bool)), smSelect, SLOT(map()) );
 
-        smSelect->setMapping(m_numCancels[i], i+1);
+        smCancel->setMapping(m_numCancels[i], i+1);
         QObject::connect(m_numCancels[i], SIGNAL(clicked(bool)), smCancel, SLOT(map()) );
     }
 }

@@ -130,7 +130,7 @@ void HCombToolbarWidget::initUI(){
     hbox->addWidget(m_btnExpre);
 
     m_btnEffect = genPushButton(sz, HRcLoader::instance()->icon_effect);
-    m_btnEffect->hide();
+    //m_btnEffect->hide();
     hbox->addWidget(m_btnEffect);
 
     m_btnZoomOut = genPushButton(sz, HRcLoader::instance()->icon_zoomout);

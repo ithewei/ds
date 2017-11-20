@@ -20,11 +20,9 @@ void HChangeColorWidget::changeColor(QColor color){
 }
 
 void HChangeColorWidget::enterEvent(QEvent* e){
-    qDebug("enterEvent");
     changeColor(m_originColor);
 }
 
 void HChangeColorWidget::leaveEvent(QEvent* e){
-    qDebug("leaveEvent");
     changeColor(m_originColor);
 }

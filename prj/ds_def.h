@@ -21,6 +21,7 @@ struct DsInitInfo{
     unsigned int outlinecolor;
     unsigned int focus_outlinecolor;
 
+    int debug;
     int autolayout;
     int row;
     int col;
@@ -42,6 +43,7 @@ struct DsInitInfo{
         outlinecolor = 0xFFFFFFFF;
         focus_outlinecolor = 0xFF0000FF;
 
+        debug = 0;
         autolayout = 0;
         row = 0;
         col = 0;
@@ -116,6 +118,7 @@ struct DsSvrItem{
     std::string title;
     int pic_w;
     int pic_h;
+    int framerate;
     bool bShow;
     int show_w;
     int show_h;
@@ -131,6 +134,9 @@ struct DsSvrItem{
     unsigned int a_input;
     unsigned int v_input;
     ifservice_callback * ifcb;
+
+    unsigned long tick;
+    std::string taskinfo;
 
     DsSvrItem(){
         init();
@@ -164,6 +170,7 @@ struct DsSvrItem{
         show_h = 0;
         pic_w = 0;
         pic_h = 0;
+        framerate = 0;
 
         title.clear();
         video_buffer = NULL;

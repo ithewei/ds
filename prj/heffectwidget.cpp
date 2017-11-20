@@ -6,8 +6,7 @@ HEffectWidget::HEffectWidget(QWidget *parent) : HWidget(parent){
 }
 
 void HEffectWidget::initUI(){
-    setFixedHeight(98);
-    setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Minimum);
+    setFixedSize(230, 98);
 
     QHBoxLayout* hbox = genHBoxLayout();
 

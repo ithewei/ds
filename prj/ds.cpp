@@ -16,7 +16,7 @@ DSSHARED_EXPORT int libtrace(int t) { return t; }
 
 DSSHARED_EXPORT int libinit(const char* xml, void* task, void** ctx){
     qInstallMessageHandler(myLogHandler);
-    qDebug("libinit version=%d,%s", VERSION, RELEASEINFO);
+    qInfo("--------libinit version=%d,%s----------------", VERSION, RELEASEINFO);
 
     if(!xml || !task || !ctx)
         return -1;
@@ -93,7 +93,7 @@ DSSHARED_EXPORT int libinit(const char* xml, void* task, void** ctx){
             mask |= SERVICE_POSITION_AUDIO_AFDEC;
 
         *ctx = g_dsCtx;
-        qDebug("libinit ok");
+        qInfo("============================libinit ok==========================");
         return mask;
     }while(0);
 
@@ -106,12 +106,12 @@ DSSHARED_EXPORT int libinit(const char* xml, void* task, void** ctx){
 }
 
 DSSHARED_EXPORT int libstop(void* ctx){
+    qInfo("---------------libstop----------------------");
     if (!ctx)
         return -1;
 
     if (g_dsCtx){
         if (--g_dsCtx->ref == 0){
-            qDebug("quit");
             g_dsCtx->quit();
 //            delete g_dsCtx;
 //            g_dsCtx = NULL;
@@ -152,12 +152,17 @@ DSSHARED_EXPORT int liboper(int media_type, int data_type, int opt, void* param,
 #else
                     int srvid = *(int*)param;
 #endif
-                    if (srvid == 1){
-                        g_dsCtx->m_curTick = (unsigned int)chsc_gettick();
-                        if (g_dsCtx->m_curTick > g_dsCtx->m_lastTick + 1000){
-                            g_dsCtx->m_lastTick = g_dsCtx->m_curTick;
-                            return 1;
-                        }
+                    if (srvid < 1 || srvid > DIRECTOR_MAX_SERVS)
+                        return -2;
+
+                    int span = 10000;
+                    if (srvid == 1)
+                        span = 1000;
+                    unsigned long tick = (unsigned long)chsc_gettick();
+                    if (tick > g_dsCtx->getItem(srvid)->tick + span){
+                        g_dsCtx->req_srvid = srvid;
+                        g_dsCtx->getItem(srvid)->tick = tick;
+                        return 1;
                     }
                 }
                 break;
@@ -197,7 +202,7 @@ DSSHARED_EXPORT int liboper(int media_type, int data_type, int opt, void* param,
                     if (param){
                         const char* title = (const char*)param;
                         if (is_ascii_string(title)){
-                            qDebug("srvid=%d ascii=%s strlen=%d", srvid, title, strlen(title));
+                            qInfo("srvid=%d ascii=%s strlen=%d", srvid, title, strlen(title));
                             g_dsCtx->setTitle(srvid, title);
                         }else{
                             ANSICODE2UTF8 a2u(title);
@@ -205,7 +210,7 @@ DSSHARED_EXPORT int liboper(int media_type, int data_type, int opt, void* param,
                                 qCritical("title format error!");
                                 return -111;
                             }
-                            qDebug("srvid=%d utf8=%s strlen=%d", srvid, a2u.c_str(), strlen(a2u.c_str()));
+                            qInfo("srvid=%d utf8=%s strlen=%d", srvid, a2u.c_str(), strlen(a2u.c_str()));
                             g_dsCtx->setTitle(srvid, a2u.c_str());
                         }
                     }
@@ -229,21 +234,21 @@ DSSHARED_EXPORT int liboper(int media_type, int data_type, int opt, void* param,
             DsSvrItem* item = g_dsCtx->getItem(srvid);
 
             if(dsc->action == OOK_FOURCC('S', 'V', 'C', 'B')){
-                qDebug("srvid=%d OOK_FOURCC('S', 'V', 'C', 'B')", srvid);
+                qInfo("srvid=%d OOK_FOURCC('S', 'V', 'C', 'B')", srvid);
                 if (item){
                     item->ifcb = (ifservice_callback *)dsc->ptr;
                 }
             }else if(dsc->action == OOK_FOURCC('L', 'O', 'U', 'T')){
-                qDebug("srvid=%d OOK_FOURCC('L', 'O', 'U', 'T')", srvid);
+                qInfo("srvid=%d OOK_FOURCC('L', 'O', 'U', 'T')", srvid);
                 g_dsCtx->parse_comb_xml((const char *)dsc->ptr);
             }else if (dsc->action == OOK_FOURCC('S', 'R', 'C', 'L')){
-                qDebug("srvid=%d OOK_FOURCC('S', 'R', 'C', 'L')", srvid);
+                qInfo("srvid=%d OOK_FOURCC('S', 'R', 'C', 'L')", srvid);
                 if (strcmp((const char*)dsc->ptr, "file") == 0){
                     item->src_type = SRC_TYPE_FILE;
                 }
             }else if (dsc->action == OOK_FOURCC('P', 'L', 'Y', 'R')){
                 int progress = *(int*)dsc->ptr;
-                //qDebug("OOK_FOURCC('P', 'L', 'Y', 'R') progress=%d", progress);
+                qDebug("OOK_FOURCC('P', 'L', 'Y', 'R') progress=%d", progress);
                 emit g_dsCtx->sigProgressNty(srvid, progress);
             }else if (dsc->action == OOK_FOURCC('S', 'M', 'I', 'X')){
                 qDebug("srvid=%d OOK_FOURCC('S', 'M', 'I', 'X')", srvid);
@@ -273,11 +278,10 @@ DSSHARED_EXPORT int liboper(int media_type, int data_type, int opt, void* param,
         if (g_dsCtx->getItem(srvid)->v_input < 1){
             char c[5] = {0};
             memcpy(c, &pic->fourcc, 4);
-            qDebug("pic[%d] type=%s w=%d h=%d", srvid, c, pic->width, pic->height);
+            qInfo("pic[%d] type=%s w=%d h=%d", srvid, c, pic->width, pic->height);
         }
 
         ++g_dsCtx->getItem(srvid)->v_input;
-        //qDebug("push srvid=%d: frame=%d", srvid, g_dsCtx->getItem(srvid)->v_input);
         g_dsCtx->push_video(srvid, pic);
     }
         break;
@@ -299,7 +303,7 @@ DSSHARED_EXPORT int liboper(int media_type, int data_type, int opt, void* param,
             return -6;
 
         if (g_dsCtx->getItem(srvid)->a_input < 1){
-            qDebug("pcm[%d] channel=%d, sample=%d len=%d", srvid, pcm->channels, pcm->samplerate, pcm->pcmlen);
+            qInfo("pcm[%d] channel=%d, sample=%d len=%d", srvid, pcm->channels, pcm->samplerate, pcm->pcmlen);
         }
 
         ++g_dsCtx->getItem(srvid)->a_input;

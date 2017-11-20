@@ -59,7 +59,7 @@ public:
             }
             // edge out read_index
             read_index = (read_index+1)%_num;
-            //qDebug("edge out read_index");
+            qDebug("edge out read_index");
         }
 
         write_index = (write_index+1)%_num;

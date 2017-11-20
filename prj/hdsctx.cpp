@@ -11,6 +11,8 @@ void myLogHandler(QtMsgType type, const QMessageLogContext & ctx, const QString 
     char szType[16];
     switch (type) {
     case QtDebugMsg:
+        if (g_dsCtx && !g_dsCtx->m_tInit.debug)
+            return;
         strcpy(szType, "Debug");
         break;
     case QtInfoMsg:
@@ -64,7 +66,7 @@ void HDsContext::thread_gui(void* param) {
 #else
 void* HDsContext::thread_gui(void* param){
 #endif
-    qDebug("thread_gui start");
+    qInfo("--------------thread_gui start------------------");
 
     HDsContext* pObj = (HDsContext*)param;
 
@@ -73,7 +75,7 @@ void* HDsContext::thread_gui(void* param){
     QApplication app(argc, NULL);
 
     qInstallMessageHandler(myLogHandler);
-    qDebug("log print start");
+    qInfo("-------------------log print start------------------");
 
 #ifndef QT_NO_TRANSLATION
     QString translatorFileName = QLatin1String("qt_");
@@ -119,7 +121,7 @@ void* HDsContext::thread_gui(void* param){
     progress->setValue(100);
     app.processEvents();
 
-    qDebug("mainwdg create succeed");
+    qInfo("--------------------mainwdg create succeed----------------");
     pObj->m_mutex.unlock();
 
     splash->finish(g_mainWdg);
@@ -141,9 +143,6 @@ HDsContext::HDsContext()
     init    = 0;
     action  = -1;
 
-    m_curTick = 0;
-    m_lastTick = 0;
-
     m_audioPlay = new HAudioPlay;
     m_playaudio_srvid = 1;
 }
@@ -162,7 +161,7 @@ HDsContext::~HDsContext(){
 
 #include <QWaitCondition>
 void HDsContext::start_gui_thread(){
-    qDebug("start_gui_thread<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<");
+    qInfo("start_gui_thread<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<");
 
     m_mutex.lock();
 
@@ -182,7 +181,7 @@ void HDsContext::start_gui_thread(){
     // wait until gui create succeed
     m_mutex.lock();
     m_mutex.unlock();
-    qDebug("start_gui_thread>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>");
+    qInfo("start_gui_thread>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>");
 }
 
 /*
@@ -319,7 +318,9 @@ int HDsContext::parse_layout_xml(const char* xml_file){
         const std::string & n = e->get_attribute("n");
         const std::string & v = e->get_attribute("v");
 
-        if (n == "autolayout"){
+        if (n == "debug"){
+            m_tInit.debug = atoi(v.c_str());
+        }else if (n == "autolayout"){
             m_tInit.autolayout = atoi(v.c_str());
         }else if (n == "row"){
             m_tInit.row = atoi(v.c_str());
@@ -646,7 +647,7 @@ int HDsContext::parse_audio_xml(const char* xml){
     </rsp>
  */
 int HDsContext::parse_taskinfo_xml(const char* xml){
-    //qDebug(xml);
+    qDebug(xml);
 
     ook::xml_element root;
     if(!root.parse(xml, strlen(xml)))
@@ -668,6 +669,8 @@ int HDsContext::parse_taskinfo_xml(const char* xml){
     int queue [2] = {-1};
     int outputpkgs[2] = {-1};
     int outputspeed = -1;
+    int inputpkgs[2] = {-1};
+    std::string inputchar;
     const ook::xml_element * e;
     ook::xml_parser::enum_childen(item, NULL);
     while(1)
@@ -699,6 +702,14 @@ int HDsContext::parse_taskinfo_xml(const char* xml){
                 outputpkgs[1] = atoi(sept[1]);
         }else if(n == "outputspeed"){
             outputspeed = atoi(v.c_str());
+        }else if (n == "inputpkgs"){
+            separator sept(v.c_str(), "/");
+            if (sept[0])
+                inputpkgs[0] = atoi(sept[0]);
+            if (sept[1])
+                inputpkgs[1] = atoi(sept[1]);
+        }else if (n == "inputchar"){
+            inputchar = v.c_str();
         }
     }
 
@@ -853,19 +864,19 @@ int HDsContext::parse_taskinfo_xml(const char* xml){
         s_cont += cont;
     }
 
-    m_strTaskInfo = s_cont;
-    //qDebug(m_strTaskInfo.c_str());
+    if (req_srvid == 1)
+        g_dsCtx->getItem(req_srvid)->taskinfo = s_cont;
+    else
+        g_dsCtx->getItem(req_srvid)->taskinfo = inputchar;
 
     return 0;
 }
 
 void HDsContext::initImg(std::string& path){
-    qDebug("");
     img_path = path;
 }
 
 void HDsContext::initFont(std::string& path, int h){
-    qDebug("");
     ttf_path = path;
     m_pFont = new FTGLPixmapFont(ttf_path.c_str());
     if (m_pFont){
@@ -875,7 +886,7 @@ void HDsContext::initFont(std::string& path, int h){
 }
 
 void HDsContext::resizeForScale(int srvid, int w, int h){
-    qDebug("rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr %d %d", w, h);
+    qDebug("resize w=%d h=%d", w, h);
     DsSvrItem* item = getItem(srvid);
     if (item){
         item->mutex.lock();
@@ -895,6 +906,8 @@ void HDsContext::resizeForScale(int srvid, int w, int h){
 
 #include "hffmpeg.h"
 int HDsContext::push_video(int srvid, const av_picture* pic){
+    qDebug("srvid=%d, framerate=%d, stamp=%d", srvid, pic->framerate, pic->stamp);
+
     if (action < 1)
         return -1;
 
@@ -907,12 +920,12 @@ int HDsContext::push_video(int srvid, const av_picture* pic){
     if (pic->fourcc != OOK_FOURCC('I', '4', '2', '0') && pic->fourcc != OOK_FOURCC('Y', 'V', '1', '2'))
         return -4;
 
-
     item->mutex.lock();
     bool bFirst = false;
     if (w != item->pic_w || h != item->pic_h || !item->video_buffer){
         item->pic_w = w;
         item->pic_h = h;
+        item->framerate = pic->framerate;
         if (item->video_buffer){
             delete item->video_buffer;
             item->video_buffer = NULL;
@@ -1004,7 +1017,7 @@ int HDsContext::pop_video(int srvid){
 
             item->tex_yuv.data = (unsigned char *)malloc(item->tex_yuv.width * item->tex_yuv.height * 3 / 2);
             item->tex_yuv.type = GL_I420;
-            qDebug("malloc %d*%d, pic=%d*%d, show=%d*%d", item->tex_yuv.width, item->tex_yuv.height,
+            qInfo("malloc %d*%d, pic=%d*%d, show=%d*%d", item->tex_yuv.width, item->tex_yuv.height,
                    item->pic_w, item->pic_h, item->show_w, item->show_h);
         }
 
@@ -1099,7 +1112,7 @@ HScreenItem* HDsContext::getHScreenItem(int srvid){
 void HDsContext::pause(int srvid, bool bPause){
     DsSvrItem* item = getItem(srvid);
     if (item && item->ifcb){
-        qDebug("srvid=%d ifservice_callback::e_service_cb_pause", srvid);
+        qInfo("srvid=%d ifservice_callback::e_service_cb_pause", srvid);
         //item->bPause = true;
 #if LAYOUT_TYPE_ONLY_OUTPUT
         item->ifcb->onservice_callback(ifservice_callback::e_service_cb_pause, libchar(), 0, 0, bPause, NULL);
