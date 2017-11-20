@@ -15,6 +15,7 @@ DSSHARED_EXPORT int libchar()       {
 DSSHARED_EXPORT int libtrace(int t) { return t; }
 
 DSSHARED_EXPORT int libinit(const char* xml, void* task, void** ctx){
+    qInstallMessageHandler(myLogHandler);
     qDebug("libinit version=%d,%s", VERSION, RELEASEINFO);
 
     if(!xml || !task || !ctx)
@@ -42,17 +43,25 @@ DSSHARED_EXPORT int libinit(const char* xml, void* task, void** ctx){
 
         task_info_s        * ti = (task_info_s        *)task;
         task_info_detail_s * tid = (task_info_detail_s *)ti->extra;
+
+#if LAYOUT_TYPE_ONLY_OUTPUT
+        DsSvrItem* item = g_dsCtx->getItem(1);
+        if (item){
+            item->ifcb = ti->ifcb;
+        }
+#endif
+
         std::string strXmlPath = tid->cur_path;
         APPENDSEPARTOR(strXmlPath)
         strXmlPath += "director_service.xml";
         if(job_check_path(strXmlPath.c_str()) != 0)
         {
-            //qWarning("not found director_service.xml");
+            qWarning("not found director_service.xml");
             err = -1004;
             break;
         }
         if (g_dsCtx->parse_layout_xml(strXmlPath.c_str()) != 0){
-            //qWarning("parse_layout_xml failed");
+            qWarning("parse_layout_xml failed");
             err = -1005;
             break;
         }
@@ -84,7 +93,7 @@ DSSHARED_EXPORT int libinit(const char* xml, void* task, void** ctx){
             mask |= SERVICE_POSITION_AUDIO_AFDEC;
 
         *ctx = g_dsCtx;
-        //qDebug("libinit ok");
+        qDebug("libinit ok");
         return mask;
     }while(0);
 
@@ -163,6 +172,15 @@ DSSHARED_EXPORT int liboper(int media_type, int data_type, int opt, void* param,
                     if (srvid < 1 || srvid > DIRECTOR_MAX_SERVS)
                         return -2;
                     g_dsCtx->stop(srvid);
+                }
+                break;
+            case SERVICE_OPT_SPACERTYPE:
+                qDebug("SERVICE_OPT_SPACERTYPE");
+                if (*(int *)param > 1){ // backup stream
+                    DsSvrItem* pItem = g_dsCtx->getItem(1);
+                    if (pItem && pItem->ifcb){
+                        pItem->ifcb->onservice_callback(ifservice_callback::e_service_cb_stampcacu, libchar(), 0, 0, 1, NULL);
+                    }
                 }
                 break;
             default:

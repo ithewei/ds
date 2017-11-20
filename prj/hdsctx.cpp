@@ -1101,11 +1101,15 @@ void HDsContext::pause(int srvid, bool bPause){
     if (item && item->ifcb){
         qDebug("srvid=%d ifservice_callback::e_service_cb_pause", srvid);
         //item->bPause = true;
+#if LAYOUT_TYPE_ONLY_OUTPUT
+        item->ifcb->onservice_callback(ifservice_callback::e_service_cb_pause, libchar(), 0, 0, bPause, NULL);
+#else
         if (srvid == 1){
             item->ifcb->onservice_callback(ifservice_callback::e_service_cb_chr, libchar(), OOK_FOURCC('P', 'A', 'U', 'S'), 0, 0, NULL);
         }else{
             item->ifcb->onservice_callback(ifservice_callback::e_service_cb_pause, libchar(), OOK_FOURCC('P', 'A', 'U', 'S'), 0, bPause, NULL);
         }
+#endif
     }
 }
 
