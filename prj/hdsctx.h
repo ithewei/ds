@@ -108,10 +108,7 @@ public:
 
     DsSvrItem m_tItems[DIRECTOR_MAX_SERVS];
 
-    std::string m_strTaskInfo;
-    uint m_curTick;
-    uint m_lastTick;
-
+    int req_srvid;
     int m_playaudio_srvid;
 };
 

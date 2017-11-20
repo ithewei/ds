@@ -167,7 +167,6 @@ void QGLWidgetImpl::drawYUV(Texture* tex){
 
     int w = tex->width;
     int h = tex->height;
-    //qDebug("drawYUV w=%d h=%d", w, h);
     int y_size = w*h;
     GLubyte* y = tex->data;
     GLubyte* u = y + y_size;

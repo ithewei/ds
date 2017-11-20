@@ -33,7 +33,6 @@ HAudioPlay::~HAudioPlay(){
 }
 
 int HAudioPlay::startPlay(){
-    qDebug("");
     PaError err = Pa_Initialize();
     if (err != paNoError){
         qCritical("Pa_Initialize error:%s", Pa_GetErrorText(err));
@@ -64,7 +63,6 @@ ERROR:
 }
 
 int HAudioPlay::stopPlay(){
-    qDebug("");
     if (m_pStream){
         Pa_StopStream(m_pStream);
         Pa_CloseStream(m_pStream);

@@ -146,7 +146,6 @@ void HAddTextWidget::selectColor(){
 void HAddTextWidget::onNewColor(QColor color){
     if (color.isValid()) {
         m_TextItem.font_color = color.rgb() & 0x00FFFFFF;
-        qDebug("color=#%06x", m_TextItem.font_color);
 
         QPalette pal = m_labelPreview->palette();
         pal.setColor(QPalette::Foreground, color);

@@ -39,7 +39,6 @@ HLayoutCell HLayout::merge(int lt, int rb){
         std::map<int, HLayoutCell>::iterator iter = m_mapCells.begin();
         while (iter != m_mapCells.end()){
             if (cell.contain(iter->second)){
-                qDebug("eeeeeeeeeeeeeeeeeeeeeeeeeeeeeee");
                 iter = m_mapCells.erase(iter);
             }else
                 ++iter;

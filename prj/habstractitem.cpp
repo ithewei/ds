@@ -83,8 +83,6 @@ void HScreenItem::remove(){
 void HScreenItem::modify(){
     HAbstractItem::modify();
 
-    qDebug("mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm");
-
     DsScreenInfo si = g_dsCtx->m_tComb;
     si.items[id] = *this;
     HNetwork::instance()->postScreenInfo(g_dsCtx->m_tComb);
@@ -94,12 +92,9 @@ void HScreenItem::savePreStatus(){
     HAbstractItem::savePreStatus();
 
     g_dsCtx->m_tCombUndo = g_dsCtx->m_tComb;
-
-    qDebug("ssssssssssssssssssssssssssssssssssssssss");
 }
 
 void HScreenItem::undo(){
-    qDebug("uuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu");
     HNetwork::instance()->postScreenInfo(g_dsCtx->m_tCombUndo);
 }
 

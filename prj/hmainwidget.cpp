@@ -3,6 +3,7 @@
 
 HMainWidget::HMainWidget(QWidget *parent) : HWidget(parent){
     m_focusGLWdg = NULL;
+    m_bMouseMoving = false;
     m_eOperate = EXCHANGE;
 
     initUI();
@@ -10,7 +11,6 @@ HMainWidget::HMainWidget(QWidget *parent) : HWidget(parent){
 }
 
 void HMainWidget::initUI(){
-    qDebug("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
     setWindowFlags(Qt::Window | Qt::FramelessWindowHint);
     setWindowTitle("Anystreaming Director");
     setFocus();
@@ -24,7 +24,7 @@ void HMainWidget::initUI(){
     g_dsCtx->m_tLayout.width  = QApplication::desktop()->width();
     g_dsCtx->m_tLayout.height = QApplication::desktop()->height();
     setGeometry(0,0,g_dsCtx->m_tLayout.width, g_dsCtx->m_tLayout.height);
-    qDebug("screen_w=%d,screen_h=%d", width(), height());
+    qInfo("screen_w=%d,screen_h=%d", width(), height());
 
 #if LAYOUT_TYPE_ONLY_OUTPUT
     g_dsCtx->m_tLayout.itemCnt = 1;
@@ -99,7 +99,6 @@ void HMainWidget::initUI(){
 }
 
 void HMainWidget::initConnect(){
-    qDebug("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb");
     QObject::connect( g_dsCtx, SIGNAL(actionChanged(int)), this, SLOT(onActionChanged(int)) );
     QObject::connect( g_dsCtx, SIGNAL(videoPushed(int,bool)), this, SLOT(onvideoPushed(int,bool)) );
     QObject::connect( g_dsCtx, SIGNAL(audioPushed(int)), this, SLOT(onAudioPushed(int)) );
@@ -294,7 +293,6 @@ void HMainWidget::onActionChanged(int action){
     if (action == 0){
         hide();
     }else if (action == 1){
-        qDebug("ccccccccccccccccccccccccccccccccc");
         showFullScreen();
 
         // when hide,status change but not repaint
@@ -336,7 +334,6 @@ void HMainWidget::onStop(int srvid){
     if (wdg == NULL)
         return;
 
-    qDebug("");
     wdg->onStop();
 }
 
@@ -368,23 +365,25 @@ void HMainWidget::onFullScreen(bool  bFullScreen){
         g_dsCtx->setAction(0);
     }
 #else
-    QWidget* pSender = (QWidget*)sender();
+    HGLWidget* pSender = (HGLWidget*)sender();
 
     if (bFullScreen){
         m_rcSavedGeometry = pSender->geometry();
         pSender->setWindowFlags(Qt::Window);
         pSender->showFullScreen();
 
-        if (g_dsCtx->m_tInit.fps < 25){
+        DsSvrItem* pItem = g_dsCtx->getItem(pSender->srvid);
+        if (pItem && g_dsCtx->m_tInit.fps != pItem->framerate){
             timer_repaint.stop();
-            timer_repaint.start(1000/25);
+            timer_repaint.start(1000/pItem->framerate);
         }
     }else{
         pSender->setWindowFlags(Qt::SubWindow);
         pSender->setGeometry(m_rcSavedGeometry);
         pSender->showNormal();
 
-        if (g_dsCtx->m_tInit.fps < 25){
+        DsSvrItem* pItem = g_dsCtx->getItem(pSender->srvid);
+        if (pItem && g_dsCtx->m_tInit.fps != pItem->framerate){
             timer_repaint.stop();
             timer_repaint.start(1000/g_dsCtx->m_tInit.fps);
         }
@@ -428,7 +427,7 @@ void HMainWidget::onMerge(){
 }
 
 void HMainWidget::setLayout(int row, int col){
-    qDebug("setLayout %d*%d", row, col);
+    qInfo("setLayout %d*%d", row, col);
     m_layout.init(row, col);
     updateGLWdgsByLayout();
 }
