@@ -100,7 +100,18 @@ public:
     virtual void modify();
 
 public:
+    enum PICTURE_TYPE{
+        IMAGE = 1,
+
+        // effect
+        MOSAIC = 2,
+        BLUR = 3,
+    };
+    int pic_type;
     char src[MAXLEN_STR];
+
+    int transp;
+    int pix; // 单元大小for mosaic
 };
 
 class HTextItem : public HAbstractItem

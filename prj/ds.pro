@@ -4,7 +4,7 @@
 #
 #-------------------------------------------------
 
-QT       += core widgets opengl webenginewidgets network
+QT       += core xml widgets opengl webenginewidgets network
 
 TARGET = director_service
 #TARGET = pic_display_service

@@ -24,6 +24,12 @@ class HMainWidget : public HWidget
 public:
     explicit HMainWidget(QWidget *parent = nullptr);
 
+    HGLWidget* getGLWdgByPos(QPoint pt);
+    HGLWidget* getGLWdgByPos(int x, int y);
+    HGLWidget* allocGLWdgForsrvid(int srvid);
+    HGLWidget* getGLWdgBysrvid(int srvid);
+    HGLWidget* getGLWdgByWndid(int wndid);
+
 protected:
     void initUI();
     void initConnect();
@@ -32,21 +38,16 @@ protected:
     virtual void mouseMoveEvent(QMouseEvent *e);
     virtual void mouseReleaseEvent(QMouseEvent *e);
 
-    HGLWidget* getGLWdgByPos(QPoint pt);
-    HGLWidget* getGLWdgByPos(int x, int y);
-    HGLWidget* getGLWdgBysrvid(int srvid);
-    HGLWidget* getGLWdgByWndid(int wndid);
-
     void changeScreenSource(int index, int srvid);
+    void addScreenSource(int srvid);
+
     void updateGLWdgsByLayout();
     void mergeGLWdg(int lt, int rb);
-
-signals:
-
 
 public slots:
     void onTimerRepaint();
     void onActionChanged(int action);
+    void onRequestShow(int srvid);
     void onvideoPushed(int srvid, bool bFirstFrame);
     void onAudioPushed(int srvid);
     void onStop(int srvid);

@@ -45,6 +45,20 @@ struct Texture{
             glDeleteTextures(1,&texID);
         }
     }
+
+    void alloc(int w, int h, int type = GL_I420){
+        if (w == 0 || h == 0)
+            return;
+
+        if (data && width == w && height == h)
+            return;
+
+        release();
+        width = w;
+        height = h;
+        type = GL_I420;
+        data = (unsigned char *)malloc(width * height * 3 / 2);
+    }
 };
 
 struct DrawInfo{
@@ -61,6 +75,8 @@ class QGLWidgetImpl : public QOpenGLWidget
 public:
     QGLWidgetImpl(QWidget* parent = Q_NULLPTR);
     virtual ~QGLWidgetImpl();
+
+    void setVertices(double ratio);
 
 protected:
     static void loadYUVShader();
@@ -84,6 +100,8 @@ protected:
 
     GLuint tex_yuv[3];
     enum E_VER_ATTR{ver_attr_ver = 3, ver_attr_tex = 4, ver_attr_num};
+
+    GLfloat vertices[8];
 };
 
 #endif // QGLWIDGETIMPL_H

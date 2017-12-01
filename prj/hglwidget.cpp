@@ -107,7 +107,7 @@ void HGLWidget::mouseReleaseEvent(QMouseEvent* event){
 
 void HGLWidget::mouseMoveEvent(QMouseEvent* e){
     // add delay to prevent misopration
-#if LAYOUT_TYPE_OUTPUT_AND_MV
+#if OPERATION_TYPE_TOUCH
     if ((e->timestamp() - m_tmMousePressed < 100)){
         e->accept();
         return;
@@ -118,27 +118,30 @@ void HGLWidget::mouseMoveEvent(QMouseEvent* e){
 }
 
 void HGLWidget::mouseDoubleClickEvent(QMouseEvent* e){
+#if OPERATION_TYPE_MOUSE
     m_bFullScreen = !m_bFullScreen;
     emit fullScreen(m_bFullScreen);
+#endif
 }
 
-void HGLWidget::resizeEvent(QResizeEvent* e){
-    if (!isResetStatus())
-        g_dsCtx->resizeForScale(srvid, e->size().width(), e->size().height());
+void HGLWidget::resizeEvent(QResizeEvent* e){    
+    if (!isResetStatus()){
+        g_dsCtx->onWndSizeChanged(srvid, e->size());
+    }
 
     QGLWidgetImpl::resizeEvent(e);
 }
 
 void HGLWidget::showEvent(QShowEvent* e){
-    DsSvrItem* item = g_dsCtx->getItem(srvid);
-    if (item)
-        item->bShow = true;
+    if (!isResetStatus()){
+        g_dsCtx->onWndVisibleChanged(srvid, true);
+    }
 }
 
-void HGLWidget::hideEvent(QHideEvent* e){
-    DsSvrItem* item = g_dsCtx->getItem(srvid);
-    if (item)
-        item->bShow = false;
+void HGLWidget::hideEvent(QHideEvent* e){    
+    if (!isResetStatus()){
+        g_dsCtx->onWndVisibleChanged(srvid, false);
+    }
 }
 
 void HGLWidget::enterEvent(QEvent* e){    
@@ -206,7 +209,7 @@ void HGLWidget::drawFps(){
 void HGLWidget::drawVideo(){
     DsSvrItem* item = g_dsCtx->getItem(srvid);
     if (item){
-        if (item->tex_yuv.data && item->tex_yuv.width != 0 && item->tex_yuv.height != 0)
+        if (item->tex_yuv.data && item->tex_yuv.width != 0 && item->tex_yuv.height != 0) 
             drawYUV(&item->tex_yuv);
     }
 }
@@ -221,14 +224,17 @@ void HGLWidget::drawAudio(){
             di.top = height()-2 - AUDIO_HEIGHT;
             di.right = di.left + AUDIO_WIDTH;
             di.bottom = di.top + AUDIO_HEIGHT;
-            di.color = 0x00FFFF80;
+            di.color = g_dsCtx->m_tInit.audiocolor_bg;
             drawRect(&di, 1, true);
 
             di.left += 1;
             di.right -= 1;
             di.bottom -= 1;
             di.top = di.bottom - item->a_average[1] * AUDIO_HEIGHT / 65536;
-            di.color = 0xFFFF0080;
+            if (item->a_average[1] > 39322)
+                di.color = g_dsCtx->m_tInit.audiocolor_fg_high;
+            else
+                di.color = g_dsCtx->m_tInit.audiocolor_fg_low;
             drawRect(&di, 1, true);
         }
 
@@ -236,14 +242,17 @@ void HGLWidget::drawAudio(){
         di.top = height()-2 - AUDIO_HEIGHT;
         di.right = di.left + AUDIO_WIDTH;
         di.bottom = di.top + AUDIO_HEIGHT;
-        di.color = 0x00FFFF80;
+        di.color = g_dsCtx->m_tInit.audiocolor_bg;
         drawRect(&di, 1, true);
 
         di.left += 1;
         di.right -= 1;
         di.bottom -= 1;
         di.top = di.bottom - item->a_average[0] * AUDIO_HEIGHT / 65536;
-        di.color = 0xFFFF0080;
+        if (item->a_average[0] > 39322)
+            di.color = g_dsCtx->m_tInit.audiocolor_fg_high;
+        else
+            di.color = g_dsCtx->m_tInit.audiocolor_fg_low;
         drawRect(&di, 1, true);
 
         item->bUpdateAverage = true;
@@ -282,9 +291,15 @@ void HGLWidget::drawTaskInfo(){
         di.right = width()-1;
         di.bottom = height()-1;
         di.color = 0x000000FF;
-        di.left += 2;
-        di.top -= 2;
         drawRect(&di, 1, true);
+
+        QFont font;
+        font.setPixelSize(g_dsCtx->m_pFont->FaceSize());
+        QFontMetrics fm(font);
+        int w = fm.width(item->taskinfo.c_str());
+        int x = (width()-w)/2;
+        di.left += x > 2 ? x : 2;
+        di.top -= 2;
         di.color = g_dsCtx->m_tInit.infcolor;
         drawStr(g_dsCtx->m_pFont, item->taskinfo.c_str(), &di);
     }
@@ -628,52 +643,6 @@ void HGeneralGLWidget::paintGL(){
 //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
 //<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-//void HOperateTarget::initWidget(HOperateTargetWidget* wdg){
-//    if (pItem->type == HAbstractItem::TEXT){
-//        QString str;
-//        HTextItem* pItem = (HTextItem*)this->pItem;
-//        if (pItem->text_type == HTextItem::LABEL){
-//            str = pItem->text;
-//        }else if (pItem->text_type == HTextItem::TIME){
-//            str = QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss");
-//        }else if (pItem->text_type == HTextItem::WATCHER){
-//            str = "00:00:00:0";
-//        }else if (pItem->text_type == HTextItem::SUBTITLE){
-//            str = "字幕";
-//        }
-//        wdg->setText(str);
-//        QFont font = wdg->font();
-//        font.setPointSize(pItem->font_size*0.8);
-//        font.setLetterSpacing(QFont::AbsoluteSpacing,2);
-//        wdg->setFont(font);
-
-//        QFontMetrics fm(font);
-//        int w = fm.width(str) + 20;
-//        int h = fm.height();
-//        wdg->setGeometry(rcDraw);
-//        wdg->show();
-//    }else if (pItem->type == HAbstractItem::PICTURE){
-//        HPictureItem* pItem = (HPictureItem*)this->pItem;
-//        wdg->src_pixmap.load(pItem->src);
-//        if (wdg->src_pixmap.isNull())
-//            return;
-
-//        QPixmap pixmap = wdg->src_pixmap;
-//        int w = pixmap.width();
-//        int h = pixmap.height();
-//        if (w > EXPRE_MAX_WIDTH || h > EXPRE_MAX_HEIGHT){
-//            w = EXPRE_MAX_WIDTH;
-//            h = EXPRE_MAX_HEIGHT;
-//            pixmap = pixmap.scaled(QSize(w,h));
-//        }
-
-//        wdg->setFixedSize(w,h);
-//        wdg->setPixmap(pixmap);
-//        wdg->show();
-//    }else if (pItem->type == HAbstractItem::SCREEN){
-//        HScreenItem* pItem = (HScreenItem*)this->pItem;
-//    }
-//}
 
 HCombGLWidget::HCombGLWidget(QWidget* parent)
     : HGLWidget(parent)
@@ -764,6 +733,7 @@ void HCombGLWidget::initConnect(){
 
     QObject::connect( m_wdgExpre, SIGNAL(expreSelected(QString&)), this, SLOT(onExpreSelected(QString&)) );
     QObject::connect( m_wdgText, SIGNAL(newTextItem(HTextItem)), this, SLOT(onTextAccepted(HTextItem)) );
+    QObject::connect( m_wdgEffect, SIGNAL(effectSelected(HPictureItem)), this, SLOT(onEffectSelected(HPictureItem)) );
 }
 
 void HCombGLWidget::showTitlebar(bool bShow){
@@ -1142,6 +1112,26 @@ void HCombGLWidget::onExpreSelected(QString& filepath){
         w = EXPRE_MAX_WIDTH;
         h = EXPRE_MAX_HEIGHT;
     }
+    m_virtualTarget->wdg->setGeometry(QRect((width()-w)/2, (height()-h)/2, w, h));
+    m_virtualTarget->wdg->show();
+
+    m_target = m_virtualTarget;
+    onTargetChanged();
+}
+
+void HCombGLWidget::onEffectSelected(HPictureItem item){
+    HPictureItem* pItem = new HPictureItem(item);
+    m_virtualTarget->attachItem(pItem);
+    m_virtualTarget->attachWidget(m_targetWdg);
+
+    if (pItem->pic_type == HPictureItem::MOSAIC){
+        m_virtualTarget->wdg->setPixmap(HRcLoader::instance()->icon_mosaic);
+    }else if (pItem->pic_type == HPictureItem::BLUR){
+         m_virtualTarget->wdg->setPixmap(HRcLoader::instance()->icon_blur);
+    }
+
+    int w = EXPRE_MAX_WIDTH;
+    int h = EXPRE_MAX_HEIGHT;
     m_virtualTarget->wdg->setGeometry(QRect((width()-w)/2, (height()-h)/2, w, h));
     m_virtualTarget->wdg->show();
 

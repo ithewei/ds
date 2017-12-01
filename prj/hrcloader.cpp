@@ -179,7 +179,7 @@ void HRcLoader::loadIcon(){
     icon_mosaic.load(strImg.c_str());
 
     strImg = g_dsCtx->img_path;
-    strImg += "blur.jpg";
+    strImg += "blur.png";
     icon_blur.load(strImg.c_str());
 
     strImg = g_dsCtx->img_path;

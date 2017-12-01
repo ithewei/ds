@@ -100,6 +100,7 @@ void HMainWidget::initUI(){
 
 void HMainWidget::initConnect(){
     QObject::connect( g_dsCtx, SIGNAL(actionChanged(int)), this, SLOT(onActionChanged(int)) );
+    QObject::connect( g_dsCtx, SIGNAL(requestShow(int)), this, SLOT(onRequestShow(int)) );
     QObject::connect( g_dsCtx, SIGNAL(videoPushed(int,bool)), this, SLOT(onvideoPushed(int,bool)) );
     QObject::connect( g_dsCtx, SIGNAL(audioPushed(int)), this, SLOT(onAudioPushed(int)) );
     QObject::connect( g_dsCtx, SIGNAL(sigStop(int)), this, SLOT(onStop(int)) );
@@ -107,8 +108,9 @@ void HMainWidget::initConnect(){
     QObject::connect( g_dsCtx, SIGNAL(sigProgressNty(int,int)), this, SLOT(onProgressNty(int,int)) );
 
     for (int i = 0; i < m_vecGLWdg.size(); ++i){
-        QObject::connect( m_vecGLWdg[i], SIGNAL(fullScreen(bool)), this, SLOT(onFullScreen(bool)) );
-        QObject::connect( m_vecGLWdg[i], SIGNAL(clicked()), this, SLOT(onGLWdgClicked()) );
+        HGLWidget* wdg = m_vecGLWdg[i];
+        QObject::connect( wdg, SIGNAL(fullScreen(bool)), this, SLOT(onFullScreen(bool)) );
+        QObject::connect( wdg, SIGNAL(clicked()), this, SLOT(onGLWdgClicked()) );
     }
 
 #if LAYOUT_TYPE_OUTPUT_AND_MV
@@ -136,14 +138,7 @@ HGLWidget* HMainWidget::getGLWdgByWndid(int wndid){
     return NULL;
 }
 
-HGLWidget* HMainWidget::getGLWdgBysrvid(int srvid){
-    for (int i = 0; i < m_vecGLWdg.size(); ++i){
-        HGLWidget* wdg = m_vecGLWdg[i];
-        if (wdg->srvid == srvid)
-            return wdg;
-    }
-
-    // not found, return min_wndid
+HGLWidget* HMainWidget::allocGLWdgForsrvid(int srvid){
     int min_wndid = 10000;
     HGLWidget* wdg = NULL;
     for (int i = 0; i < m_vecGLWdg.size(); ++i){
@@ -155,9 +150,20 @@ HGLWidget* HMainWidget::getGLWdgBysrvid(int srvid){
 
     if (wdg){
         wdg->srvid = srvid;
+        qDebug("srvid:%d ==> wndid:%d", wdg->srvid, wdg->wndid);
     }
 
     return wdg;
+}
+
+HGLWidget* HMainWidget::getGLWdgBysrvid(int srvid){
+    for (int i = 0; i < m_vecGLWdg.size(); ++i){
+        HGLWidget* wdg = m_vecGLWdg[i];
+        if (wdg->srvid == srvid)
+            return wdg;
+    }
+
+    return NULL;
 }
 
 HGLWidget* HMainWidget::getGLWdgByPos(QPoint pt){
@@ -209,13 +215,17 @@ void HMainWidget::mouseMoveEvent(QMouseEvent *event){
         if (!wdg)
             return;
 
-        if (!m_bMouseMoving){
+        if (!m_bMouseMoving){            
             m_bMouseMoving = true;
             // move begin
+
             m_dragSrcWdg = wdg;
 
             if (m_eOperate == EXCHANGE){
-                if (!wdg->isResetStatus() && wdg->srvid != 1){
+                if (wdg->srvid <= 1)
+                    return;
+
+                if (!wdg->isResetStatus()){
                     m_labelDrag->setPixmap( QPixmap::fromImage(wdg->grabFramebuffer()).scaled(DRAG_WIDTH, DRAG_HEIGHT) );
                     m_labelDrag->show();
                     setCursor(QCursor(Qt::DragMoveCursor));
@@ -244,25 +254,34 @@ void HMainWidget::mouseReleaseEvent(QMouseEvent *event){
         setCursor(QCursor(Qt::ArrowCursor));
         // move end
         if (m_eOperate == EXCHANGE){
+            if (!m_labelDrag->isVisible())
+                return;
             m_labelDrag->hide();
             HGLWidget* wdg = getGLWdgByPos(event->x(), event->y());
             if (wdg && m_dragSrcWdg != wdg){
                 if (wdg->srvid == 1){
-                    // pick comb's source
+                    // changeScreenSource
                     HOperateTarget* target = ((HCombGLWidget*)wdg)->getItemByPos(QPoint(event->x()-wdg->x(), event->y()-wdg->y()), HAbstractItem::SCREEN);
                     if (target)
                         changeScreenSource(target->pItem->id, m_dragSrcWdg->srvid);
+                    else
+                        addScreenSource(m_dragSrcWdg->srvid);
                 }else{
-                    // exchange srvid
-                    int srvid_src = m_dragSrcWdg->srvid;
-                    int srvid_dst = wdg->srvid;
-                    m_dragSrcWdg->resetStatus();
-                    wdg->resetStatus();
-                    m_dragSrcWdg->srvid = srvid_dst;
-                    wdg->srvid = srvid_src;
+                    // exchange wndid for order
+                    std::swap(m_dragSrcWdg->wndid, wdg->wndid);
+                    // exchange pos
+                    QRect rcSrc = m_dragSrcWdg->geometry();
+                    QRect rcDst = wdg->geometry();
+                    m_dragSrcWdg->setGeometry(rcDst);
+                    wdg->setGeometry(rcSrc);
+                    qDebug("exchange srvid:%d ==> wndid:%d && srvid:%d ==> wndid:%d",
+                           m_dragSrcWdg->srvid, m_dragSrcWdg->wndid,
+                           wdg->srvid, wdg->wndid);
                 }
             }
         }else if (m_eOperate == MERGE){
+            if (!m_labelRect->isVisible())
+                return;
             m_labelRect->hide();
             m_eOperate = EXCHANGE;
             HGLWidget* ltWdg = getGLWdgByPos(m_labelRect->geometry().topLeft());
@@ -297,15 +316,25 @@ void HMainWidget::onActionChanged(int action){
 
         // when hide,status change but not repaint
         for (int i = 0; i < m_vecGLWdg.size(); ++i){
-            m_vecGLWdg[i]->repaint();
+            m_vecGLWdg[i]->update();
         }
     }
 }
 
-void HMainWidget::onvideoPushed(int srvid, bool bFirstFrame){
-    HGLWidget* wdg = getGLWdgBysrvid(srvid);
+void HMainWidget::onRequestShow(int srvid){
+    HGLWidget* wdg = allocGLWdgForsrvid(srvid);
     if (wdg == NULL)
         return;
+
+    g_dsCtx->onRequestShowSucceed(srvid, wdg->size());
+}
+
+void HMainWidget::onvideoPushed(int srvid, bool bFirstFrame){
+    HGLWidget* wdg = getGLWdgBysrvid(srvid);
+    if (wdg == NULL){
+        onRequestShow(srvid);
+        return;
+    }
 
     bool bRepainter = false;
     if (g_dsCtx->m_tInit.display_mode == DISPLAY_MODE_REALTIME){
@@ -313,17 +342,15 @@ void HMainWidget::onvideoPushed(int srvid, bool bFirstFrame){
         bRepainter = true;
     }
 
-    if (bFirstFrame){
-        g_dsCtx->resizeForScale(srvid, wdg->width(), wdg->height());
-    }
-
     wdg->setStatus(PLAYING | wdg->status(MINOR_STATUS_MASK) | PLAY_VIDEO, bRepainter);
 }
 
 void HMainWidget::onAudioPushed(int srvid){
     HGLWidget* wdg = getGLWdgBysrvid(srvid);
-    if (wdg == NULL)
+    if (wdg == NULL){
+        onRequestShow(srvid);
         return;
+    }
 
     // audio not repaint
     wdg->setStatus(PLAYING | wdg->status(MINOR_STATUS_MASK) | PLAY_AUDIO, false);
@@ -415,6 +442,20 @@ void HMainWidget::changeScreenSource(int index, int srvid){
         }
         HNetwork::instance()->postScreenInfo(si);
     }
+}
+
+void HMainWidget::addScreenSource(int srvid){
+    DsScreenInfo old = g_dsCtx->m_tComb;
+    DsScreenInfo si;
+    si.items[0].srvid = srvid;
+    si.items[0].v = true;
+    si.items[0].a = true;
+    si.items[0].rc.setRect(0,0,old.width,old.height);
+    for (int i = 0; i < old.itemCnt; ++i){
+        si.items[i+1] = old.items[i];
+    }
+    si.itemCnt = old.itemCnt + 1;
+    HNetwork::instance()->postScreenInfo(si);
 }
 
 void HMainWidget::onMerge(){
