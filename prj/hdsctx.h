@@ -36,6 +36,40 @@ public:
         return &m_tItems[srvid-1];
     }
 
+    int lmicid2srvid(int lmicid){
+        QMap<int,int>::const_iterator iter = m_mapLmic2Srvid.find(lmicid);
+        if (iter != m_mapLmic2Srvid.end()){
+            return iter.value();
+        }
+
+        return -1;
+    }
+
+    int srvid2lmicid(int srvid){
+        QMap<int, int>::const_iterator iter = m_mapLmic2Srvid.begin();
+        while (iter != m_mapLmic2Srvid.end()){
+            if (iter.value() == srvid)
+                return iter.key();
+            ++iter;
+        }
+
+        return -1;
+    }
+
+    int allocLmicid(int lmicid){
+        for (int i = DIRECTOR_LMICID_BEGIN; i <= DIRECTOR_LMICID_END; ++i){
+            if (!getItem(i)->bUsed){
+                getItem(i)->bUsed = true;
+                m_mapLmic2Srvid[lmicid] = i;
+                return i;
+            }
+        }
+    }
+
+    void freeLmicid(int lmicid){
+        m_mapLmic2Srvid.erase(m_mapLmic2Srvid.find(lmicid));
+    }
+
     int push_video(int srvid, const av_picture* pic);
     int pop_video(int srvid);
     int push_audio(int srvid, const av_pcmbuff* pcm);
@@ -61,14 +95,13 @@ public:
     void stop(int srvid){
         DsSvrItem* item = getItem(srvid);
         if (item){
+            item->release();
             item->init();
+            emit sigStop(srvid);
         }
-        emit sigStop(srvid);
     }
 
     void pause(int srvid, bool bPause);
-    void resizeForScale(int srvid, int w, int h);
-
     void setPlayaudioSrvid(int id);
 
 signals:
@@ -79,6 +112,25 @@ signals:
     void quit();
     void combChanged();
     void sigProgressNty(int srvid, int progress);
+    void requestShow(int srvid);
+
+public:
+    void onWndSizeChanged(int srvid, QSize sz);
+
+    void onWndVisibleChanged(int srvid, bool bShow){
+        DsSvrItem* pItem = getItem(srvid);
+        if (pItem){
+            pItem->bShow = bShow;
+        }
+    }
+
+    void onRequestShowSucceed(int srvid, QSize sz){
+        DsSvrItem* pItem = getItem(srvid);
+        if (pItem){
+            pItem->bShow = true;
+            onWndSizeChanged(srvid, sz);
+        }
+    }
 
 public:
 #ifdef WIN32
@@ -107,6 +159,7 @@ public:
     HAudioPlay* m_audioPlay;
 
     DsSvrItem m_tItems[DIRECTOR_MAX_SERVS];
+    QMap<int ,int> m_mapLmic2Srvid;
 
     int req_srvid;
     int m_playaudio_srvid;
@@ -115,5 +168,18 @@ public:
 extern HDsContext* g_dsCtx;
 class HMainWidget;
 extern HMainWidget* g_mainWdg;
+
+inline bool isLmic(int srvid){
+    if (srvid >= DIRECTOR_LMICID_BEGIN && srvid <= DIRECTOR_LMICID_END)
+        return true;
+    return false;
+}
+
+inline int SRVID(int srvid){
+    if (isLmic(srvid)){
+        return g_dsCtx->srvid2lmicid(srvid);
+    }
+    return srvid;
+}
 
 #endif // HDSCONTEXT_H

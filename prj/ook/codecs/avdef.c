@@ -94,6 +94,10 @@ static inline void I420_2_RV24__(const av_picture * yuv, av_picture * rgb)
 }
 #endif
 
+//
+// PCM data
+//
+
 av_pcmbuff * create_av_pcmbuff(unsigned int assign_pcmlen)
 {
 	av_pcmbuff * f = (av_pcmbuff *)malloc(sizeof(av_pcmbuff));
@@ -168,6 +172,10 @@ void clone_av_pcmbuff(av_pcmbuff * dst,
 	}
 }
 
+//
+// av_frame_s
+//
+
 void reset_av_frame_s(av_frame_s * frm)
 {
 	if(frm)
@@ -187,6 +195,7 @@ void reset_av_frame_s(av_frame_s * frm)
 		frm->dur     = 0;
 		frm->track   = 0;
 		frm->arg     = NULL;
+		frm->language= 0;
 	}
 }
 
@@ -222,6 +231,7 @@ void copy_av_frame_s(av_frame_s       * dst,
 	dst->dur     = src->dur;
 	dst->track   = src->track;
 	dst->arg     = src->arg;
+	dst->language= src->language;
 }
 
 void clone_av_frame_s(av_frame_s       * dst, 
@@ -241,7 +251,11 @@ void clone_av_frame_s(av_frame_s       * dst,
 		}
 	}
 }
-							    
+
+//
+// picture data
+//
+		    
 void reset_av_picture(av_picture * pic)
 {
 	int i;
@@ -263,6 +277,7 @@ void reset_av_picture(av_picture * pic)
 		pic->stamp          = 0;
 		pic->flag 			= 0;
 		pic->index          = 0;
+		pic->track          = 0;
 		pic->arg			= NULL;
 	}
 }
@@ -288,6 +303,29 @@ void release_av_picture(av_picture * pic)
 		}
 		reset_av_picture(pic);
 	}
+}
+
+void free_av_picture(av_picture * pic)
+{
+	if(pic)
+	{
+		if(pic->selfrelease)
+		{
+			if(pic->continuebuf)
+			{
+				free(pic->data[0]);
+			}
+			else
+			{
+				for(int i = 0; i < 4; i++)
+				{
+					if(pic->data[i])
+						free(pic->data[i]);
+				}
+			}
+		}
+		free(pic);
+	}	
 }
 
 void release_av_picturebf(av_picture * pic)
@@ -320,8 +358,8 @@ av_picture * create_av_picture(int width,
 	av_picture * pic = NULL;
 	switch(fourcc)
 	{
-	case OOK_FOURCC('I', '4', '2', '0'):
-	case OOK_FOURCC('Y', 'V', '1', '2'):
+	case FCC_FIX_I420:
+	case FCC_FIX_YV12:
 		{
 			pic = (av_picture *)malloc(sizeof(av_picture)); 
 			pic->stride[0] = width;
@@ -360,15 +398,61 @@ av_picture * create_av_picture(int width,
 			pic->stamp          = 0;
 			pic->flag 		    = 0;
 			pic->index          = 0;
+			pic->track          = 0;
 			pic->arg            = NULL;
 			return pic;
 		}
 		break;
 	
-	case OOK_FOURCC('Y', 'U', 'Y', '2'):
-	case OOK_FOURCC('Y', 'U', 'Y', 'V'):
-	case OOK_FOURCC('U', 'Y', 'V', 'Y'):
-	case OOK_FOURCC('H', 'D', 'Y', 'C'):
+	case FCC_FIX_I422:
+		{
+			pic = (av_picture *)malloc(sizeof(av_picture)); 
+			pic->stride[0] = width;
+			pic->stride[1] = (width >> 1);
+			pic->stride[2] = pic->stride[1];
+			pic->stride[3] = 0;
+						
+			w = width * height * 2;
+			if(w == 0)
+				return NULL;
+				
+			pic->data[0] = (unsigned char *)malloc(w + 32); // for valgrind check pass
+			if(!pic->data[0])
+			{
+				printf("create_av_picture::malloc data fail, w=%d\n", w);
+				return NULL;
+			}
+			///memset(pic->data[0], 0, w);
+			
+			pic->data[1]     = pic->data[0] + pic->stride[0] * height;
+			pic->data[2]     = pic->data[1] + pic->stride[1] * height;
+			pic->data[3]     = NULL;
+
+			memset(pic->data[0],  16, pic->stride[0] * height);
+			memset(pic->data[1], 128, pic->stride[1] * height);
+			memset(pic->data[2], 128, pic->stride[2] * height);
+
+			pic->width          = width;
+			pic->height         = height;
+			pic->display_width  = -1;
+			pic->display_height = -1;
+			pic->fourcc 	    = fourcc;
+			pic->framerate      = -1;
+			pic->selfrelease    = 1;
+			pic->continuebuf    = 1;
+			pic->stamp          = 0;
+			pic->flag 		    = 0;
+			pic->index          = 0;
+			pic->track          = 0;
+			pic->arg            = NULL;
+			return pic;
+		}
+		break;
+		
+	case FCC_FIX_YUY2:
+	case FCC_FIX_YUYV:
+	case FCC_FIX_UYVY:
+	case FCC_FIX_HDYC:
 		{
 			pic = (av_picture *)malloc(sizeof(av_picture)); 
 			pic->stride[0] = width << 1;
@@ -428,22 +512,35 @@ av_picture * create_av_picture(int width,
 			pic->stamp          = 0;
 			pic->flag 		    = 0;
 			pic->index          = 0;
+			pic->track          = 0;
 			pic->arg            = NULL;
 			return pic;
 		}
 		break;
 
+	case FCC_FIX_RGB8:
+	case FCC_FIX_BGR8:
+	case FCC_FIX_RGB555:
+	case FCC_FIX_BGR555:
 	case FCC_FIX_RGB565:
-	case OOK_FOURCC('I', 'Y', 'U', '2'):
+	case FCC_FIX_BGR565:
 	case FCC_FIX_RGB24:
 	case FCC_FIX_BGR24:
+	case OOK_FOURCC('I', 'Y', 'U', '2'):
 	case FCC_FIX_RGBA:
-	case FCC_FIX_BGRA:	
+	case FCC_FIX_BGRA:
 		{
 			int pix = 3;
 			switch(fourcc)
 			{
+			case FCC_FIX_RGB8:
+			case FCC_FIX_BGR8:
+				pix = 1;
+				break;			
+			case FCC_FIX_RGB555:
+			case FCC_FIX_BGR555:
 			case FCC_FIX_RGB565:
+			case FCC_FIX_BGR565:
 				pix = 2;
 				break;
 			case FCC_FIX_RGBA:
@@ -487,6 +584,7 @@ av_picture * create_av_picture(int width,
 			pic->stamp          = 0;
 			pic->flag 		    = 0;
 			pic->index          = 0;
+			pic->track          = 0;
 			pic->arg            = NULL;
 			return pic;
 		}
@@ -497,7 +595,7 @@ av_picture * create_av_picture(int width,
 	return NULL;
 }
 
-int clone_av_picture(av_picture * dst, 
+int clone_av_picture(av_picture       * dst, 
 					 const av_picture * src, 
 					 int height,
 					 int selfrelease)
@@ -512,8 +610,8 @@ int clone_av_picture(av_picture * dst,
 
 	switch(src->fourcc)
 	{
-	case OOK_FOURCC('I', '4', '2', '0'):
-	case OOK_FOURCC('Y', 'V', '1', '2'):
+	case FCC_FIX_I420:
+	case FCC_FIX_YV12:
 		{
 			///printf("[%d: %d|%d|%d]\n", height, src->stride[0], src->stride[1], src->stride[2]);
 			w = src->stride[0] * height + ((src->stride[1] * height + src->stride[2] * height) >> 1);
@@ -530,13 +628,13 @@ int clone_av_picture(av_picture * dst,
 				return -3;
 			}
 
-			dst->data[1]     = dst->data[0] + src->stride[0] * height;
-			dst->data[2]     = dst->data[1] + ((src->stride[1] * height) >> 1);
-			dst->data[3]     = NULL;
-			dst->stride[0]   = src->stride[0];
-			dst->stride[1]   = src->stride[1];
-			dst->stride[2]   = src->stride[2];
-			dst->stride[3]   = 0;
+			dst->data[1]        = dst->data[0] + src->stride[0] * height;
+			dst->data[2]        = dst->data[1] + ((src->stride[1] * height) >> 1);
+			dst->data[3]        = NULL;
+			dst->stride[0]      = src->stride[0];
+			dst->stride[1]      = src->stride[1];
+			dst->stride[2]      = src->stride[2];
+			dst->stride[3]      = 0;
 
 			dst->width          = src->width;
 			dst->height         = height;
@@ -549,6 +647,7 @@ int clone_av_picture(av_picture * dst,
 			dst->stamp          = src->stamp;
 			dst->flag 		    = src->flag;
 			dst->index          = src->index;
+			dst->track          = src->track;
 			dst->arg            = NULL;
 
 			if(src->data[0] && dst->stride[0] > 0)
@@ -566,6 +665,113 @@ int clone_av_picture(av_picture * dst,
 		}
 		break;
 	
+	case FCC_FIX_I422:
+		{
+			w = src->stride[0] * height * 2;
+			if(w == 0)
+			{
+				printf("clone_av_picture::malloc data fail, w=%d\n", w);
+				return -2;
+			}
+			
+			dst->data[0] = (unsigned char *)malloc(w + 32);
+			if(!dst->data[0])
+			{
+				printf("clone_av_picture::malloc data fail, w=%d\n", w);
+				return -3;
+			}
+
+			dst->data[1]        = dst->data[0] + src->stride[0] * height;
+			dst->data[2]        = dst->data[1] + src->stride[1] * height;
+			dst->data[3]        = NULL;
+			dst->stride[0]      = src->stride[0];
+			dst->stride[1]      = src->stride[1];
+			dst->stride[2]      = src->stride[2];
+			dst->stride[3]      = 0;
+
+			dst->width          = src->width;
+			dst->height         = height;
+			dst->display_width  = src->display_width;
+			dst->display_height = src->display_height;
+			dst->fourcc 	    = src->fourcc;
+			dst->framerate      = src->framerate;
+			dst->selfrelease    = selfrelease;
+			dst->continuebuf    = 1;
+			dst->stamp          = src->stamp;
+			dst->flag 		    = src->flag;
+			dst->index          = src->index;
+			dst->track          = src->track;
+			dst->arg            = NULL;
+
+			if(src->data[0] && dst->stride[0] > 0)
+			{
+				memcpy(dst->data[0], src->data[0], dst->stride[0] * height);
+			}
+			if(src->data[1] && dst->stride[1] > 0)
+			{
+				memcpy(dst->data[1], src->data[1], dst->stride[1] * height);
+			}
+			if(src->data[2] && dst->stride[2] > 0)
+			{
+				memcpy(dst->data[2], src->data[2], dst->stride[2] * height);
+			}
+		}
+		break;
+			
+	case FCC_FIX_10_YUV422:
+		{
+			///printf("[%d: %d|%d|%d]\n", height, src->stride[0], src->stride[1], src->stride[2]);
+			w = src->stride[0] * height + (src->stride[1] * height + src->stride[2] * height);
+			if(w == 0)
+			{
+				printf("clone_av_picture::malloc data fail, w=%d\n", w);
+				return -2;
+			}
+			
+			dst->data[0] = (unsigned char *)malloc(w + 32);
+			if(!dst->data[0])
+			{
+				printf("clone_av_picture::malloc data fail, w=%d\n", w);
+				return -3;
+			}
+
+			dst->data[1]     = dst->data[0] + src->stride[0] * height;
+			dst->data[2]     = dst->data[1] + src->stride[1] * height;
+			dst->data[3]     = NULL;
+			dst->stride[0]   = src->stride[0];
+			dst->stride[1]   = src->stride[1];
+			dst->stride[2]   = src->stride[2];
+			dst->stride[3]   = 0;
+
+			dst->width          = src->width;
+			dst->height         = height;
+			dst->display_width  = src->display_width;
+			dst->display_height = src->display_height;
+			dst->fourcc 	    = src->fourcc;
+			dst->framerate      = src->framerate;
+			dst->selfrelease    = selfrelease;
+			dst->continuebuf    = 1;
+			dst->stamp          = src->stamp;
+			dst->flag 		    = src->flag;
+			dst->index          = src->index;
+			dst->track          = src->track;
+			dst->arg            = NULL;
+
+			if(src->data[0] && dst->stride[0] > 0)
+			{
+				memcpy(dst->data[0], src->data[0], dst->stride[0] * height);
+			}
+			if(src->data[1] && dst->stride[1] > 0)
+			{
+				memcpy(dst->data[1], src->data[1], dst->stride[1] * height);
+			}
+			if(src->data[2] && dst->stride[2] > 0)
+			{
+				memcpy(dst->data[2], src->data[2], dst->stride[2] * height);
+			}
+		}
+		break;
+		
 	case OOK_FOURCC('Y', 'U', 'Y', 'V'):
 	case OOK_FOURCC('Y', 'U', 'Y', '2'):
 	case OOK_FOURCC('U', 'Y', 'V', 'Y'):
@@ -605,6 +811,7 @@ int clone_av_picture(av_picture * dst,
 			dst->stamp          = src->stamp;
 			dst->flag 		    = src->flag;
 			dst->index          = src->index;
+			dst->track          = src->track;
 			dst->arg            = NULL;
 
 			if(src->data[0] && dst->stride[0] > 0)
@@ -617,6 +824,12 @@ int clone_av_picture(av_picture * dst,
 		break;
 	
 	case OOK_FOURCC('I', 'Y', 'U', '2'):
+	case FCC_FIX_RGB8:
+	case FCC_FIX_BGR8:
+	case FCC_FIX_RGB555:
+	case FCC_FIX_BGR555:	
+	case FCC_FIX_RGB565:
+	case FCC_FIX_BGR565:
 	case FCC_FIX_RGB24:
 	case FCC_FIX_BGR24:
 	case FCC_FIX_RGBA:
@@ -655,6 +868,7 @@ int clone_av_picture(av_picture * dst,
 			dst->stamp          = src->stamp;
 			dst->flag 		    = src->flag;
 			dst->index          = src->index;
+			dst->track          = src->track;
 			dst->arg            = NULL;
 
 			if(src->data[0] && dst->stride[0] > 0)
@@ -684,8 +898,8 @@ int clone_av_picture2(av_picture * dst,
 
 	switch(src->fourcc)
 	{
-	case OOK_FOURCC('I', '4', '2', '0'):
-	case OOK_FOURCC('Y', 'V', '1', '2'):
+	case FCC_FIX_I420:
+	case FCC_FIX_YV12:
 		{
 			w = src->stride[0] * height + ((src->stride[1] * height + src->stride[2] * height) >> 1);
 			///printf("[%d:%d:%d : %d:%d] <\n", src->stride[0], src->stride[1], src->stride[2], height, w);
@@ -784,9 +998,114 @@ int clone_av_picture2(av_picture * dst,
 			dst->stamp          = src->stamp;
 			dst->flag 		    = src->flag;
 			dst->index          = src->index;
+			dst->track          = src->track;
 			dst->arg            = NULL;
 		}
 		break;
+		
+	case FCC_FIX_I422:
+		{
+			w = src->stride[0] * height * 2;
+			///printf("[%d:%d:%d : %d:%d] <\n", src->stride[0], src->stride[1], src->stride[2], height, w);
+			if(w == 0)
+			{
+				printf("clone_av_picture::malloc data fail, w=%d\n", w);
+				return -2;
+			}
+			
+			dst->data[0] = (unsigned char *)malloc(w + 32);
+			if(!dst->data[0])
+			{
+				printf("clone_av_picture::malloc data fail, w=%d\n", w);
+				return -3;
+			}
+
+			if(miscmask & CLONE_AVPIC_MISCMASK_WES) // in this case stride = width
+			{
+				unsigned char * y_d;
+				unsigned char * u_d;
+				unsigned char * v_d;
+				unsigned char * y_s;
+				unsigned char * u_s;
+				unsigned char * v_s;
+
+				dst->stride[0] = src->width;
+				dst->stride[1] = src->width >> 1;
+				dst->stride[2] = dst->stride[1];
+				dst->stride[3] = 0;
+				
+				dst->data[1]   = dst->data[0] + dst->stride[0] * height;
+				dst->data[2]   = dst->data[1] + dst->stride[1] * height;
+				dst->data[3]   = NULL;
+				
+				y_d = dst->data[0];
+				u_d = dst->data[1];
+				v_d = dst->data[2];
+				y_s = src->data[0];
+				u_s = src->data[1];
+				v_s = src->data[2];
+
+				// Y
+				w = src->width;
+				h = height;
+				for(i = 0; i < h; i++)
+				{
+					memcpy(y_d, y_s, w);
+					y_d += dst->stride[0];
+					y_s += src->stride[0];
+				}
+				// U/V
+				w >>= 1;
+				for(i = 0; i < h; i++)
+				{
+					memcpy(u_d, u_s, w);
+					memcpy(v_d, v_s, w);
+					u_d += dst->stride[1];
+					u_s += src->stride[1];
+					v_d += dst->stride[2];
+					v_s += src->stride[2];
+				}
+			}
+			else
+			{
+				dst->data[1]   = dst->data[0] + src->stride[0] * height;
+				dst->data[2]   = dst->data[1] + src->stride[1] * height;
+				dst->data[3]   = NULL;
+				dst->stride[0] = src->stride[0];
+				dst->stride[1] = src->stride[1];
+				dst->stride[2] = src->stride[2];
+				dst->stride[3] = 0;
+			
+				if(src->data[0] && dst->stride[0] > 0)
+				{
+					memcpy(dst->data[0], src->data[0], dst->stride[0] * height);
+				}
+				if(src->data[1] && dst->stride[1] > 0)
+				{
+					memcpy(dst->data[1], src->data[1], dst->stride[1] * height);
+				}
+				if(src->data[2] && dst->stride[2] > 0)
+				{
+					memcpy(dst->data[2], src->data[2], dst->stride[2] * height);
+				}
+			}
+
+			dst->width          = src->width;
+			dst->height         = height;
+			dst->display_width  = src->display_width;
+			dst->display_height = src->display_height;			
+			dst->fourcc 	    = src->fourcc;
+			dst->framerate      = src->framerate;
+			dst->selfrelease    = selfrelease;
+			dst->continuebuf    = 1;
+			dst->stamp          = src->stamp;
+			dst->flag 		    = src->flag;
+			dst->index          = src->index;
+			dst->track          = src->track;
+			dst->arg            = NULL;			
+		}
+		break;
+		
 	case OOK_FOURCC('Y', 'U', 'Y', '2'):
 	case OOK_FOURCC('U', 'Y', 'V', 'Y'):
 	case OOK_FOURCC('H', 'D', 'Y', 'C'):
@@ -824,6 +1143,7 @@ int clone_av_picture2(av_picture * dst,
 			dst->stamp          = src->stamp;
 			dst->flag 		    = src->flag;
 			dst->index          = src->index;
+			dst->track          = src->track;
 			dst->arg            = NULL;
 
 			if(src->data[0] && dst->stride[0] > 0)
@@ -834,6 +1154,12 @@ int clone_av_picture2(av_picture * dst,
 		break;
 		
 	case OOK_FOURCC('I', 'Y', 'U', '2'):
+	case FCC_FIX_RGB8:
+	case FCC_FIX_BGR8:
+	case FCC_FIX_RGB555:
+	case FCC_FIX_BGR555:	
+	case FCC_FIX_RGB565:
+	case FCC_FIX_BGR565:	
 	case FCC_FIX_RGB24:
 	case FCC_FIX_BGR24:
 	case FCC_FIX_RGBA:
@@ -872,6 +1198,7 @@ int clone_av_picture2(av_picture * dst,
 			dst->stamp          = src->stamp;
 			dst->flag 		    = src->flag;
 			dst->index          = src->index;
+			dst->track          = src->track;
 			dst->arg            = NULL;
 
 			if(src->data[0] && dst->stride[0] > 0)
@@ -885,11 +1212,12 @@ int clone_av_picture2(av_picture * dst,
 	return 0;
 }
 
-int copy_av_picture(av_picture * dst, 
+int copy_av_picture(av_picture       * dst, 
 					const av_picture * src, 
 					int height)
 {
 	int i, w;
+	int x = 0, y = 0;
 	unsigned char * y1, * u1, * v1;
 	unsigned char * y2, * u2, * v2;
 	if(!dst || !src)
@@ -898,24 +1226,31 @@ int copy_av_picture(av_picture * dst,
 		return -3;
 	if(height < 1)
 		return 0;
+
 	w = dst->width;
 	if(w > src->width)
+	{
+		x = (w - src->width) >> 1;
 		w = src->width;
+	}
 	if(height > src->height)
 		height = src->height;
-	
+	if(dst->height > height)
+		y = (dst->height - height) >> 1;
+		
 	dst->display_width  = src->display_width;
 	dst->display_height = src->display_height;
 	dst->framerate      = src->framerate;
 	dst->stamp          = src->stamp;
 	dst->flag           = src->flag;
 	dst->index          = src->index;
+	dst->track          = src->track;
 	dst->arg            = src->arg;			
 	
 	switch(src->fourcc)
 	{
-	case OOK_FOURCC('Y', 'V', '1', '2'):
-	case OOK_FOURCC('I', '4', '2', '0'):
+	case FCC_FIX_I420:
+	case FCC_FIX_YV12:
 		{
 			y1 = dst->data[0];
 			u1 = dst->data[1];
@@ -937,15 +1272,15 @@ int copy_av_picture(av_picture * dst,
 				return -2;
 			}
 			
-			for(i = 0; i < height; i++)
+			for(i = y; i < height; i++)
 			{
-				memcpy(y1, y2, w);
+				memcpy(y1 + x, y2, w);
 				y1 += dst->stride[0];
 				y2 += src->stride[0];
 				if((i % 2) == 0)
 				{
-					memcpy(u1, u2, (w >> 1));
-					memcpy(v1, v2, (w >> 1));
+					memcpy(u1 + (x >> 1), u2, (w >> 1));
+					memcpy(v1 + (x >> 1), v2, (w >> 1));
 					u1 += dst->stride[1];
 					u2 += src->stride[1];
 					v1 += dst->stride[2];
@@ -954,6 +1289,33 @@ int copy_av_picture(av_picture * dst,
 			}
 		}
 		break;
+		
+	case FCC_FIX_I422:
+		{
+			y1 = dst->data[0];
+			u1 = dst->data[1];
+			v1 = dst->data[2];
+
+			y2 = src->data[0];
+			u2 = src->data[1];
+			v2 = src->data[2];
+			
+			for(i = y; i < height; i++)
+			{
+				memcpy(y1 + x, y2, w);
+				y1 += dst->stride[0];
+				y2 += src->stride[0];
+
+				memcpy(u1 + (x >> 1), u2, (w >> 1));
+				memcpy(v1 + (x >> 1), v2, (w >> 1));
+				u1 += dst->stride[1];
+				u2 += src->stride[1];
+				v1 += dst->stride[2];
+				v2 += src->stride[2];
+			}			
+		}
+		break;
+		
 	case OOK_FOURCC('R', 'V', '2', '4'):
 	case OOK_FOURCC('R', 'V', '3', '2'):
 	case FCC_FIX_BGRA:
@@ -966,16 +1328,18 @@ int copy_av_picture(av_picture * dst,
 			case OOK_FOURCC('R', 'V', '3', '2'):
 			case FCC_FIX_BGRA:
 				w *= 4;
+				x *= 4;
 				break;
 			default:
 				w *= 3;
+				x *= 3;
 				break;
 			}
 			y1 = dst->data[0];
 			y2 = src->data[0];
-			for(i = 0; i < height; i++)
+			for(i = y; i < height; i++)
 			{
-				memcpy(y1, y2, w);
+				memcpy(y1 + x, y2, w);
 				y1 += dst->stride[0];
 				y2 += src->stride[0];
 			}			
@@ -993,8 +1357,8 @@ int black_av_picture(av_picture * pic)
 		return -1;
 	switch(pic->fourcc)
 	{
-	case OOK_FOURCC('I', '4', '2', '0'):
-	case OOK_FOURCC('Y', 'V', '1', '2'):
+	case FCC_FIX_I420:
+	case FCC_FIX_YV12:
 		{
 			if(pic->data[0] && pic->stride[0] > 0)
 			{
@@ -1025,6 +1389,39 @@ int black_av_picture(av_picture * pic)
 			}
 		}
 		break;
+	
+	case FCC_FIX_I422:
+		{
+			if(pic->data[0] && pic->stride[0] > 0)
+			{
+				unsigned char * p = pic->data[0];
+				for(int i = 0; i < pic->height; i++)
+				{
+					memset(p, 16, pic->stride[0]);
+					p += pic->stride[0];
+				}
+			}
+			if(pic->data[1] && pic->stride[1] > 0)
+			{
+				unsigned char * p = pic->data[1];
+				for(int i = 0; i < pic->height; i++)
+				{
+					memset(p, 128, pic->stride[1]);
+					p += pic->stride[1];
+				}				
+			}
+			if(pic->data[2] && pic->stride[2] > 0)
+			{
+				unsigned char * p = pic->data[2];
+				for(int i = 0; i < pic->height; i++)
+				{
+					memset(p, 128, pic->stride[2]);
+					p += pic->stride[2];
+				}
+			}			
+		}
+		break;
+		
 	case OOK_FOURCC('Y', 'U', 'Y', '2'):
 	case OOK_FOURCC('Y', 'U', 'Y', 'V'):
 	case OOK_FOURCC('U', 'Y', 'V', 'Y'):
@@ -1104,11 +1501,12 @@ void attach_av_picture(av_picture       * dst,
 		dst->stamp          = src->stamp;
 		dst->flag 			= src->flag;
 		dst->index          = src->index;
+		dst->track          = src->track;
 		dst->arg			= src->arg;
 	}
 }
 
-int extract_av_picture(av_picture * dst, 
+int extract_av_picture(av_picture       * dst, 
 					   const av_picture * src,
 					   int top_field)
 {
@@ -1223,7 +1621,7 @@ int combine_av_picture(av_picture * dst,
 		return -2;
 	default:
 		break;
-	}	
+	}
 	return -1;
 }
 

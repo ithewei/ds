@@ -53,7 +53,13 @@ DSSHARED_EXPORT int libinit(const char* xml, void* task, void** ctx){
 
         std::string strXmlPath = tid->cur_path;
         APPENDSEPARTOR(strXmlPath)
+#if LAYOUT_TYPE_ONLY_MV
+        strXmlPath += "director_service_mv.xml";
+#elif LAYOUT_TYPE_ONLY_OUTPUT
+        strXmlPath += "director_service_out.xml";
+#elif LAYOUT_TYPE_OUTPUT_AND_MV
         strXmlPath += "director_service.xml";
+#endif
         if(job_check_path(strXmlPath.c_str()) != 0)
         {
             qWarning("not found director_service.xml");
@@ -132,6 +138,7 @@ DSSHARED_EXPORT int liboper(int media_type, int data_type, int opt, void* param,
             switch(opt)
             {
             case SERVICE_OPT_DISPLAY:
+                qInfo("SERVICE_OPT_DISPLAY=%d", *(int*)param);
                 if(g_dsCtx->init == 0)
                 {
                     g_dsCtx->init = 1;
@@ -263,17 +270,37 @@ DSSHARED_EXPORT int liboper(int media_type, int data_type, int opt, void* param,
         if(data_type != SERVICE_DATATYPE_PIC)
             return -4;
 
-#if LAYOUT_TYPE_ONLY_OUTPUT
-        int srvid = 1;
-#else
-        int srvid = opt;
-#endif
-        if (srvid < 1 || srvid > DIRECTOR_MAX_SERVS)
-            return -5;
-
         const av_picture * pic = (const av_picture *)param;
         if (!pic)
             return -6;
+
+#if LAYOUT_TYPE_ONLY_OUTPUT
+        int srvid = 1;
+#else
+        int srvid = 0;
+        if(opt == OOK_FOURCC('L', 'M', 'I', 'C')){
+            if(!pic->data[0]){
+                // 连麦用户离开
+                srvid = g_dsCtx->lmicid2srvid(pic->track);
+                if (srvid < 0)
+                    return -5;
+                qDebug("LMIC------STOP-----%d", srvid);
+                g_dsCtx->stop(srvid);
+                g_dsCtx->freeLmicid(pic->track);
+                return 0;
+            }
+
+            srvid = g_dsCtx->lmicid2srvid(pic->track);
+            if (srvid < 0){
+                srvid = g_dsCtx->allocLmicid(pic->track);
+                qDebug("LMIC-----------%d=>%d", pic->track, srvid);
+            }
+        }else{
+            srvid = opt;
+        }
+#endif
+        if (srvid < 1 || srvid > DIRECTOR_MAX_SERVS)
+            return -5;
 
         if (g_dsCtx->getItem(srvid)->v_input < 1){
             char c[5] = {0};
@@ -290,17 +317,22 @@ DSSHARED_EXPORT int liboper(int media_type, int data_type, int opt, void* param,
         if(data_type != SERVICE_DATATYPE_PCM)
             return -2;
 
-#if LAYOUT_TYPE_ONLY_OUTPUT
-        int srvid = 1;
-#else
-        int srvid = opt;
-#endif
-        if (srvid < 1 || srvid > DIRECTOR_MAX_SERVS)
-            return -5;
-
         const av_pcmbuff * pcm = (const av_pcmbuff *)param;
         if (!pcm)
             return -6;
+
+#if LAYOUT_TYPE_ONLY_OUTPUT
+        int srvid = 1;
+#else
+        int srvid = 0;
+        if(opt == OOK_FOURCC('L', 'M', 'I', 'C')){
+            srvid = g_dsCtx->lmicid2srvid(pcm->track);
+        }else{
+            srvid = opt;
+        }
+#endif
+        if (srvid < 1 || srvid > DIRECTOR_MAX_SERVS)
+            return -5;
 
         if (g_dsCtx->getItem(srvid)->a_input < 1){
             qInfo("pcm[%d] channel=%d, sample=%d len=%d", srvid, pcm->channels, pcm->samplerate, pcm->pcmlen);

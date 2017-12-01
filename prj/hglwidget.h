@@ -229,6 +229,7 @@ public slots:
     void onTextAccepted(HTextItem item);
     void onSetting();
     void showEffect();
+    void onEffectSelected(HPictureItem item);
 
 protected:
     void initUI();

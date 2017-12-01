@@ -7,12 +7,11 @@ HDsContext* g_dsCtx = NULL;
 HMainWidget* g_mainWdg = NULL;
 const char* url_handle_event = "http://127.0.0.1/transcoder/index.php?controller=channels&action=srcchange";
 
+#include <QDateTime>
 void myLogHandler(QtMsgType type, const QMessageLogContext & ctx, const QString & msg){
     char szType[16];
     switch (type) {
     case QtDebugMsg:
-        if (g_dsCtx && !g_dsCtx->m_tInit.debug)
-            return;
         strcpy(szType, "Debug");
         break;
     case QtInfoMsg:
@@ -27,15 +26,12 @@ void myLogHandler(QtMsgType type, const QMessageLogContext & ctx, const QString 
     case QtFatalMsg:
         strcpy(szType, "Fatal");
     }
-    char szLog[2048];
 
-#ifndef QT_NO_DEBUG
-    snprintf(szLog, 2047, "%s %s [%s:%u, %s]\n", szType, msg.toLocal8Bit().constData(), ctx.file, ctx.line, ctx.function);
-#else
-    if (msg.length() > 0){
-        snprintf(szLog, 2047, "%s %s\n", szType, msg.toLocal8Bit().constData());
-    }
-#endif
+    QString strLog = QString::asprintf("[%s] [%s]:%s [%s:%d - %s]\n",
+                                       QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss.zzz").toLocal8Bit().data(),
+                                       szType,
+                                       msg.toUtf8().data(),
+                                       ctx.file,ctx.line,ctx.function);
 
     QString strLogFilePath = QCoreApplication::applicationDirPath() + "/ds.log";
 
@@ -49,7 +45,7 @@ void myLogHandler(QtMsgType type, const QMessageLogContext & ctx, const QString 
     }
 
     if (fp){
-        fwrite(szLog, 1, strlen(szLog), fp);
+        fputs(strLog.toLocal8Bit().data(), fp);
         fclose(fp);
     }
 }
@@ -185,58 +181,6 @@ void HDsContext::start_gui_thread(){
 }
 
 /*
-    <complex type="director_service">
-        <render oper="display" >
-            <param n="width"  v="640" />
-            <param n="height" v="480" />
-        </render>
-    </complex>
- */
-//int HDsContext::parse_init_xml(const char* xml){
-//    qDebug(xml);
-
-//    ook::xml_element root;
-//    if(root.parse(xml, strlen(xml)) < 0)
-//        return -1001;
-//    if(root.tag_name() != "complex")
-//        return -1002;
-//    if(root.get_attribute("type") != "director_service")
-//        return -1003;
-
-//    ook::xml_parser::enum_childen(&root, NULL);
-//    const ook::xml_element * render = NULL;
-//    while(1)
-//    {
-//        render = ook::xml_parser::enum_childen(&root, "render");
-//        if(!render)
-//            break;
-//        const std::string & oper = render->get_attribute("oper");
-
-//        ook::xml_parser::enum_childen(render, NULL);
-//        const ook::xml_element * e = NULL;
-//        while(1)
-//        {
-//            e = ook::xml_parser::enum_childen(render, "param");
-//            if(!e)
-//                break;
-//            const std::string & n = e->get_attribute("n");
-//            const std::string & v = e->get_attribute("v");
-
-//            if(n == "audio")
-//                m_tInit.audio    = atoi(v.c_str());
-//            else if(n == "drawinfo")
-//                m_tInit.drawinfo     = atoi(v.c_str());
-//            else if(n == "infcolor")
-//                m_tInit.infcolor      = (unsigned int)strtoul(v.c_str(), NULL, 16);
-//            else if(n == "titcolor")
-//                m_tInit.titcolor      = (unsigned int)strtoul(v.c_str(), NULL, 16);
-//        }
-//    }
-
-//    return 0;
-//}
-
-/*
 <?xml version="1.0" encoding="UTF-8" ?>
 <director_service>
     <layout>
@@ -292,103 +236,108 @@ void HDsContext::start_gui_thread(){
     </layout>
 </director_service>
 */
+#include <QtXml/QDomComment>
 int HDsContext::parse_layout_xml(const char* xml_file){
     qDebug(xml_file);
 
-    ook::xml_parser x;
-    if(!x.parse_file(xml_file))
+    QDomDocument dom;
+    QFile file(xml_file);
+    QString err;
+    if (!dom.setContent(&file, &err)){
+        qWarning("parse_layout_xml failed:%d", err.toLocal8Bit().data());
         return -1;
+    }
 
-    const ook::xml_element & root = x.get_root();
-    const ook::xml_element * layout = ook::xml_parser::get_element(&root, "<layout>");
-    if(!layout)
+    QDomElement elem_root = dom.documentElement();
+    QDomElement elem_layout = elem_root.firstChildElement("layout");
+    if (elem_layout.isNull())
         return -2;
-    const ook::xml_element * head = ook::xml_parser::get_element(layout, "<head>");
-    const ook::xml_element * body = ook::xml_parser::get_element(layout, "<body>");
-    if(!head || !body)
+    QDomElement elem_head = elem_layout.firstChildElement("head");
+    if (elem_head.isNull())
         return -3;
+    QDomElement elem_body = elem_layout.firstChildElement("body");
+    if (elem_body.isNull())
+        return -4;
 
-    const ook::xml_element * e;
-    ook::xml_parser::enum_childen(head, NULL);
-    while(1)
-    {
-        e = ook::xml_parser::enum_childen(head, "param");
-        if(!e)
-            break;
-        const std::string & n = e->get_attribute("n");
-        const std::string & v = e->get_attribute("v");
-
+    QDomElement elem_param = elem_head.firstChildElement("param");
+    while (!elem_param.isNull()) {
+        QString n = elem_param.attribute("n");
+        QString v = elem_param.attribute("v");
         if (n == "debug"){
-            m_tInit.debug = atoi(v.c_str());
+            m_tInit.debug = v.toInt();
         }else if (n == "autolayout"){
-            m_tInit.autolayout = atoi(v.c_str());
+            m_tInit.autolayout = v.toInt();
         }else if (n == "row"){
-            m_tInit.row = atoi(v.c_str());
+            m_tInit.row = v.toInt();
         }else if (n == "col"){
-            m_tInit.col = atoi(v.c_str());
+            m_tInit.col = v.toInt();
         }else if(n == "width"){
-            m_tLayout.width     = atoi(v.c_str());
+            m_tLayout.width     = v.toInt();
         }else if(n == "height"){
-            m_tLayout.height    = atoi(v.c_str());
+            m_tLayout.height    = v.toInt();
         }else if (n == "audio"){
-            m_tInit.audio = atoi(v.c_str());
+            m_tInit.audio = v.toInt();
         }else if(n == "fps"){
-            m_tInit.fps = atoi(v.c_str());
+            m_tInit.fps = v.toInt();
         }else if (n == "display_mode"){
-            m_tInit.display_mode = atoi(v.c_str());
+            m_tInit.display_mode = v.toInt();
         }else if (n == "scale_mode"){
-            m_tInit.scale_mode = atoi(v.c_str());
+            m_tInit.scale_mode = v.toInt();
         }else if (n == "drawtitle"){
-            m_tInit.drawtitle = atoi(v.c_str());
+            m_tInit.drawtitle = v.toInt();
         }else if (n == "drawfps"){
-            m_tInit.drawfps = atoi(v.c_str());
+            m_tInit.drawfps = v.toInt();
         }else if (n == "drawnum"){
-            m_tInit.drawnum = atoi(v.c_str());
+            m_tInit.drawnum = v.toInt();
         }else if (n == "drawaudio"){
-            m_tInit.drawaudio = atoi(v.c_str());
+            m_tInit.drawaudio = v.toInt();
         }else if(n == "drawinfo")
-            m_tInit.drawinfo     = atoi(v.c_str());
+            m_tInit.drawinfo = v.toInt();
         else if(n == "infcolor")
-            m_tInit.infcolor      = (unsigned int)strtoul(v.c_str(), NULL, 16);
+            m_tInit.infcolor = v.toUInt(NULL, 16);
         else if(n == "titcolor")
-            m_tInit.titcolor      = (unsigned int)strtoul(v.c_str(), NULL, 16);
+            m_tInit.titcolor = v.toUInt(NULL, 16);
+        else if(n == "audiocolor_bg")
+            m_tInit.audiocolor_bg = v.toUInt(NULL, 16);
+        else if(n == "audiocolor_fg_low")
+            m_tInit.audiocolor_fg_low = v.toUInt(NULL, 16);
+        else if(n == "audiocolor_fg_high")
+            m_tInit.audiocolor_fg_high = v.toUInt(NULL, 16);
+
+        elem_param = elem_param.nextSiblingElement("param");
     }
 
-    int i = 0;
-    ook::xml_parser::enum_childen(body, NULL);
-    const ook::xml_element * item;
-    while(1)
-    {
-        item = ook::xml_parser::enum_childen(body, "item");
-        if(!item)
-            break;
-        ook::xml_parser::enum_childen(item, NULL);
-        const ook::xml_element * e;
-        int x,y,w,h;
-        while(1)
-        {
-            e = ook::xml_parser::enum_childen(item, "param");
-            if(!e)
-                break;
-            const std::string & n = e->get_attribute("n");
-            const std::string & v = e->get_attribute("v");
+    QDomElement elem_item = elem_body.firstChildElement("item");
+    int cnt_item = 0;
+    int x,y,w,h;
+    while (!elem_item.isNull()){
+        QDomElement elem_param = elem_item.firstChildElement("param");
+        while (!elem_param.isNull()){
+            QString n = elem_param.attribute("n");
+            QString v = elem_param.attribute("v");
             if(n == "w")
-                w = atoi(v.c_str());
+                w = v.toInt();
             else if(n == "h")
-                h = atoi(v.c_str());
+                h = v.toInt();
             else if(n == "x")
-                x = atoi(v.c_str());
+                x = v.toInt();
             else if(n == "y")
-                y = atoi(v.c_str());
-        }
-        w = w >> 2 << 2; // let w is 4的整数倍
-        m_tLayout.items[i].setRect(x, y, w, h);
+                y = v.toInt();
 
-        ++i;
-        if(i >= MAXNUM_LAYOUT)
+            elem_param = elem_param.nextSiblingElement("param");
+        }
+
+        w = w >> 2 << 2; // let w is 4的整数倍
+        m_tLayout.items[cnt_item].setRect(x, y, w, h);
+
+        ++cnt_item;
+        if(cnt_item >= MAXNUM_LAYOUT)
             break;
+
+        elem_item = elem_item.nextSiblingElement("item");
     }
-    m_tLayout.itemCnt = i;
+
+    m_tLayout.itemCnt = cnt_item;
 
     // last is comb window
     m_tLayout.combW = m_tLayout.items[m_tLayout.itemCnt-1].width();
@@ -647,7 +596,7 @@ int HDsContext::parse_audio_xml(const char* xml){
     </rsp>
  */
 int HDsContext::parse_taskinfo_xml(const char* xml){
-    qDebug(xml);
+    //qDebug(xml);
 
     ook::xml_element root;
     if(!root.parse(xml, strlen(xml)))
@@ -866,8 +815,10 @@ int HDsContext::parse_taskinfo_xml(const char* xml){
 
     if (req_srvid == 1)
         g_dsCtx->getItem(req_srvid)->taskinfo = s_cont;
-    else
-        g_dsCtx->getItem(req_srvid)->taskinfo = inputchar;
+    else{
+        QString str = QString::asprintf("%s 码率:%dkps", inputchar.c_str(), inputpkgs[0]);
+        g_dsCtx->getItem(req_srvid)->taskinfo = str.toLocal8Bit().data();
+    }
 
     return 0;
 }
@@ -885,28 +836,9 @@ void HDsContext::initFont(std::string& path, int h){
     }
 }
 
-void HDsContext::resizeForScale(int srvid, int w, int h){
-    qDebug("resize w=%d h=%d", w, h);
-    DsSvrItem* item = getItem(srvid);
-    if (item){
-        item->mutex.lock();
-        item->show_w = w;
-        item->show_h = h;
-        if (m_tInit.scale_mode == BIG_VIDEO_SCALE){
-            item->tex_yuv.release();
-
-            if (item->pSwsCtx){
-                sws_freeContext(item->pSwsCtx);
-                item->pSwsCtx = NULL;
-            }
-        }
-        item->mutex.unlock();
-    }
-}
-
 #include "hffmpeg.h"
 int HDsContext::push_video(int srvid, const av_picture* pic){
-    qDebug("srvid=%d, framerate=%d, stamp=%d", srvid, pic->framerate, pic->stamp);
+    //qDebug("srvid=%d, framerate=%d, stamp=%d", srvid, pic->framerate, pic->stamp);
 
     if (action < 1)
         return -1;
@@ -925,7 +857,10 @@ int HDsContext::push_video(int srvid, const av_picture* pic){
     if (w != item->pic_w || h != item->pic_h || !item->video_buffer){
         item->pic_w = w;
         item->pic_h = h;
-        item->framerate = pic->framerate;
+        if (pic->framerate > 0 && pic->framerate <= 60)
+            item->framerate = pic->framerate;
+        else
+            item->framerate = 25;
         if (item->video_buffer){
             delete item->video_buffer;
             item->video_buffer = NULL;
@@ -939,6 +874,8 @@ int HDsContext::push_video(int srvid, const av_picture* pic){
         m_tComb.itemCnt = 1;
         m_tComb.items[0].srvid = 1;
         m_tComb.items[0].rc.setRect(0,0,w,h);
+
+        qInfo("m_tComb w=%d h=%d", w, h);
 #endif
     }
 
@@ -980,6 +917,41 @@ int HDsContext::push_video(int srvid, const av_picture* pic){
     emit videoPushed(srvid, bFirst);
 }
 
+void HDsContext::onWndSizeChanged(int srvid, QSize sz){
+    DsSvrItem* pItem = getItem(srvid);
+    if (pItem){
+        pItem->mutex.lock();
+        pItem->wnd_w = sz.width();
+        pItem->wnd_h = sz.height();
+
+        double ratio = 1.0;
+        if (pItem->isAdjustRatio(&ratio)){
+            qDebug("ratio=%lf", ratio);
+            pItem->adjustRatio(ratio);
+        }else{
+            pItem->show_w = pItem->wnd_w;
+            pItem->show_h = pItem->wnd_h;
+        }
+        g_mainWdg->getGLWdgBysrvid(srvid)->setVertices(ratio);
+
+        int w = pItem->pic_w;
+        int h = pItem->pic_h;
+        if (m_tInit.scale_mode == ENABLE_SCALE && pItem->isAdjustScale(&w,&h)){
+            qDebug("scale=%d*%d", w, h);
+            pItem->adjustScale(w,h);
+        }
+        pItem->tex_yuv.alloc(w,h);
+
+        pItem->mutex.unlock();
+
+        qDebug("wnd=%d*%d, pic=%d*%d, show=%d*%d, tex=%d*%d",
+               pItem->wnd_w, pItem->wnd_h,
+               pItem->pic_w, pItem->pic_h,
+               pItem->show_w, pItem->show_h,
+               pItem->tex_yuv.width, pItem->tex_yuv.height);
+    }
+}
+
 int HDsContext::pop_video(int srvid){
     if (action < 1)
         return -1;
@@ -988,6 +960,9 @@ int HDsContext::pop_video(int srvid){
     if (!item)
         return -2;
 
+    if (item->bPause)
+        return -3;
+
     if (!item->canShow()){
         return -3;
     }
@@ -995,32 +970,17 @@ int HDsContext::pop_video(int srvid){
     if (!item->video_buffer)
         return -4;
 
-    int retcode = -5;
+
+    if (!item->tex_yuv.data)
+        return -5;
+
+    int retcode = -6;
     item->mutex.lock();
     char* ptr = item->video_buffer->read();
-    if (!ptr){
-        qDebug("read to fast");
-    }
+//    if (!ptr){
+//        qDebug("read to fast");
+//    }
     if (ptr){
-        if (!item->tex_yuv.data){
-            if (m_tInit.scale_mode == BIG_VIDEO_SCALE && item->pic_w > item->show_w && item->pic_h > item->show_h){
-                item->tex_yuv.width = item->show_w >> 2 << 2;
-                item->tex_yuv.height = item->show_h;
-
-                item->pSwsCtx = sws_getContext(item->pic_w,item->pic_h,AV_PIX_FMT_YUV420P,
-                                                     item->tex_yuv.width,item->tex_yuv.height,AV_PIX_FMT_YUV420P,
-                                                     SWS_POINT, NULL, NULL, NULL);
-            }else{
-                item->tex_yuv.width = item->pic_w;
-                item->tex_yuv.height = item->pic_h;
-            }
-
-            item->tex_yuv.data = (unsigned char *)malloc(item->tex_yuv.width * item->tex_yuv.height * 3 / 2);
-            item->tex_yuv.type = GL_I420;
-            qInfo("malloc %d*%d, pic=%d*%d, show=%d*%d", item->tex_yuv.width, item->tex_yuv.height,
-                   item->pic_w, item->pic_h, item->show_w, item->show_h);
-        }
-
         if (item->pic_w == item->tex_yuv.width && item->pic_h == item->tex_yuv.height){
             memcpy(item->tex_yuv.data, ptr, item->pic_w*item->pic_h*3/2);
         }else{

@@ -7,19 +7,27 @@
 #define MAXNUM_LAYOUT   64
 #define MAXNUM_COMB_SCREEN     8
 
-#define DIRECTOR_MAX_SERVS		   65 // srvid = 1 reserve
+#define DIRECTOR_MAX_SERVS		   64
+#define DIRECTOR_SRVID_BEGIN       1
+#define DIRECTOR_SRVID_END         32
+#define DIRECTOR_LMICID_BEGIN      33
+#define DIRECTOR_LMICID_END        64
 
 #define DISPLAY_MODE_REALTIME      1  // realtime display
 #define DISPLAY_MODE_TIMER         2  // timer by fps
 
-#define NONE_SCALE                 0
-#define BIG_VIDEO_SCALE            1
+#define DISABLE_SCALE                 0
+#define ENABLE_SCALE            1
 
 struct DsInitInfo{
     unsigned int infcolor;
     unsigned int titcolor;
     unsigned int outlinecolor;
     unsigned int focus_outlinecolor;
+
+    unsigned int audiocolor_bg;
+    unsigned int audiocolor_fg_low;
+    unsigned int audiocolor_fg_high;
 
     int debug;
     int autolayout;
@@ -43,6 +51,10 @@ struct DsInitInfo{
         outlinecolor = 0xFFFFFFFF;
         focus_outlinecolor = 0xFF0000FF;
 
+        audiocolor_bg = 0x0000FFFF;
+        audiocolor_fg_low = 0x00FF00FF;
+        audiocolor_fg_high = 0xFF0000FF;
+
         debug = 0;
         autolayout = 0;
         row = 0;
@@ -50,7 +62,7 @@ struct DsInitInfo{
 
         audio = 1;
         display_mode = DISPLAY_MODE_TIMER;
-        scale_mode = BIG_VIDEO_SCALE;
+        scale_mode = ENABLE_SCALE;
         fps = 25;
 
         drawinfo = 0;
@@ -110,6 +122,7 @@ struct DsScreenInfo{
 #include "hringbuffer.h"
 #include "hffmpeg.h"
 struct DsSvrItem{
+    bool bUsed;
     bool bPause;
     bool bVoice;
 
@@ -120,6 +133,8 @@ struct DsSvrItem{
     int pic_h;
     int framerate;
     bool bShow;
+    int wnd_w;
+    int wnd_h;
     int show_w;
     int show_h;
     HRingBuffer* video_buffer;
@@ -143,38 +158,24 @@ struct DsSvrItem{
     }
 
     ~DsSvrItem(){
-        free();
-    }
-
-    void free(){
-        if (video_buffer){
-            delete video_buffer;
-            video_buffer = NULL;
-        }
-
-        tex_yuv.release();
-
-        if (pSwsCtx){
-            sws_freeContext(pSwsCtx);
-            pSwsCtx = NULL;
-        }
+        release();
     }
 
     void init(){
-        free();
-
+        bUsed = false;
         bPause = false;
         bVoice = false;
-        bShow = true;
-        show_w = 0;
-        show_h = 0;
+        bShow = false;
+        wnd_w = 0;
+        wnd_h = 0;
         pic_w = 0;
         pic_h = 0;
+        show_w = 0;
+        show_h = 0;
         framerate = 0;
 
         title.clear();
         video_buffer = NULL;
-        tex_yuv.release();
         pSwsCtx = NULL;
 
         src_type = 0;
@@ -190,10 +191,68 @@ struct DsSvrItem{
         ifcb = NULL;
     }
 
+    void release(){
+        if (video_buffer){
+            delete video_buffer;
+            video_buffer = NULL;
+        }
+        tex_yuv.release();
+        free_scale();
+    }
+
+    void free_scale(){
+        if (pSwsCtx){
+            sws_freeContext(pSwsCtx);
+            pSwsCtx = NULL;
+        }
+    }
+
     bool canShow(){
-        if (!bPause && bShow && show_w > 0 && show_h > 0)
+        if (bShow && wnd_w > 0 && wnd_h > 0)
             return true;
         return false;
+    }
+
+    bool isAdjustRatio(double* ratio){
+        // adjust ratio to decide show_w and show_h
+        double pic_ratio = (double)pic_w / (double)pic_h;
+        double wnd_ratio = (double)wnd_w / (double)wnd_h;
+        if (qAbs(pic_ratio - wnd_ratio) > 0.5){
+            *ratio = pic_ratio / wnd_ratio;
+            return true;
+        }
+
+        *ratio = 1.0;
+        return false;
+    }
+
+    void adjustRatio(double ratio){
+        show_w = wnd_w;
+        show_h = wnd_h;
+        if (ratio > 1.0){
+            show_h /= ratio;
+        }else{
+            show_w *= ratio;
+        }
+    }
+
+    bool isAdjustScale(int* w, int* h){
+        if (pic_w > 2*show_w || pic_h > 2*show_h){
+            *w = show_w >> 2 << 2;
+            *h = show_h;
+            return true;
+        }
+
+        return false;
+    }
+
+    void adjustScale(int w, int h){
+        if (w != pic_w || w != pic_h){
+            free_scale();
+            pSwsCtx = sws_getContext(pic_w,pic_h,AV_PIX_FMT_YUV420P,
+                                     w,h,AV_PIX_FMT_YUV420P,
+                                     SWS_POINT, NULL, NULL, NULL);
+        }
     }
 };
 

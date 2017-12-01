@@ -35,7 +35,7 @@ void QGLWidgetImpl::initializeGL(){
 }
 
 void QGLWidgetImpl::resizeGL(int w, int h){
-    glViewport(0, 0, w, h);
+    glViewport(0,0,w,h);
 }
 
 void QGLWidgetImpl::loadYUVShader(){
@@ -115,13 +115,33 @@ void QGLWidgetImpl::loadYUVShader(){
     //glUseProgram(prog_yuv);
 }
 
-void QGLWidgetImpl::initVAO(){
-    static const GLfloat vertices[] = {
-        -1.0f, -1.0f,
-         1.0f, -1.0f,
-        -1.0f,  1.0f,
-         1.0f,  1.0f,
+void QGLWidgetImpl::setVertices(double ratio){
+    double w = 1.0, h = 1.0;
+    if (ratio < 1.0){
+        w = ratio;
+    }else{
+        h = 1.0 / ratio;
+    }
+
+    GLfloat tmp[] = {
+            -w, -h,
+             w, -h,
+            -w,  h,
+             w,  h,
     };
+
+    memcpy(vertices, tmp, sizeof(GLfloat)*8);
+}
+
+void QGLWidgetImpl::initVAO(){
+//    static const GLfloat vertices[] = {
+//        -1.0f, -1.0f,
+//         1.0f, -1.0f,
+//        -1.0f,  1.0f,
+//         1.0f,  1.0f,
+//    };
+
+    setVertices(1.0);
 
     static const GLfloat textures[] = {
         0.0f, 1.0f,
@@ -131,12 +151,12 @@ void QGLWidgetImpl::initVAO(){
     };
 
     // reverse
-    //static const GLfloat textures[] = {
-    //	0.0f, 0.0f,
-    //	1.0f, 0.0f,
-    //	0.0f, 1.0f,
-    //	1.0f, 1.0f,
-    //};
+//    static const GLfloat textures[] = {
+//        0.0f, 0.0f,
+//        1.0f, 0.0f,
+//        0.0f, 1.0f,
+//        1.0f, 1.0f,
+//    };
 
     //glGenBuffers(buffer_num, g_buffers);
     //glBindBuffer(GL_ARRAY_BUFFER, g_buffers[buffer_ver]);
@@ -207,8 +227,8 @@ void QGLWidgetImpl::drawTex(Texture* tex, DrawInfo* di){
     glBegin(GL_QUADS);
     glTexCoord2d(0,0);glVertex2i(di->left, di->top);
     glTexCoord2d(1,0);glVertex2i(di->right, di->top);
-    glTexCoord2d(1,1);glVertex2f(di->right, di->bottom);
-    glTexCoord2d(0,1);glVertex2f(di->left, di->bottom);
+    glTexCoord2d(1,1);glVertex2i(di->right, di->bottom);
+    glTexCoord2d(0,1);glVertex2i(di->left, di->bottom);
     glEnd();
 
     glDisable(GL_TEXTURE_2D);

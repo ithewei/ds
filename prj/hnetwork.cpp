@@ -1,28 +1,38 @@
 #include "hnetwork.h"
 #include "hdsctx.h"
 
-const char* url_post_combinfo = "http://localhost/transcoder/index.php?controller=channels&action=Dragsave";
-const char* url_micphone = "http://localhost/transcoder/index.php?controller=channels&action=voiceover";
-const char* url_voice = "http://localhost/transcoder/index.php?controller=channels&action=voiceinfo";
-
-#if LAYOUT_TYPE_ONLY_OUTPUT
-const char* url_query_overlay = "http://192.168.1.177:3001/api/v1/interface/get";
-const char* url_add_overlay = "http://192.168.1.177:3001/api/v1/interface/add";
-const char* url_remove_overlay = "http://192.168.1.177:3001/api/v1/interface/delete";
-const char* url_modify_overlay = "http://192.168.1.177:3001/api/v1/interface/update";
-#else
-const char* url_query_overlay = "http://localhost/transcoder/index.php?controller=logo&action=allinfo";
-const char* url_add_overlay = "http://localhost/transcoder/index.php?controller=logo&action=logoadd";
-const char* url_remove_overlay = "http://localhost/transcoder/index.php?controller=logo&action=ddelete";
-const char* url_modify_overlay = "http://localhost/transcoder/index.php?controller=logo&action=editpt";
-#endif
-
 const char* dir_trans = "/var/www/transcoder/";
 
 HNetwork* HNetwork::s_pNetwork = NULL;
 
+void HNetwork::confUrl(){
+    url_post_combinfo = "http://localhost/transcoder/index.php?controller=channels&action=Dragsave";
+    url_micphone = "http://localhost/transcoder/index.php?controller=channels&action=voiceover";
+    url_voice = "http://localhost/transcoder/index.php?controller=channels&action=voiceinfo";
+
+#if LAYOUT_TYPE_ONLY_OUTPUT
+    url_query_overlay = "http://localhost:3001/api/v1/interface/get";
+    url_add_overlay = "http://localhost:3001/api/v1/interface/add";
+    url_remove_overlay = "http://localhost:3001/api/v1/interface/delete";
+    url_modify_overlay = "http://localhost:3001/api/v1/interface/update";
+#else
+    QString appname = "transcoder";
+    QFile file("/var/www/appname.txt");
+    if (file.open(QIODevice::ReadOnly)){
+        appname = file.readAll();
+        qDebug("web appname = %d", appname.toLocal8Bit().data());
+    }
+    url_query_overlay = "http://localhost/" + appname + "/index.php?controller=logo&action=allinfo";
+    url_add_overlay = "http://localhost/" + appname + "/index.php?controller=logo&action=logoadd";
+    url_remove_overlay = "http://localhost/" + appname + "/index.php?controller=logo&action=ddelete";
+    url_modify_overlay = "http://localhost/" + appname + "/index.php?controller=logo&action=editpt";
+#endif
+}
+
 HNetwork::HNetwork() : QObject()
 {
+    confUrl();
+
     m_nam_post_screeninfo = new QNetworkAccessManager(this);
 
     m_nam_add_overlay = new QNetworkAccessManager(this);
@@ -114,7 +124,7 @@ void HNetwork::postScreenInfo(DsScreenInfo& si){
         obj.insert("y", item.rc.y());
         obj.insert("w", item.rc.width());
         obj.insert("h", item.rc.height());
-        obj.insert("v", item.srvid);
+        obj.insert("v", SRVID(item.srvid));
         obj.insert("a", item.a ? 1 : 0);
         arr.append(obj);
     }
@@ -243,8 +253,21 @@ void HNetwork::onQueryOverlayReply(QNetworkReply* reply){
 }
 
 void HNetwork::addPicture(HPictureItem &item){
-    QString src = item.src + strlen(dir_trans);
     QJsonObject obj;
+    QString src;
+    if (item.pic_type == HPictureItem::IMAGE){
+        src = item.src + strlen(dir_trans);
+    }else if (item.pic_type == HPictureItem::MOSAIC){
+        src = "Upload/mosaic.png";
+        //src = "__%%MOSAIC%%__";
+        obj.insert("pix", 20);
+        obj.insert("transp", 50);
+    }else if (item.pic_type == HPictureItem::BLUR){
+        src = "Upload/blur.png";
+        //src = "__%%BLUE%%__";
+        obj.insert("transp", 50);
+    }
+
     obj.insert("src", src);
     obj.insert("x", item.rc.x());
     obj.insert("y", item.rc.y());

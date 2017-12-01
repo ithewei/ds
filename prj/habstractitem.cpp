@@ -104,6 +104,7 @@ void HScreenItem::undo(){
 HPictureItem::HPictureItem()
 {
     type = PICTURE;
+    pic_type = IMAGE;
 }
 
 void HPictureItem::add(){

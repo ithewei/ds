@@ -33,7 +33,8 @@ typedef struct audio_desc_s
 	unsigned int stamp;
 	unsigned int duration;
 	unsigned int index;
-
+	unsigned int bitspersample;
+	
 } audio_desc_s;
 
 typedef struct picture_desc_s
@@ -66,12 +67,12 @@ typedef struct av_pcmbuff
 } av_pcmbuff;
 
 av_pcmbuff * create_av_pcmbuff(unsigned int assign_pcmbuf_len);
-void reset_av_pcmbuff(av_pcmbuff * frm, unsigned int assign_pcmlen);
+void reset_av_pcmbuff  (av_pcmbuff * frm, unsigned int assign_pcmlen);
 void release_av_pcmbuff(av_pcmbuff * frm);
-void free_av_pcmbuff(av_pcmbuff * frm);
-void clone_av_pcmbuff(av_pcmbuff * dst, 
-					  const av_pcmbuff * src,
-					  int copy_pcmbuf);
+void free_av_pcmbuff   (av_pcmbuff * frm);
+void clone_av_pcmbuff  (av_pcmbuff * dst, 
+					    const av_pcmbuff * src,
+					    int copy_pcmbuf);
 
 //
 // picture data
@@ -97,34 +98,35 @@ typedef struct av_picture
 
     int display_width;
     int display_height;
-
+	int track;
+	
 } av_picture;
 
 void reset_av_picture    (av_picture * pic);
 void release_av_picture  (av_picture * pic);
+void free_av_picture     (av_picture * pic);
 void release_av_picturebf(av_picture * pic);
 
 av_picture * create_av_picture(int width,
 					 		   int height,
 					 		   int fourcc);
 
-int clone_av_picture(av_picture * dst, 
-					 const av_picture * src, 
-					 int height,
-					 int selfrelease);
+int clone_av_picture (av_picture * dst, 
+					  const av_picture * src, 
+					  int height,
+					  int selfrelease);
 int clone_av_picture2(av_picture * dst, 
 					  const av_picture * src, 
 					  int height,
 					  int selfrelease,
 					  unsigned int miscmask);
+int copy_av_picture  (av_picture * dst, 
+					  const av_picture * src, 
+					  int height);
+int black_av_picture (av_picture * pic);
 
-int copy_av_picture(av_picture * dst, 
-					const av_picture * src, 
-					int height);
-int black_av_picture(av_picture * pic);
 void attach_av_picture(av_picture * dst, 
 					   const av_picture * src);
-
 int extract_av_picture(av_picture * dst, 
 					   const av_picture * src,
 					   int top_field);
@@ -154,16 +156,18 @@ typedef struct av_frame_s
 
 	void * arg;
 	
+	int language;			/* frame language, add @ 2017/06/17 */
+	
 } av_frame_s;
 
-void reset_av_frame_s(av_frame_s * frm);
+void reset_av_frame_s  (av_frame_s * frm);
 void release_av_frame_s(av_frame_s * frm);
-void copy_av_frame_s(av_frame_s * dst, 
-					 const av_frame_s * src); // only copy value do NOT malloc buffer
-void clone_av_frame_s(av_frame_s * dst, 
-					  const av_frame_s * src,
-					  unsigned int bitspos,
-					  unsigned int extralen); // copy value and malloc buffer
+void copy_av_frame_s   (av_frame_s * dst, 
+					    const av_frame_s * src); // only copy value do NOT malloc buffer
+void clone_av_frame_s  (av_frame_s * dst, 
+					    const av_frame_s * src,
+					    unsigned int bitspos,
+					    unsigned int extralen); // copy value and malloc buffer
 
 //
 // av_package_s
