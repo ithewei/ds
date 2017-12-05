@@ -55,7 +55,7 @@ void HGLWidget::onStop(){
 #include <QDateTime>
 void HGLWidget::snapshot(){
     //test snapshot
-    DsSvrItem* item = g_dsCtx->getItem(srvid);
+    DsSrvItem* item = g_dsCtx->getSrvItem(srvid);
     if (item && item->tex_yuv.data){
         static const char* prefix = "/var/transcoder/snapshot/";
         QDir dir;
@@ -207,7 +207,7 @@ void HGLWidget::drawFps(){
 }
 
 void HGLWidget::drawVideo(){
-    DsSvrItem* item = g_dsCtx->getItem(srvid);
+    DsSrvItem* item = g_dsCtx->getSrvItem(srvid);
     if (item){
         if (item->tex_yuv.data && item->tex_yuv.width != 0 && item->tex_yuv.height != 0) 
             drawYUV(&item->tex_yuv);
@@ -216,7 +216,7 @@ void HGLWidget::drawVideo(){
 
 void HGLWidget::drawAudio(){
     // draw sound average
-    DsSvrItem* item = g_dsCtx->getItem(srvid);
+    DsSrvItem* item = g_dsCtx->getSrvItem(srvid);
     if (item){
         DrawInfo di;
         if (item->a_channels > 1){
@@ -272,7 +272,7 @@ void HGLWidget::drawIcon(){
 }
 
 void HGLWidget::drawTitle(){
-    DsSvrItem* item = g_dsCtx->getItem(srvid);
+    DsSrvItem* item = g_dsCtx->getSrvItem(srvid);
     if (item && item->title.length() > 0){
         DrawInfo di;
         di.left = 2;
@@ -283,7 +283,7 @@ void HGLWidget::drawTitle(){
 }
 
 void HGLWidget::drawTaskInfo(){
-    DsSvrItem* item = g_dsCtx->getItem(srvid);
+    DsSrvItem* item = g_dsCtx->getSrvItem(srvid);
     if (item){
         DrawInfo di;
         di.left = 0;
@@ -425,7 +425,7 @@ void HGeneralGLWidget::initConnect(){
 
 void HGeneralGLWidget::showTitlebar(bool bShow){
     if (bShow){
-        DsSvrItem* item = g_dsCtx->getItem(srvid);
+        DsSrvItem* item = g_dsCtx->getSrvItem(srvid);
 
 #if LAYOUT_TYPE_OUTPUT_AND_MV
         if (item){
@@ -434,7 +434,7 @@ void HGeneralGLWidget::showTitlebar(bool bShow){
 
         m_titlebar->m_btnMicphoneOpened->hide();
         m_titlebar->m_btnMicphoneClosed->hide();
-        HScreenItem* screen = g_dsCtx->getHScreenItem(srvid);
+        HScreenItem* screen = g_dsCtx->getScreenItem(srvid);
         if (m_status & PLAY_AUDIO){
             if (screen){
                 if (!screen->v && screen->a){
@@ -469,6 +469,12 @@ void HGeneralGLWidget::showTitlebar(bool bShow){
             m_titlebar->m_btnVoice->show();
         }
 #endif
+        if (item){
+            if (item->src_type == SRC_TYPE_LMIC){
+                m_titlebar->m_btnVoice->hide();
+                m_titlebar->m_btnMute->hide();
+            }
+        }
 
         m_titlebar->m_btnExitFullScreen->setVisible(m_bFullScreen);
         m_titlebar->m_btnFullScreen->setVisible(!m_bFullScreen);
@@ -490,7 +496,7 @@ void HGeneralGLWidget::showToolbar(bool bShow){
             m_toolbar->m_btnPause->hide();
         }
 
-        if (g_dsCtx->getItem(srvid)->src_type == SRC_TYPE_FILE){
+        if (g_dsCtx->getSrvItem(srvid)->src_type == SRC_TYPE_FILE){
             m_toolbar->m_slider->show();
         }else{
             m_toolbar->m_slider->hide();
@@ -511,9 +517,9 @@ bool HGeneralGLWidget::showToolWidgets(bool bShow){
     }
 
     showTitlebar(bShow);
-    DsSvrItem* item = g_dsCtx->getItem(srvid);
+    DsSrvItem* item = g_dsCtx->getSrvItem(srvid);
     if (item){
-        if (g_dsCtx->getItem(srvid)->src_type == SRC_TYPE_FILE){
+        if (g_dsCtx->getSrvItem(srvid)->src_type == SRC_TYPE_FILE){
             showToolbar(bShow);
         }
     }
@@ -522,7 +528,7 @@ bool HGeneralGLWidget::showToolWidgets(bool bShow){
 }
 
 void HGeneralGLWidget::onNumSelected(int num){
-    g_dsCtx->m_preselect[num-1] = srvid;
+    g_dsCtx->m_preselect[num-1] = OUTER_SRVID(srvid);
 }
 
 void HGeneralGLWidget::onNumCanceled(int num){
@@ -531,7 +537,7 @@ void HGeneralGLWidget::onNumCanceled(int num){
 
 void HGeneralGLWidget::showNumSelector(){
     for (int i = 0; i < MAX_NUM_ICON; ++i){
-        if (g_dsCtx->m_preselect[i] == srvid){
+        if (g_dsCtx->m_preselect[i] == OUTER_SRVID(srvid)){
             m_numSelector->m_numSelects[i]->hide();
             m_numSelector->m_numCancels[i]->show();
         }else{
@@ -546,7 +552,7 @@ void HGeneralGLWidget::showNumSelector(){
 }
 
 void HGeneralGLWidget::onProgressChanged(int progress){
-    DsSvrItem* item = g_dsCtx->getItem(srvid);
+    DsSrvItem* item = g_dsCtx->getSrvItem(srvid);
     if (item && item->ifcb){
         qDebug("srvid=%d progress=%d ifservice_callback::e_service_cb_playratio", srvid, progress);
         item->ifcb->onservice_callback(ifservice_callback::e_service_cb_playratio, libchar(), 0, 0, progress, NULL);
@@ -588,7 +594,7 @@ void HGeneralGLWidget::drawSelectNum(){
     di.left = 1;
     di.right = 48;
     for (int i = 0; i < MAX_NUM_ICON; ++i){
-        if (g_dsCtx->m_preselect[i] == srvid){
+        if (g_dsCtx->m_preselect[i] == OUTER_SRVID(srvid)){
             drawTex(&HRcLoader::instance()->tex_numr[i], &di);
             di.left += 48;
             di.right += 48;
@@ -625,7 +631,7 @@ void HGeneralGLWidget::paintGL(){
 
     if (!isResetStatus()){
 #if LAYOUT_TYPE_OUTPUT_AND_MV
-        HScreenItem* item = g_dsCtx->getHScreenItem(srvid);
+        HScreenItem* item = g_dsCtx->getScreenItem(srvid);
         if (item && item->a){
             drawSound();
         }
@@ -738,7 +744,7 @@ void HCombGLWidget::initConnect(){
 
 void HCombGLWidget::showTitlebar(bool bShow){
     if (bShow){
-        DsSvrItem* item = g_dsCtx->getItem(srvid);
+        DsSrvItem* item = g_dsCtx->getSrvItem(srvid);
         if (item){
             m_titlebar->m_label->setText(item->title.c_str());
         }
@@ -1192,7 +1198,7 @@ void HCombGLWidget::drawTaskInfo(){
     if (g_dsCtx->m_pFont){
         int oldSize = g_dsCtx->m_pFont->FaceSize();
         g_dsCtx->m_pFont->FaceSize(32);
-        separator sept(g_dsCtx->getItem(srvid)->taskinfo.c_str(), "\r\n");
+        separator sept(g_dsCtx->getSrvItem(srvid)->taskinfo.c_str(), "\r\n");
         di.top = 10;
         di.left = 10;
         di.color = g_dsCtx->m_tInit.infcolor;

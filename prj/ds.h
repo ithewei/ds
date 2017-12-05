@@ -3,12 +3,17 @@
 
 #include "ds_global.h"
 
-#define MediaTypeUnknown    0
-#define MediaTypeAudio      1
-#define MediaTypeVideo      2
+enum MediaType{
+    MediaTypeUnknown = 0,
+    MediaTypeAudio =   1,
+    MediaTypeVideo =   2,
+};
 
-#define SRC_TYPE_FILE       1
-#define SRC_TYPE_NET        2
+enum SrcType{
+    SRC_TYPE_NUKNOWN   = 0,
+    SRC_TYPE_FILE      = 1,
+    SRC_TYPE_LMIC      = 2,
+};
 
 extern "C" {
     DSSHARED_EXPORT int libversion(void);

@@ -121,7 +121,7 @@ struct DsScreenInfo{
 #include "qglwidgetimpl.h"
 #include "hringbuffer.h"
 #include "hffmpeg.h"
-struct DsSvrItem{
+struct DsSrvItem{
     bool bUsed;
     bool bPause;
     bool bVoice;
@@ -153,11 +153,13 @@ struct DsSvrItem{
     unsigned long tick;
     std::string taskinfo;
 
-    DsSvrItem(){
+    int pop_video_failed_cnt;
+
+    DsSrvItem(){
         init();
     }
 
-    ~DsSvrItem(){
+    ~DsSrvItem(){
         release();
     }
 
@@ -189,6 +191,8 @@ struct DsSvrItem{
         v_input = 0;
 
         ifcb = NULL;
+
+        pop_video_failed_cnt = 0;
     }
 
     void release(){
@@ -215,6 +219,9 @@ struct DsSvrItem{
 
     bool isAdjustRatio(double* ratio){
         // adjust ratio to decide show_w and show_h
+        if (pic_w == 0 || pic_h == 0 || wnd_w == 0 || wnd_h == 0)
+            return false;
+
         double pic_ratio = (double)pic_w / (double)pic_h;
         double wnd_ratio = (double)wnd_w / (double)wnd_h;
         if (qAbs(pic_ratio - wnd_ratio) > 0.5){

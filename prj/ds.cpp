@@ -45,7 +45,7 @@ DSSHARED_EXPORT int libinit(const char* xml, void* task, void** ctx){
         task_info_detail_s * tid = (task_info_detail_s *)ti->extra;
 
 #if LAYOUT_TYPE_ONLY_OUTPUT
-        DsSvrItem* item = g_dsCtx->getItem(1);
+        DsSrvItem* item = g_dsCtx->getSrvItem(1);
         if (item){
             item->ifcb = ti->ifcb;
         }
@@ -166,9 +166,9 @@ DSSHARED_EXPORT int liboper(int media_type, int data_type, int opt, void* param,
                     if (srvid == 1)
                         span = 1000;
                     unsigned long tick = (unsigned long)chsc_gettick();
-                    if (tick > g_dsCtx->getItem(srvid)->tick + span){
+                    if (tick > g_dsCtx->getSrvItem(srvid)->tick + span){
                         g_dsCtx->req_srvid = srvid;
-                        g_dsCtx->getItem(srvid)->tick = tick;
+                        g_dsCtx->getSrvItem(srvid)->tick = tick;
                         return 1;
                     }
                 }
@@ -189,7 +189,7 @@ DSSHARED_EXPORT int liboper(int media_type, int data_type, int opt, void* param,
             case SERVICE_OPT_SPACERTYPE:
                 qDebug("SERVICE_OPT_SPACERTYPE");
                 if (*(int *)param > 1){ // backup stream
-                    DsSvrItem* pItem = g_dsCtx->getItem(1);
+                    DsSrvItem* pItem = g_dsCtx->getSrvItem(1);
                     if (pItem && pItem->ifcb){
                         pItem->ifcb->onservice_callback(ifservice_callback::e_service_cb_stampcacu, libchar(), 0, 0, 1, NULL);
                     }
@@ -238,7 +238,7 @@ DSSHARED_EXPORT int liboper(int media_type, int data_type, int opt, void* param,
             if(srvid < 1 || srvid > DIRECTOR_MAX_SERVS)
                 return -2;
 
-            DsSvrItem* item = g_dsCtx->getItem(srvid);
+            DsSrvItem* item = g_dsCtx->getSrvItem(srvid);
 
             if(dsc->action == OOK_FOURCC('S', 'V', 'C', 'B')){
                 qInfo("srvid=%d OOK_FOURCC('S', 'V', 'C', 'B')", srvid);
@@ -302,13 +302,13 @@ DSSHARED_EXPORT int liboper(int media_type, int data_type, int opt, void* param,
         if (srvid < 1 || srvid > DIRECTOR_MAX_SERVS)
             return -5;
 
-        if (g_dsCtx->getItem(srvid)->v_input < 1){
+        if (g_dsCtx->getSrvItem(srvid)->v_input < 1){
             char c[5] = {0};
             memcpy(c, &pic->fourcc, 4);
             qInfo("pic[%d] type=%s w=%d h=%d", srvid, c, pic->width, pic->height);
         }
 
-        ++g_dsCtx->getItem(srvid)->v_input;
+        ++g_dsCtx->getSrvItem(srvid)->v_input;
         g_dsCtx->push_video(srvid, pic);
     }
         break;
@@ -334,11 +334,11 @@ DSSHARED_EXPORT int liboper(int media_type, int data_type, int opt, void* param,
         if (srvid < 1 || srvid > DIRECTOR_MAX_SERVS)
             return -5;
 
-        if (g_dsCtx->getItem(srvid)->a_input < 1){
+        if (g_dsCtx->getSrvItem(srvid)->a_input < 1){
             qInfo("pcm[%d] channel=%d, sample=%d len=%d", srvid, pcm->channels, pcm->samplerate, pcm->pcmlen);
         }
 
-        ++g_dsCtx->getItem(srvid)->a_input;
+        ++g_dsCtx->getSrvItem(srvid)->a_input;
         g_dsCtx->push_audio(srvid, pcm);
     }
         break;
