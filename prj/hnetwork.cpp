@@ -124,7 +124,7 @@ void HNetwork::postScreenInfo(DsScreenInfo& si){
         obj.insert("y", item.rc.y());
         obj.insert("w", item.rc.width());
         obj.insert("h", item.rc.height());
-        obj.insert("v", SRVID(item.srvid));
+        obj.insert("v", OUTER_SRVID(item.srvid));
         obj.insert("a", item.a ? 1 : 0);
         arr.append(obj);
     }
@@ -414,7 +414,7 @@ void HNetwork::onQueryVoiceReply(QNetworkReply *reply){
                 a = obj.value("a").toInt();
             }
 
-            DsSvrItem* pItem = g_dsCtx->getItem(srvid);
+            DsSrvItem* pItem = g_dsCtx->getSrvItem(srvid);
             if (pItem){
                 pItem->bVoice = a;
             }

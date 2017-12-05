@@ -139,8 +139,11 @@ HGLWidget* HMainWidget::getGLWdgByWndid(int wndid){
 }
 
 HGLWidget* HMainWidget::allocGLWdgForsrvid(int srvid){
+    HGLWidget* wdg = getGLWdgBysrvid(srvid);
+    if (wdg)
+        return wdg;
+
     int min_wndid = 10000;
-    HGLWidget* wdg = NULL;
     for (int i = 0; i < m_vecGLWdg.size(); ++i){
         if (m_vecGLWdg[i]->isResetStatus() && m_vecGLWdg[i]->isVisible() && m_vecGLWdg[i]->wndid < min_wndid){
             wdg = m_vecGLWdg[i];
@@ -298,7 +301,7 @@ void HMainWidget::mouseReleaseEvent(QMouseEvent *event){
 void HMainWidget::onTimerRepaint(){
     for (int i = 0; i < m_vecGLWdg.size(); ++i){
         HGLWidget* wdg = m_vecGLWdg[i];
-        DsSvrItem* item = g_dsCtx->getItem(wdg->srvid);
+        DsSrvItem* item = g_dsCtx->getSrvItem(wdg->srvid);
         if (item){
             if (!wdg->isResetStatus() ){
                 if (g_dsCtx->pop_video(wdg->srvid) == 0)
@@ -348,7 +351,6 @@ void HMainWidget::onvideoPushed(int srvid, bool bFirstFrame){
 void HMainWidget::onAudioPushed(int srvid){
     HGLWidget* wdg = getGLWdgBysrvid(srvid);
     if (wdg == NULL){
-        onRequestShow(srvid);
         return;
     }
 
@@ -399,7 +401,7 @@ void HMainWidget::onFullScreen(bool  bFullScreen){
         pSender->setWindowFlags(Qt::Window);
         pSender->showFullScreen();
 
-        DsSvrItem* pItem = g_dsCtx->getItem(pSender->srvid);
+        DsSrvItem* pItem = g_dsCtx->getSrvItem(pSender->srvid);
         if (pItem && g_dsCtx->m_tInit.fps != pItem->framerate){
             timer_repaint.stop();
             timer_repaint.start(1000/pItem->framerate);
@@ -409,7 +411,7 @@ void HMainWidget::onFullScreen(bool  bFullScreen){
         pSender->setGeometry(m_rcSavedGeometry);
         pSender->showNormal();
 
-        DsSvrItem* pItem = g_dsCtx->getItem(pSender->srvid);
+        DsSrvItem* pItem = g_dsCtx->getSrvItem(pSender->srvid);
         if (pItem && g_dsCtx->m_tInit.fps != pItem->framerate){
             timer_repaint.stop();
             timer_repaint.start(1000/g_dsCtx->m_tInit.fps);

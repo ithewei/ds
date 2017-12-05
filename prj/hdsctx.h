@@ -2,6 +2,7 @@
 #define HDSCONTEXT_H
 
 #include <QObject>
+#include "ds.h"
 #include "ds_def.h"
 #include "ds_global.h"
 #include "haudioplay.h"
@@ -28,9 +29,9 @@ public:
 
     void start_gui_thread();
 
-    HScreenItem* getHScreenItem(int srvid);
+    HScreenItem* getScreenItem(int srvid);
 
-    DsSvrItem* getItem(int srvid){
+    DsSrvItem* getSrvItem(int srvid){
         if (srvid < 1 || srvid > DIRECTOR_MAX_SERVS)
             return NULL;
         return &m_tItems[srvid-1];
@@ -58,8 +59,10 @@ public:
 
     int allocLmicid(int lmicid){
         for (int i = DIRECTOR_LMICID_BEGIN; i <= DIRECTOR_LMICID_END; ++i){
-            if (!getItem(i)->bUsed){
-                getItem(i)->bUsed = true;
+            DsSrvItem* item = getSrvItem(i);
+            if (!item->bUsed){
+                item->bUsed = true;
+                item->src_type = SRC_TYPE_LMIC;
                 m_mapLmic2Srvid[lmicid] = i;
                 return i;
             }
@@ -87,13 +90,13 @@ public:
     }
 
     void setTitle(int srvid, const char* title){
-        DsSvrItem* item = getItem(srvid);
+        DsSrvItem* item = getSrvItem(srvid);
         if (item){
             item->title = title;
         }
     }
     void stop(int srvid){
-        DsSvrItem* item = getItem(srvid);
+        DsSrvItem* item = getSrvItem(srvid);
         if (item){
             item->release();
             item->init();
@@ -118,14 +121,14 @@ public:
     void onWndSizeChanged(int srvid, QSize sz);
 
     void onWndVisibleChanged(int srvid, bool bShow){
-        DsSvrItem* pItem = getItem(srvid);
+        DsSrvItem* pItem = getSrvItem(srvid);
         if (pItem){
             pItem->bShow = bShow;
         }
     }
 
     void onRequestShowSucceed(int srvid, QSize sz){
-        DsSvrItem* pItem = getItem(srvid);
+        DsSrvItem* pItem = getSrvItem(srvid);
         if (pItem){
             pItem->bShow = true;
             onWndSizeChanged(srvid, sz);
@@ -158,7 +161,7 @@ public:
     FTGLPixmapFont* m_pFont;
     HAudioPlay* m_audioPlay;
 
-    DsSvrItem m_tItems[DIRECTOR_MAX_SERVS];
+    DsSrvItem m_tItems[DIRECTOR_MAX_SERVS];
     QMap<int ,int> m_mapLmic2Srvid;
 
     int req_srvid;
@@ -175,11 +178,17 @@ inline bool isLmic(int srvid){
     return false;
 }
 
-inline int SRVID(int srvid){
+inline int OUTER_SRVID(int srvid){
     if (isLmic(srvid)){
         return g_dsCtx->srvid2lmicid(srvid);
     }
     return srvid;
+}
+
+inline int INNER_SRVID(int srvid){
+    if (srvid > 0 && srvid <= DIRECTOR_MAX_SERVS)
+        return srvid;
+    return g_dsCtx->lmicid2srvid(srvid);
 }
 
 #endif // HDSCONTEXT_H

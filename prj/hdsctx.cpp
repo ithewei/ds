@@ -5,7 +5,6 @@
 
 HDsContext* g_dsCtx = NULL;
 HMainWidget* g_mainWdg = NULL;
-const char* url_handle_event = "http://127.0.0.1/transcoder/index.php?controller=channels&action=srcchange";
 
 #include <QDateTime>
 void myLogHandler(QtMsgType type, const QMessageLogContext & ctx, const QString & msg){
@@ -463,6 +462,17 @@ int HDsContext::parse_comb_xml(const char* xml){
         if (w < 0 || h < 0)
             continue;
 
+        if (u == 0){
+            int pos = src.indexOf("lmic://");
+            if (pos != -1){
+                QRegExp re("(\\d+)");
+                if (re.indexIn(src.mid(pos+strlen("lmic://"))) != -1){
+                    u = re.cap(1).toInt();
+                    qDebug("lmic://%d", u);
+                }
+            }
+        }
+
         if (a && !bV)
             ci.micphone = u; // record micphone
 
@@ -814,10 +824,10 @@ int HDsContext::parse_taskinfo_xml(const char* xml){
     }
 
     if (req_srvid == 1)
-        g_dsCtx->getItem(req_srvid)->taskinfo = s_cont;
+        g_dsCtx->getSrvItem(req_srvid)->taskinfo = s_cont;
     else{
         QString str = QString::asprintf("%s 码率:%dkps", inputchar.c_str(), inputpkgs[0]);
-        g_dsCtx->getItem(req_srvid)->taskinfo = str.toLocal8Bit().data();
+        g_dsCtx->getSrvItem(req_srvid)->taskinfo = str.toLocal8Bit().data();
     }
 
     return 0;
@@ -843,7 +853,7 @@ int HDsContext::push_video(int srvid, const av_picture* pic){
     if (action < 1)
         return -1;
 
-    DsSvrItem* item = getItem(srvid);
+    DsSrvItem* item = getSrvItem(srvid);
     if (!item)
         return -2;
 
@@ -918,7 +928,7 @@ int HDsContext::push_video(int srvid, const av_picture* pic){
 }
 
 void HDsContext::onWndSizeChanged(int srvid, QSize sz){
-    DsSvrItem* pItem = getItem(srvid);
+    DsSrvItem* pItem = getSrvItem(srvid);
     if (pItem){
         pItem->mutex.lock();
         pItem->wnd_w = sz.width();
@@ -956,31 +966,30 @@ int HDsContext::pop_video(int srvid){
     if (action < 1)
         return -1;
 
-    DsSvrItem* item = getItem(srvid);
+    DsSrvItem* item = getSrvItem(srvid);
     if (!item)
         return -2;
 
     if (item->bPause)
         return -3;
 
-    if (!item->canShow()){
-        return -3;
-    }
-
     if (!item->video_buffer)
         return -4;
 
-
-    if (!item->tex_yuv.data)
+    if (!item->canShow() || !item->tex_yuv.data){
+        emit requestShow(srvid);
         return -5;
+    }
 
     int retcode = -6;
     item->mutex.lock();
     char* ptr = item->video_buffer->read();
-//    if (!ptr){
-//        qDebug("read to fast");
-//    }
-    if (ptr){
+    if (!ptr){
+        qDebug("read to fast");
+        if (++item->pop_video_failed_cnt > 3*m_tInit.fps)
+            stop(srvid);
+    }else{
+        item->pop_video_failed_cnt = 0;
         if (item->pic_w == item->tex_yuv.width && item->pic_h == item->tex_yuv.height){
             memcpy(item->tex_yuv.data, ptr, item->pic_w*item->pic_h*3/2);
         }else{
@@ -1014,7 +1023,7 @@ int HDsContext::push_audio(int srvid, const av_pcmbuff* pcm){
     if (action < 1 || m_tInit.audio < 1)
         return -1;
 
-    DsSvrItem* item = getItem(srvid);
+    DsSrvItem* item = getSrvItem(srvid);
     if (!item)
         return -2;
 
@@ -1057,10 +1066,10 @@ int HDsContext::push_audio(int srvid, const av_pcmbuff* pcm){
     return 0;
 }
 
-HScreenItem* HDsContext::getHScreenItem(int srvid){
+HScreenItem* HDsContext::getScreenItem(int srvid){
     HScreenItem* item = NULL;
     for (int i = 0; i < m_tComb.itemCnt; ++i){
-        if (m_tComb.items[i].srvid == srvid){
+        if (INNER_SRVID(m_tComb.items[i].srvid) == srvid){
             item = & m_tComb.items[i];
             break;
         }
@@ -1070,7 +1079,7 @@ HScreenItem* HDsContext::getHScreenItem(int srvid){
 }
 
 void HDsContext::pause(int srvid, bool bPause){
-    DsSvrItem* item = getItem(srvid);
+    DsSrvItem* item = getSrvItem(srvid);
     if (item && item->ifcb){
         qInfo("srvid=%d ifservice_callback::e_service_cb_pause", srvid);
         //item->bPause = true;
