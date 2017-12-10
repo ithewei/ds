@@ -6,22 +6,22 @@ const char* dir_trans = "/var/www/transcoder/";
 HNetwork* HNetwork::s_pNetwork = NULL;
 
 void HNetwork::confUrl(){
-    url_post_combinfo = "http://localhost/transcoder/index.php?controller=channels&action=Dragsave";
-    url_micphone = "http://localhost/transcoder/index.php?controller=channels&action=voiceover";
-    url_voice = "http://localhost/transcoder/index.php?controller=channels&action=voiceinfo";
-
 #if LAYOUT_TYPE_ONLY_OUTPUT
     url_query_overlay = "http://localhost:3001/api/v1/interface/get";
     url_add_overlay = "http://localhost:3001/api/v1/interface/add";
     url_remove_overlay = "http://localhost:3001/api/v1/interface/delete";
     url_modify_overlay = "http://localhost:3001/api/v1/interface/update";
 #else
-    QString appname = "transcoder";
+    appname = "transcoder";
     QFile file("/var/www/appname.txt");
     if (file.open(QIODevice::ReadOnly)){
         appname = file.readAll();
         qDebug("web appname = %d", appname.toLocal8Bit().data());
     }
+    url_post_combinfo = "http://localhost/" + appname + "/index.php?controller=channels&action=Dragsave";
+    url_micphone = "http://localhost/" + appname + "/index.php?controller=channels&action=voiceover";
+    url_voice = "http://localhost/" + appname + "/index.php?controller=channels&action=voiceinfo";
+
     url_query_overlay = "http://localhost/" + appname + "/index.php?controller=logo&action=allinfo";
     url_add_overlay = "http://localhost/" + appname + "/index.php?controller=logo&action=logoadd";
     url_remove_overlay = "http://localhost/" + appname + "/index.php?controller=logo&action=ddelete";
@@ -132,8 +132,12 @@ void HNetwork::postScreenInfo(DsScreenInfo& si){
     doc.setArray(arr);
     QByteArray bytes = doc.toJson();
     qDebug(bytes.constData());
+    qDebug(url_post_combinfo.url().toLocal8Bit().data());
 
-    m_nam_post_screeninfo->post(QNetworkRequest(QUrl(url_post_combinfo)), bytes);
+    QNetworkRequest req;
+    req.setUrl(QUrl(url_post_combinfo));
+    req.setHeader(QNetworkRequest::ContentTypeHeader, "text/plain;charset=UTF-8");
+    m_nam_post_screeninfo->post(req, bytes);
 }
 
 void HNetwork::queryOverlayInfo(){
@@ -328,7 +332,7 @@ void HNetwork::modifyPicture(HPictureItem& item){
     QNetworkRequest req;
     req.setUrl(QUrl(url_modify_overlay));
     req.setHeader(QNetworkRequest::ContentTypeHeader, "text/plain;charset=UTF-8");
-    m_nam_add_overlay->post(req, bytes);
+    m_nam_modify_overlay->post(req, bytes);
 }
 
 void HNetwork::modifyText(HTextItem& item){
@@ -351,7 +355,7 @@ void HNetwork::modifyText(HTextItem& item){
     QNetworkRequest req;
     req.setUrl(QUrl(url_modify_overlay));
     req.setHeader(QNetworkRequest::ContentTypeHeader, "text/plain;charset=UTF-8");
-    m_nam_add_overlay->post(req, bytes);
+    m_nam_modify_overlay->post(req, bytes);
 }
 
 void HNetwork::removePicture(HPictureItem& item){
@@ -367,7 +371,7 @@ void HNetwork::removePicture(HPictureItem& item){
     QNetworkRequest req;
     req.setUrl(QUrl(url_remove_overlay));
     req.setHeader(QNetworkRequest::ContentTypeHeader, "text/plain;charset=UTF-8");
-    m_nam_add_overlay->post(req, bytes);
+    m_nam_remove_overlay->post(req, bytes);
 }
 
 void HNetwork::removeText(HTextItem& item){
@@ -383,7 +387,7 @@ void HNetwork::removeText(HTextItem& item){
     QNetworkRequest req;
     req.setUrl(QUrl(url_remove_overlay));
     req.setHeader(QNetworkRequest::ContentTypeHeader, "text/plain;charset=UTF-8");
-    m_nam_add_overlay->post(req, bytes);
+    m_nam_remove_overlay->post(req, bytes);
 }
 
 void HNetwork::setMicphone(int srvid){
@@ -392,7 +396,7 @@ void HNetwork::setMicphone(int srvid){
     QNetworkRequest req;
     req.setUrl(QUrl(url_micphone));
     req.setHeader(QNetworkRequest::ContentTypeHeader, "text/plain;charset=UTF-8");
-    m_nam_add_overlay->post(req, json.toUtf8());
+    m_nam_micphone->post(req, json.toUtf8());
 }
 
 void HNetwork::queryVoice(){
@@ -400,7 +404,9 @@ void HNetwork::queryVoice(){
 }
 
 void HNetwork::onQueryVoiceReply(QNetworkReply *reply){
-    QJsonDocument doc = QJsonDocument::fromJson(reply->readAll());
+    QByteArray bytes = reply->readAll();
+    qDebug(bytes.data());
+    QJsonDocument doc = QJsonDocument::fromJson(bytes);
     if (doc.isArray()){
         QJsonArray arr = doc.array();
         for (int i = 0; i < arr.size(); ++i){
@@ -430,6 +436,6 @@ void HNetwork::setVoice(int srvid, int a){
     QNetworkRequest req;
     req.setUrl(QUrl(url_voice));
     req.setHeader(QNetworkRequest::ContentTypeHeader, "text/plain;charset=UTF-8");
-    m_nam_add_overlay->post(req, json.toUtf8());
+    m_nam_voice->post(req, json.toUtf8());
 }
 

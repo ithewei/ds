@@ -15,10 +15,10 @@ void HEffectWidget::initUI(){
 
     QSize sz(96,96);
 
-    m_btnMosaic = genPushButton(sz, HRcLoader::instance()->icon_mosaic);
+    m_btnMosaic = genPushButton(sz, HRcLoader::instance()->get(RC_MOSAIC));
     hbox->addWidget(m_btnMosaic);
 
-    m_btnBlur = genPushButton(sz, HRcLoader::instance()->icon_blur);
+    m_btnBlur = genPushButton(sz, HRcLoader::instance()->get(RC_BLUR));
     hbox->addWidget(m_btnBlur);
 
     setLayout(hbox);

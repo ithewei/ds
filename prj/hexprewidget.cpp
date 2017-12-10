@@ -91,20 +91,12 @@ void HExportWidget::initUI(){
     QHBoxLayout* hbox_okcancel = new QHBoxLayout;
     //QPushButton* btnAccept = new QPushButton("确认");
     QSize sz(64,64);
-    QPushButton* btnAccept = new QPushButton;
-    btnAccept->setFixedSize(sz);
-    btnAccept->setIconSize(sz);
-    btnAccept->setIcon(HRcLoader::instance()->icon_ok);
-    btnAccept->setFlat(true);
+    QPushButton* btnAccept = genPushButton(sz, HRcLoader::instance()->get(RC_OK));
     QObject::connect( btnAccept, SIGNAL(clicked(bool)), this, SLOT(accept()) );
     hbox_okcancel->addWidget(btnAccept);
 
     //QPushButton* btnReject = new QPushButton("取消");
-    QPushButton* btnReject = new QPushButton;
-    btnReject->setFixedSize(sz);
-    btnReject->setIconSize(sz);
-    btnReject->setIcon(HRcLoader::instance()->icon_close);
-    btnReject->setFlat(true);
+    QPushButton* btnReject = genPushButton(sz, HRcLoader::instance()->get(RC_CLOSE));
     QObject::connect( btnReject, SIGNAL(clicked(bool)), this, SLOT(reject()) );
     hbox_okcancel->addWidget(btnReject);
     vbox->addLayout(hbox_okcancel);
@@ -168,7 +160,7 @@ void HExpreWidget::initList(QListWidget* list, QString filepath){
     list->setSpacing(5);
     list->setFixedWidth(EXPRE_WIDTH-2);
 
-    QListWidgetItem* item = genListWidgetItem(HRcLoader::instance()->icon_add);
+    QListWidgetItem* item = genListWidgetItem(HRcLoader::instance()->get(RC_ADD));
     item->setData(ACTION, ADD_MODE);
     list->addItem(item);
 
@@ -182,7 +174,7 @@ void HExpreWidget::initList(QListWidget* list, QString filepath){
     }
 
     if (bHave){
-        QListWidgetItem* item = genListWidgetItem(HRcLoader::instance()->icon_sub);
+        QListWidgetItem* item = genListWidgetItem(HRcLoader::instance()->get(RC_SUB));
         item->setData(ACTION, REMOVE_MODE);
         list->addItem(item);
     }
@@ -393,11 +385,11 @@ void HExpreWidget::initUI(){
     hbox->addStretch();
 
     QSize sz(CATEGORY_HEIGHT,CATEGORY_HEIGHT);
-    m_btnMkdir = genPushButton(sz, HRcLoader::instance()->icon_mkdir);
+    m_btnMkdir = genPushButton(sz, HRcLoader::instance()->get(RC_MKDIR));
     m_btnMkdir->hide();
     hbox->addWidget(m_btnMkdir);
 
-    m_btnRmdir = genPushButton(sz, HRcLoader::instance()->icon_rmdir);
+    m_btnRmdir = genPushButton(sz, HRcLoader::instance()->get(RC_RMDIR));
     m_btnRmdir->hide();
     hbox->addWidget(m_btnRmdir);
 

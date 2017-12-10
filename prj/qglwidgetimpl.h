@@ -46,18 +46,21 @@ struct Texture{
         }
     }
 
-    void alloc(int w, int h, int type = GL_I420){
+    bool alloc(int w, int h, int type = GL_I420){
         if (w == 0 || h == 0)
-            return;
+            return false;
 
-        if (data && width == w && height == h)
-            return;
+        int stdw = w >> 3 << 3;
+        int stdh = h >> 1 << 1;
+        if (data && width == stdw && height == stdh)
+            return true;
 
         release();
-        width = w;
-        height = h;
+        width = stdw;
+        height = stdh;
         type = GL_I420;
         data = (unsigned char *)malloc(width * height * 3 / 2);
+        return data != NULL;
     }
 };
 

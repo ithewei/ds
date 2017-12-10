@@ -60,8 +60,12 @@ public:
     std::vector<HPictureItem> m_vecPictures;
     std::vector<HTextItem> m_vecTexts;
 
+public:
+    QString appname;
+
 private:
     static HNetwork* s_pNetwork;
+
     QNetworkAccessManager* m_nam_post_screeninfo;
     QNetworkAccessManager* m_nam_add_overlay;
     QNetworkAccessManager* m_nam_query_overlay;

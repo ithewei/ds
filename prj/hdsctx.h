@@ -2,6 +2,7 @@
 #define HDSCONTEXT_H
 
 #include <QObject>
+#include "ds_version.h"
 #include "ds.h"
 #include "ds_def.h"
 #include "ds_global.h"

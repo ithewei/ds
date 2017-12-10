@@ -4,7 +4,6 @@
 #include "qtheaders.h"
 #include "hmaintoolbar.h"
 #include "hglwidget.h"
-#include "ds_global.h"
 #include "hdsctx.h"
 #include "hlayout.h"
 
