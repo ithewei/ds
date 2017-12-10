@@ -30,9 +30,13 @@ struct DsInitInfo{
     unsigned int audiocolor_fg_high;
 
     int debug;
+    int mouse;
     int autolayout;
+    int maxnum_layout;
     int row;
     int col;
+    int merge[2];
+    int output;
 
     int audio;
     int display_mode;
@@ -44,6 +48,15 @@ struct DsInitInfo{
     int drawfps;
     int drawnum;
     int drawaudio;
+    int drawoutline;
+
+    int spacing;
+    int titlebar_height;
+    int toolbar_height;
+    int output_titlebar_height;
+    int output_toolbar_height;
+
+    int show_wndid;
 
     DsInitInfo(){
         infcolor = 0x00FF00FF;
@@ -57,8 +70,12 @@ struct DsInitInfo{
 
         debug = 0;
         autolayout = 0;
+        maxnum_layout = 0;
         row = 0;
         col = 0;
+        merge[0] = 0;
+        merge[1] = 0;
+        output = 0;
 
         audio = 1;
         display_mode = DISPLAY_MODE_TIMER;
@@ -70,6 +87,15 @@ struct DsInitInfo{
         drawfps = 0;
         drawnum = 1;
         drawaudio = 1;
+        drawoutline = 1;
+
+        spacing = 20;
+        titlebar_height = 48;
+        toolbar_height = 64;
+        output_titlebar_height = 64;
+        output_toolbar_height = 64;
+
+        show_wndid = 0;
     }
 };
 
@@ -78,16 +104,11 @@ struct DsLayoutInfo{
     int height;
     QRect items[MAXNUM_LAYOUT];
     int itemCnt;
-    int combW;
-    int combH;
 
     DsLayoutInfo(){
         width = 0;
         height = 0;
         itemCnt = 0;
-
-        combW = 0;
-        combH = 0;
     }
 };
 
@@ -139,6 +160,7 @@ struct DsSrvItem{
     int show_h;
     HRingBuffer* video_buffer;
     QMutex  mutex;
+    bool bNeedReallocTexture;
     Texture tex_yuv;
     SwsContext* pSwsCtx; // for scale
 
@@ -175,6 +197,7 @@ struct DsSrvItem{
         show_w = 0;
         show_h = 0;
         framerate = 0;
+        bNeedReallocTexture = false;
 
         title.clear();
         video_buffer = NULL;
@@ -245,8 +268,8 @@ struct DsSrvItem{
 
     bool isAdjustScale(int* w, int* h){
         if (pic_w > 2*show_w || pic_h > 2*show_h){
-            *w = show_w >> 2 << 2;
-            *h = show_h;
+            *w = show_w >> 3 << 3;
+            *h = show_h >> 1 << 1;
             return true;
         }
 

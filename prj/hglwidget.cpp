@@ -1,10 +1,6 @@
-#include "ds_global.h"
 #include "hglwidget.h"
 #include "hdsctx.h"
 #include "hrcloader.h"
-#include <QTimer>
-#include "hmainwidget.h"
-#include "ds.h"
 
 HGLWidget::HGLWidget(QWidget *parent)
     : QGLWidgetImpl(parent)
@@ -24,9 +20,8 @@ HGLWidget::HGLWidget(QWidget *parent)
     m_snapshot->setStyleSheet("border:5px double #ADFF2F");
     m_snapshot->hide();
 
-#if OPERATION_TYPE_MOUSE
-    setMouseTracking(true);
-#endif
+    if (g_dsCtx->m_tInit.mouse)
+        setMouseTracking(true);
 }
 
 HGLWidget::~HGLWidget(){
@@ -107,21 +102,21 @@ void HGLWidget::mouseReleaseEvent(QMouseEvent* event){
 
 void HGLWidget::mouseMoveEvent(QMouseEvent* e){
     // add delay to prevent misopration
-#if OPERATION_TYPE_TOUCH
-    if ((e->timestamp() - m_tmMousePressed < 100)){
-        e->accept();
-        return;
+    if (!g_dsCtx->m_tInit.mouse){
+        if ((e->timestamp() - m_tmMousePressed < 100)){
+            e->accept();
+            return;
+        }
     }
-#endif
 
     e->ignore();
 }
 
 void HGLWidget::mouseDoubleClickEvent(QMouseEvent* e){
-#if OPERATION_TYPE_MOUSE
-    m_bFullScreen = !m_bFullScreen;
-    emit fullScreen(m_bFullScreen);
-#endif
+    if (g_dsCtx->m_tInit.mouse){
+        m_bFullScreen = !m_bFullScreen;
+        emit fullScreen(m_bFullScreen);
+    }
 }
 
 void HGLWidget::resizeEvent(QResizeEvent* e){    
@@ -145,15 +140,13 @@ void HGLWidget::hideEvent(QHideEvent* e){
 }
 
 void HGLWidget::enterEvent(QEvent* e){    
-#if OPERATION_TYPE_MOUSE
-    showToolWidgets(true);
-#endif
+    if (g_dsCtx->m_tInit.mouse)
+        showToolWidgets(true);
 }
 
-void HGLWidget::leaveEvent(QEvent* e){    
-#if OPERATION_TYPE_MOUSE
-    showToolWidgets(false);
-#endif
+void HGLWidget::leaveEvent(QEvent* e){
+    if (g_dsCtx->m_tInit.mouse)
+        showToolWidgets(false);
 }
 
 void HGLWidget::addIcon(int type, int x, int y, int w, int h){
@@ -362,7 +355,9 @@ void HGLWidget::paintGL(){
         break;
     }
 
-    drawOutline();
+    if (g_dsCtx->m_tInit.drawoutline){
+        drawOutline();
+    }
 }
 
 //<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
@@ -382,14 +377,12 @@ void HGeneralGLWidget::initUI(){
     vbox->setMargin(2);
 
     m_titlebar = new HTitlebarWidget;
-    m_titlebar->setFixedHeight(TITLE_BAR_HEIGHT);
     m_titlebar->hide();
     vbox->addWidget(m_titlebar);
 
     vbox->addStretch();
 
     m_toolbar = new HToolbarWidget;
-    m_toolbar->setFixedHeight(TOOL_BAR_HEIGHT);
     m_toolbar->hide();
     vbox->addWidget(m_toolbar);
 
@@ -427,11 +420,16 @@ void HGeneralGLWidget::showTitlebar(bool bShow){
     if (bShow){
         DsSrvItem* item = g_dsCtx->getSrvItem(srvid);
 
-#if LAYOUT_TYPE_OUTPUT_AND_MV
         if (item){
-            m_titlebar->m_label->setText(item->title.c_str());
+            if (g_dsCtx->m_tInit.show_wndid){
+                QString title = QString::asprintf("%02d %s", wndid, item->title.c_str());
+                m_titlebar->m_label->setText(title);
+            }else{
+                m_titlebar->m_label->setText(item->title.c_str());
+            }
         }
 
+#if LAYOUT_TYPE_OUTPUT_AND_MV
         m_titlebar->m_btnMicphoneOpened->hide();
         m_titlebar->m_btnMicphoneClosed->hide();
         HScreenItem* screen = g_dsCtx->getScreenItem(srvid);
@@ -457,11 +455,6 @@ void HGeneralGLWidget::showTitlebar(bool bShow){
 #endif
 
 #if LAYOUT_TYPE_ONLY_MV
-        if (item){
-            QString title = QString::asprintf("%02d %s", wndid, item->title.c_str());
-            m_titlebar->m_label->setText(title);
-        }
-
         m_titlebar->m_btnVoice->hide();
         m_titlebar->m_btnMute->show();
         if (g_dsCtx->m_playaudio_srvid == srvid){
@@ -681,7 +674,6 @@ void HCombGLWidget::initUI(){
     vbox->setSpacing(1);
 
     m_titlebar = new HCombTitlebarWidget;
-    m_titlebar->setFixedHeight(TOOL_BAR_HEIGHT);
     m_titlebar->hide();
     vbox->addWidget(m_titlebar);
 
@@ -695,14 +687,13 @@ void HCombGLWidget::initUI(){
     vbox->addStretch();
 
     m_toolbar = new HCombToolbarWidget;
-    m_toolbar->setFixedHeight(TOOL_BAR_HEIGHT);
     m_toolbar->hide();
     vbox->addWidget(m_toolbar);
 
     setLayout(vbox);
 
     m_wdgTrash = new HChangeColorWidget(this);
-    m_wdgTrash->setPixmap(HRcLoader::instance()->icon_trash_big);
+    m_wdgTrash->setPixmap(HRcLoader::instance()->get(RC_TRASH_BIG));
     m_wdgTrash->hide();
 
     m_wdgExpre = new HExpreWidget(this);
@@ -1016,12 +1007,14 @@ void HCombGLWidget::onZoomOut(){
             }
         }else{
             QPoint ptCenter = rc.center();
+            if (rc.width() <= 32 && rc.height() <= 32)
+                return;
             int w = rc.width() * 0.9;
             int h = rc.height() * 0.9;
-            if (w < 2)
-                w = 2;
-            if (h < 2)
-                h = 2;
+            if (w < 32)
+                w = 32;
+            if (h < 32)
+                h = 32;
             QRect rcDst = adjustPos(QRect(ptCenter.x() - w/2, ptCenter.y() - h/2, w, h ));
             m_target->wdg->setGeometry(rcDst);
         }
@@ -1131,9 +1124,9 @@ void HCombGLWidget::onEffectSelected(HPictureItem item){
     m_virtualTarget->attachWidget(m_targetWdg);
 
     if (pItem->pic_type == HPictureItem::MOSAIC){
-        m_virtualTarget->wdg->setPixmap(HRcLoader::instance()->icon_mosaic);
+        m_virtualTarget->wdg->setPixmap(HRcLoader::instance()->get(RC_MOSAIC));
     }else if (pItem->pic_type == HPictureItem::BLUR){
-         m_virtualTarget->wdg->setPixmap(HRcLoader::instance()->icon_blur);
+         m_virtualTarget->wdg->setPixmap(HRcLoader::instance()->get(RC_BLUR));
     }
 
     int w = EXPRE_MAX_WIDTH;
@@ -1219,7 +1212,8 @@ void HCombGLWidget::drawScreenInfo(){
         di.bottom = rc.bottom() - 1;
         di.top = di.bottom - 48 + 1;
         di.right = di.left + 48 - 1;
-        drawTex(&HRcLoader::instance()->tex_numr[i], &di);
+        if (i < MAX_NUM_ICON)
+            drawTex(&HRcLoader::instance()->tex_numr[i], &di);
 
         // draw comb outline
         di.left = rc.left();

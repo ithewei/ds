@@ -2,16 +2,12 @@
 #define HGLWIDGET_H
 
 #include "qglwidgetimpl.h"
-#include "ds_global.h"
 #include "hdsctx.h"
 #include "htitlebarwidget.h"
 #include "htoolbarwidget.h"
 #include "hnumselectwidget.h"
 #include "hnetwork.h"
 #include <QElapsedTimer>
-
-#define TITLE_BAR_HEIGHT    50
-#define TOOL_BAR_HEIGHT     66
 
 #define AUDIO_WIDTH         16
 #define AUDIO_HEIGHT        160

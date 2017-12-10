@@ -1,7 +1,6 @@
 #include "hdsctx.h"
 #include "hrcloader.h"
 #include "hmainwidget.h"
-#include "ds.h"
 
 HDsContext* g_dsCtx = NULL;
 HMainWidget* g_mainWdg = NULL;
@@ -32,7 +31,8 @@ void myLogHandler(QtMsgType type, const QMessageLogContext & ctx, const QString 
                                        msg.toUtf8().data(),
                                        ctx.file,ctx.line,ctx.function);
 
-    QString strLogFilePath = QCoreApplication::applicationDirPath() + "/ds.log";
+    //QString strLogFilePath = QCoreApplication::applicationDirPath() + "/ds.log";
+    QString strLogFilePath = "/opt/anystreaming/transcoder/ds.log";
 
     FILE* fp = fopen(strLogFilePath.toLocal8Bit().data(), "a");
     if (fp){
@@ -254,27 +254,34 @@ int HDsContext::parse_layout_xml(const char* xml_file){
     QDomElement elem_head = elem_layout.firstChildElement("head");
     if (elem_head.isNull())
         return -3;
-    QDomElement elem_body = elem_layout.firstChildElement("body");
-    if (elem_body.isNull())
-        return -4;
 
     QDomElement elem_param = elem_head.firstChildElement("param");
     while (!elem_param.isNull()) {
         QString n = elem_param.attribute("n");
         QString v = elem_param.attribute("v");
-        if (n == "debug"){
+        if (n == "debug")
             m_tInit.debug = v.toInt();
-        }else if (n == "autolayout"){
+        else if (n == "mouse")
+            m_tInit.mouse = v.toInt();
+        else if (n == "autolayout")
             m_tInit.autolayout = v.toInt();
-        }else if (n == "row"){
+        else if (n == "row")
             m_tInit.row = v.toInt();
-        }else if (n == "col"){
+        else if (n == "col")
             m_tInit.col = v.toInt();
-        }else if(n == "width"){
-            m_tLayout.width     = v.toInt();
-        }else if(n == "height"){
-            m_tLayout.height    = v.toInt();
-        }else if (n == "audio"){
+        else if (n == "maxnum_layout")
+            m_tInit.maxnum_layout = v.toInt();
+        else if (n == "output")
+            m_tInit.output = v.toInt();
+        else if (n == "merge"){
+            QRegExp re("(\\d+)-(\\d+)");
+            if (re.indexIn(v) != -1){
+                m_tInit.merge[0] = re.cap(1).toInt();
+                m_tInit.merge[1] = re.cap(2).toInt();
+                qDebug("merge: %d-%d", m_tInit.merge[0], m_tInit.merge[1]);
+            }
+        }
+        else if (n == "audio"){
             m_tInit.audio = v.toInt();
         }else if(n == "fps"){
             m_tInit.fps = v.toInt();
@@ -292,6 +299,8 @@ int HDsContext::parse_layout_xml(const char* xml_file){
             m_tInit.drawaudio = v.toInt();
         }else if(n == "drawinfo")
             m_tInit.drawinfo = v.toInt();
+        else if (n == "drawoutline")
+            m_tInit.drawoutline = v.toInt();
         else if(n == "infcolor")
             m_tInit.infcolor = v.toUInt(NULL, 16);
         else if(n == "titcolor")
@@ -302,45 +311,61 @@ int HDsContext::parse_layout_xml(const char* xml_file){
             m_tInit.audiocolor_fg_low = v.toUInt(NULL, 16);
         else if(n == "audiocolor_fg_high")
             m_tInit.audiocolor_fg_high = v.toUInt(NULL, 16);
+        else if (n == "spacing")
+            m_tInit.spacing = v.toInt();
+        else if (n == "titlebar_height")
+            m_tInit.titlebar_height = v.toInt();
+        else if (n == "toolbar_height")
+            m_tInit.titcolor = v.toInt();
+        else if (n == "output_titlebar_height")
+            m_tInit.output_titlebar_height = v.toInt();
+        else if (n == "output_toolbar_height")
+            m_tInit.output_toolbar_height = v.toInt();
+        else if (n == "show_wndid")
+            m_tInit.show_wndid = v.toInt();
+        else
+            qWarning("Invalid key:%s", n.toLocal8Bit().data());
 
         elem_param = elem_param.nextSiblingElement("param");
     }
 
-    QDomElement elem_item = elem_body.firstChildElement("item");
-    int cnt_item = 0;
-    int x,y,w,h;
-    while (!elem_item.isNull()){
-        QDomElement elem_param = elem_item.firstChildElement("param");
-        while (!elem_param.isNull()){
-            QString n = elem_param.attribute("n");
-            QString v = elem_param.attribute("v");
-            if(n == "w")
-                w = v.toInt();
-            else if(n == "h")
-                h = v.toInt();
-            else if(n == "x")
-                x = v.toInt();
-            else if(n == "y")
-                y = v.toInt();
+    if (!m_tInit.autolayout){
+        QDomElement elem_body = elem_layout.firstChildElement("body");
+        if (elem_body.isNull())
+            return -4;
+        QDomElement elem_item = elem_body.firstChildElement("item");
+        m_tLayout.width = elem_body.attribute("width").toInt();
+        m_tLayout.height = elem_body.attribute("height").toInt();
+        int cnt_item = 0;
+        int x,y,w,h;
+        while (!elem_item.isNull()){
+            QDomElement elem_param = elem_item.firstChildElement("param");
+            while (!elem_param.isNull()){
+                QString n = elem_param.attribute("n");
+                QString v = elem_param.attribute("v");
+                if(n == "w")
+                    w = v.toInt();
+                else if(n == "h")
+                    h = v.toInt();
+                else if(n == "x")
+                    x = v.toInt();
+                else if(n == "y")
+                    y = v.toInt();
 
-            elem_param = elem_param.nextSiblingElement("param");
+                elem_param = elem_param.nextSiblingElement("param");
+            }
+
+            m_tLayout.items[cnt_item].setRect(x, y, w, h);
+
+            ++cnt_item;
+            if(cnt_item >= MAXNUM_LAYOUT)
+                break;
+
+            elem_item = elem_item.nextSiblingElement("item");
         }
 
-        w = w >> 2 << 2; // let w is 4的整数倍
-        m_tLayout.items[cnt_item].setRect(x, y, w, h);
-
-        ++cnt_item;
-        if(cnt_item >= MAXNUM_LAYOUT)
-            break;
-
-        elem_item = elem_item.nextSiblingElement("item");
+        m_tLayout.itemCnt = cnt_item;
     }
-
-    m_tLayout.itemCnt = cnt_item;
-
-    // last is comb window
-    m_tLayout.combW = m_tLayout.items[m_tLayout.itemCnt-1].width();
-    m_tLayout.combH = m_tLayout.items[m_tLayout.itemCnt-1].height();
 
     return 0;
 }
@@ -430,9 +455,10 @@ int HDsContext::parse_comb_xml(const char* xml){
 
         ook::xml_parser::enum_childen(item, NULL);
         const ook::xml_element * e;
-        int x,y,w=-1,h=-1,a;
+        int x,y,w=-1,h=-1;
         int u = 0;
         int bV = 1;
+        int a = 0;
         QString src;
         while(1)
         {
@@ -478,8 +504,8 @@ int HDsContext::parse_comb_xml(const char* xml){
 
         ci.items[ci.itemCnt].id = ci.itemCnt;
         ci.items[ci.itemCnt].rc.setRect(x,y,w,h);
-        ci.items[ci.itemCnt].a = u && a;
-        ci.items[ci.itemCnt].v = u && bV;
+        ci.items[ci.itemCnt].a = a;
+        ci.items[ci.itemCnt].v = bV;
         ci.items[ci.itemCnt].srvid = u;
         strncpy(ci.items[ci.itemCnt].src, src.toLocal8Bit().constData(), MAXLEN_STR);
 
@@ -942,23 +968,10 @@ void HDsContext::onWndSizeChanged(int srvid, QSize sz){
             pItem->show_w = pItem->wnd_w;
             pItem->show_h = pItem->wnd_h;
         }
-        g_mainWdg->getGLWdgBysrvid(srvid)->setVertices(ratio);
-
-        int w = pItem->pic_w;
-        int h = pItem->pic_h;
-        if (m_tInit.scale_mode == ENABLE_SCALE && pItem->isAdjustScale(&w,&h)){
-            qDebug("scale=%d*%d", w, h);
-            pItem->adjustScale(w,h);
-        }
-        pItem->tex_yuv.alloc(w,h);
-
         pItem->mutex.unlock();
 
-        qDebug("wnd=%d*%d, pic=%d*%d, show=%d*%d, tex=%d*%d",
-               pItem->wnd_w, pItem->wnd_h,
-               pItem->pic_w, pItem->pic_h,
-               pItem->show_w, pItem->show_h,
-               pItem->tex_yuv.width, pItem->tex_yuv.height);
+        g_mainWdg->getGLWdgBysrvid(srvid)->setVertices(ratio);
+        pItem->bNeedReallocTexture = true;
     }
 }
 
@@ -976,16 +989,35 @@ int HDsContext::pop_video(int srvid){
     if (!item->video_buffer)
         return -4;
 
-    if (!item->canShow() || !item->tex_yuv.data){
+    if (!item->canShow()){
         emit requestShow(srvid);
         return -5;
     }
 
-    int retcode = -6;
+    if (!item->tex_yuv.data || item->bNeedReallocTexture){
+        int w = item->pic_w;
+        int h = item->pic_h;
+        if (m_tInit.scale_mode == ENABLE_SCALE && item->isAdjustScale(&w,&h)){
+            qDebug("scale=%d*%d", w, h);
+            item->adjustScale(w,h);
+        }
+        if (!item->tex_yuv.alloc(w,h))
+            return -6;
+
+        item->bNeedReallocTexture = false;
+
+        qDebug("wnd=%d*%d, pic=%d*%d, show=%d*%d, tex=%d*%d",
+               item->wnd_w, item->wnd_h,
+               item->pic_w, item->pic_h,
+               item->show_w, item->show_h,
+               item->tex_yuv.width, item->tex_yuv.height);
+    }
+
+    int retcode = -7;
     item->mutex.lock();
     char* ptr = item->video_buffer->read();
     if (!ptr){
-        qDebug("read to fast");
+        qDebug("[srvid=%d]read to fast", srvid);
         if (++item->pop_video_failed_cnt > 3*m_tInit.fps)
             stop(srvid);
     }else{
@@ -1082,7 +1114,6 @@ void HDsContext::pause(int srvid, bool bPause){
     DsSrvItem* item = getSrvItem(srvid);
     if (item && item->ifcb){
         qInfo("srvid=%d ifservice_callback::e_service_cb_pause", srvid);
-        //item->bPause = true;
 #if LAYOUT_TYPE_ONLY_OUTPUT
         item->ifcb->onservice_callback(ifservice_callback::e_service_cb_pause, libchar(), 0, 0, bPause, NULL);
 #else
@@ -1090,6 +1121,7 @@ void HDsContext::pause(int srvid, bool bPause){
             item->ifcb->onservice_callback(ifservice_callback::e_service_cb_chr, libchar(), OOK_FOURCC('P', 'A', 'U', 'S'), 0, 0, NULL);
         }else{
             item->ifcb->onservice_callback(ifservice_callback::e_service_cb_pause, libchar(), OOK_FOURCC('P', 'A', 'U', 'S'), 0, bPause, NULL);
+            item->bPause = bPause;
         }
 #endif
     }

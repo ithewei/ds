@@ -15,71 +15,78 @@ void HMainWidget::initUI(){
     setWindowTitle("Anystreaming Director");
     setFocus();
 
-#if OPERATION_TYPE_MOUSE
-    setMouseTracking(true);
-#endif
+    if (g_dsCtx->m_tInit.mouse)
+        setMouseTracking(true);
 
     setBgFg(this, Qt::black, Qt::white);
 
-    g_dsCtx->m_tLayout.width  = QApplication::desktop()->width();
-    g_dsCtx->m_tLayout.height = QApplication::desktop()->height();
+    if (g_dsCtx->m_tInit.autolayout){
+        g_dsCtx->m_tLayout.width  = QApplication::desktop()->width();
+        g_dsCtx->m_tLayout.height = QApplication::desktop()->height();
+    }
     setGeometry(0,0,g_dsCtx->m_tLayout.width, g_dsCtx->m_tLayout.height);
     qInfo("screen_w=%d,screen_h=%d", width(), height());
 
-#if LAYOUT_TYPE_ONLY_OUTPUT
-    g_dsCtx->m_tLayout.itemCnt = 1;
-    g_dsCtx->m_tLayout.items[0].setRect(0,0,g_dsCtx->m_tLayout.width,g_dsCtx->m_tLayout.height);
-#endif
+    if (g_dsCtx->m_tInit.autolayout){
+        for (int i = 0; i < g_dsCtx->m_tInit.maxnum_layout; ++i){
+            int wndid = i+1;
+            HGLWidget* wdg;
+            if (wndid == g_dsCtx->m_tInit.output){
+                wdg = new HCombGLWidget(this);
+                wdg->srvid = 1; // output srvid = 1
+            }else{
+                wdg = new HGeneralGLWidget(this);
+                wdg->srvid = 0;
+            }
+            wdg->wndid = wndid;
+            wdg->setTitleColor(g_dsCtx->m_tInit.titcolor);
+            wdg->setOutlineColor(g_dsCtx->m_tInit.outlinecolor);
+            m_vecGLWdg.push_back(wdg);
+            wdg->hide();
+        }
+
+        if (g_dsCtx->m_tInit.row == 0 || g_dsCtx->m_tInit.col == 0){
+            g_dsCtx->m_tInit.row = 3;
+            g_dsCtx->m_tInit.col = 3;
+        }
+        m_layout.init(g_dsCtx->m_tInit.row, g_dsCtx->m_tInit.col);
+        if (g_dsCtx->m_tInit.merge[0] && g_dsCtx->m_tInit.merge[1]){
+            m_layout.merge(g_dsCtx->m_tInit.merge[0], g_dsCtx->m_tInit.merge[1]);
+        }
+        updateGLWdgsByLayout();
+    }else{
+        for (int i = 0; i < g_dsCtx->m_tLayout.itemCnt; ++i){
+            int wndid = i+1;
+            HGLWidget* wdg;
+            if (wndid == g_dsCtx->m_tInit.output){
+                wdg = new HCombGLWidget(this);
+                wdg->srvid = 1; // output srvid = 1
+            }else{
+                wdg = new HGeneralGLWidget(this);
+                wdg->srvid = 0;
+            }
+            wdg->wndid = wndid;
+            wdg->setGeometry(g_dsCtx->m_tLayout.items[i]);
+            wdg->setTitleColor(g_dsCtx->m_tInit.titcolor);
+            wdg->setOutlineColor(g_dsCtx->m_tInit.outlinecolor);
+            m_vecGLWdg.push_back(wdg);
+        }
+    }
 
 #if LAYOUT_TYPE_ONLY_MV
-    for (int i = 0; i < MAXNUM_LAYOUT; ++i){
-        HGLWidget* wdg = new HGeneralGLWidget(this);
-        wdg->wndid = i + 1;
-        wdg->setTitleColor(g_dsCtx->m_tInit.titcolor);
-        wdg->setOutlineColor(g_dsCtx->m_tInit.outlinecolor);
-        m_vecGLWdg.push_back(wdg);
-    }
-    if (g_dsCtx->m_tInit.row == 0 || g_dsCtx->m_tInit.col == 0){
-        g_dsCtx->m_tInit.row = 3;
-        g_dsCtx->m_tInit.col = 3;
-    }
-    setLayout(g_dsCtx->m_tInit.row, g_dsCtx->m_tInit.col);
-
     m_toolbar = new HStyleToolbar(this);
     m_toolbar->setWindowFlags(Qt::Popup);
     m_toolbar->setAttribute(Qt::WA_TranslucentBackground, true);
     m_toolbar->setGeometry(0, height()-MAIN_TOOBAR_HEIGHT, width(), MAIN_TOOBAR_HEIGHT);
     m_toolbar->hide();
-#else
-    for (int i = 0; i < g_dsCtx->m_tLayout.itemCnt; ++i){
-        HGLWidget* wdg;
-        if (i == g_dsCtx->m_tLayout.itemCnt - 1){
-            wdg = new HCombGLWidget(this);
-            wdg->srvid = 1; // comb srvid = 1
-        }else{
-            wdg = new HGeneralGLWidget(this);
-            wdg->srvid = 0;
-        }
-        wdg->wndid = i+1;
-        wdg->setGeometry(g_dsCtx->m_tLayout.items[i]);
-        wdg->setTitleColor(g_dsCtx->m_tInit.titcolor);
-        wdg->setOutlineColor(g_dsCtx->m_tInit.outlinecolor);
-        m_vecGLWdg.push_back(wdg);
-    }
 #endif
 
 #if LAYOUT_TYPE_OUTPUT_AND_MV
-    m_btnLeftExpand = new QPushButton(this);
-    m_btnLeftExpand->setGeometry(width()-ICON_WIDTH-1, height()-ICON_HEIGHT-1, ICON_WIDTH, ICON_HEIGHT);
-    m_btnLeftExpand->setIcon(QIcon(HRcLoader::instance()->icon_left_expand));
-    m_btnLeftExpand->setIconSize(QSize(ICON_WIDTH, ICON_HEIGHT));
-    m_btnLeftExpand->setFlat(true);
-
     QSize sz(ICON_WIDTH, ICON_HEIGHT);
-    m_btnLeftExpand = genPushButton(sz, HRcLoader::instance()->icon_left_expand, this);
+    m_btnLeftExpand = genPushButton(sz, HRcLoader::instance()->get(RC_LEFT), this);
     m_btnLeftExpand->setGeometry(width()-ICON_WIDTH-1, height()-ICON_HEIGHT-1, ICON_WIDTH, ICON_HEIGHT);
 
-    m_btnRightFold = genPushButton(sz, HRcLoader::instance()->icon_right_fold, this);
+    m_btnRightFold = genPushButton(sz, HRcLoader::instance()->get(RC_RIGHT), this);
     m_btnRightFold->setGeometry(width()-ICON_WIDTH-1, height()-ICON_HEIGHT-1, ICON_WIDTH, ICON_HEIGHT);
     m_btnRightFold->hide();
 
@@ -480,13 +487,13 @@ void HMainWidget::updateGLWdgsByLayout(){
     int h = height();
     int col = m_layout.col;
     int row = m_layout.row;
-    int cell_w = w / col >> 2 << 2;
-    int cell_h = h / row >> 2 << 2;
+    int cell_w = w / col;
+    int cell_h = h / row;
     int margin_x = (w - cell_w*col) / 2;
     int margin_y = (h - cell_h*row) / 2;
     qDebug("sw=%d, sh=%d, cell_w=%d, cell_h=%d", w, h, cell_w, cell_h);
 
-    for (int i = 0; i < MAXNUM_LAYOUT; ++i){
+    for (int i = 0; i < m_vecGLWdg.size(); ++i){
         HGLWidget* wdg = m_vecGLWdg[i];
         HLayoutCell cell;
         if (m_layout.getLayoutCell(wdg->wndid, cell)){

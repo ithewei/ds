@@ -71,7 +71,11 @@ class HStyleToolbar : public HWidget
         STYLE_2 = 2,
         STYLE_4 = 4,
         STYLE_9 = 9,
-        STYLE_16 = 16
+        STYLE_16 = 16,
+        STYLE_25 = 25,
+        STYLE_36 = 36,
+        STYLE_49 = 49,
+        STYLE_64 = 64,
     };
 
 public:
@@ -96,6 +100,10 @@ public:
     QPushButton* m_btnStyle4;
     QPushButton* m_btnStyle9;
     QPushButton* m_btnStyle16;
+    QPushButton* m_btnStyle25;
+    QPushButton* m_btnStyle36;
+    QPushButton* m_btnStyle49;
+    QPushButton* m_btnStyle64;
 
     QPushButton* m_btnMerge;
     QPushButton* m_btnReturn;

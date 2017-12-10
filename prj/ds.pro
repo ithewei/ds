@@ -77,7 +77,9 @@ HEADERS += \
     qtheaders.h \
     heffectwidget.h \
     hringbuffer.h \
-    hlayout.h
+    hlayout.h \
+    singleton.h \
+    ds_version.h
 
 unix {
     target.path = /usr/lib

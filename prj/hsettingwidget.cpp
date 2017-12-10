@@ -52,20 +52,12 @@ void HSettingWidget::initUI(){
     QHBoxLayout* hbox = new QHBoxLayout;
     //QPushButton* btnAccept = new QPushButton("确认");
     QSize sz(64,64);
-    QPushButton* btnAccept = new QPushButton;
-    btnAccept->setFixedSize(sz);
-    btnAccept->setIconSize(sz);
-    btnAccept->setIcon(HRcLoader::instance()->icon_ok);
-    btnAccept->setFlat(true);
+    QPushButton* btnAccept = genPushButton(sz, HRcLoader::instance()->get(RC_OK));
     QObject::connect( btnAccept, SIGNAL(clicked(bool)), this, SLOT(accept()) );
     hbox->addWidget(btnAccept);
 
     //QPushButton* btnReject = new QPushButton("取消");
-    QPushButton* btnReject = new QPushButton;
-    btnReject->setFixedSize(sz);
-    btnReject->setIconSize(sz);
-    btnReject->setIcon(HRcLoader::instance()->icon_close);
-    btnReject->setFlat(true);
+    QPushButton* btnReject = genPushButton(sz, HRcLoader::instance()->get(RC_CLOSE));
     QObject::connect( btnReject, SIGNAL(clicked(bool)), this, SLOT(reject()) );
     hbox->addWidget(btnReject);
     grid->addLayout(hbox, row, 1);

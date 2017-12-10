@@ -1,9 +1,6 @@
 #include "ds.h"
 #include "hdsctx.h"
 
-#define VERSION 7
-#define RELEASEINFO "5.7.1 @ 2017/11/17"
-
 DSSHARED_EXPORT int libversion()    { return VERSION; }
 DSSHARED_EXPORT int libchar()       {
 #if LAYOUT_TYPE_ONLY_OUTPUT
@@ -255,7 +252,7 @@ DSSHARED_EXPORT int liboper(int media_type, int data_type, int opt, void* param,
                 }
             }else if (dsc->action == OOK_FOURCC('P', 'L', 'Y', 'R')){
                 int progress = *(int*)dsc->ptr;
-                qDebug("OOK_FOURCC('P', 'L', 'Y', 'R') progress=%d", progress);
+                //qDebug("OOK_FOURCC('P', 'L', 'Y', 'R') progress=%d", progress);
                 emit g_dsCtx->sigProgressNty(srvid, progress);
             }else if (dsc->action == OOK_FOURCC('S', 'M', 'I', 'X')){
                 qDebug("srvid=%d OOK_FOURCC('S', 'M', 'I', 'X')", srvid);
