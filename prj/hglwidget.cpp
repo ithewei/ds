@@ -121,7 +121,7 @@ void HGLWidget::mouseDoubleClickEvent(QMouseEvent* e){
 
 void HGLWidget::resizeEvent(QResizeEvent* e){    
     if (!isResetStatus()){
-        g_dsCtx->onWndSizeChanged(srvid, e->size());
+        g_dsCtx->onWndSizeChanged(srvid, videoArea());
     }
 
     QGLWidgetImpl::resizeEvent(e);
@@ -207,46 +207,86 @@ void HGLWidget::drawVideo(){
     }
 }
 
+void HGLWidget::drawAudioStyle1(QRect rc, int num){
+    DrawInfo di;
+    di.left = rc.left();
+    di.right = rc.right();
+    di.top = rc.top();
+    di.bottom = rc.bottom();
+    di.color = g_dsCtx->m_tInit.audiocolor_bg;
+    drawRect(&di, 1, true);
+
+    di.left += 1;
+    di.right -= 1;
+    di.bottom -= 1;
+    int h = rc.height() * num / 65536;
+    di.top = di.bottom - h;
+    if (num < 65536 * 0.6)
+        di.color = g_dsCtx->m_tInit.audiocolor_fg_low;
+    else if(num < 65536 * 0.8)
+        di.color = g_dsCtx->m_tInit.audiocolor_fg_high;
+    else
+        di.color = g_dsCtx->m_tInit.audiocolor_fg_top;
+    drawRect(&di, 1, true);
+}
+
+void HGLWidget::drawAudioStyle2(QRect rc, int num){
+    DrawInfo di;
+    di.left = rc.left();
+    di.right = rc.right();
+    di.bottom = rc.bottom();
+    di.top = di.bottom;
+    double percent = (double)num / 65536;
+    double cnt = 0.0f;
+    double span = 2.0f / 100;
+    int cell_h = rc.height() * span;
+    int cell_color_h = cell_h * 2 / 3;
+    di.color = g_dsCtx->m_tInit.audiocolor_fg_low;
+    while (cnt < percent && cnt < 0.6){
+        di.top = di.bottom - cell_color_h;
+        drawRect(&di, 1, true);
+        di.bottom -= cell_h;
+        cnt += span;
+    }
+
+    di.color = g_dsCtx->m_tInit.audiocolor_fg_high;
+    while (cnt < percent && cnt < 0.8){
+        di.top = di.bottom - cell_color_h;
+        drawRect(&di, 1, true);
+        di.bottom -= cell_h;
+        cnt += span;
+    }
+
+    di.color = g_dsCtx->m_tInit.audiocolor_fg_top;
+    while (cnt < percent && cnt <= 1.0){
+        di.top = di.bottom - cell_color_h;
+        drawRect(&di, 1, true);
+        di.bottom -= cell_h;
+        cnt += span;
+    }
+}
+
 void HGLWidget::drawAudio(){
     // draw sound average
     DsSrvItem* item = g_dsCtx->getSrvItem(srvid);
     if (item){
-        DrawInfo di;
-        if (item->a_channels > 1){
-            di.left = width()-4 - AUDIO_WIDTH*2;
-            di.top = height()-2 - AUDIO_HEIGHT;
-            di.right = di.left + AUDIO_WIDTH;
-            di.bottom = di.top + AUDIO_HEIGHT;
-            di.color = g_dsCtx->m_tInit.audiocolor_bg;
-            drawRect(&di, 1, true);
+        if (g_dsCtx->m_tInit.audiostyle == 1){
+            QRect rc(width()-2 - AUDIO_WIDTH, height()-2 - AUDIO_HEIGHT, AUDIO_WIDTH, AUDIO_HEIGHT);
+            drawAudioStyle1(rc, item->a_average[0]);
 
-            di.left += 1;
-            di.right -= 1;
-            di.bottom -= 1;
-            di.top = di.bottom - item->a_average[1] * AUDIO_HEIGHT / 65536;
-            if (item->a_average[1] > 39322)
-                di.color = g_dsCtx->m_tInit.audiocolor_fg_high;
-            else
-                di.color = g_dsCtx->m_tInit.audiocolor_fg_low;
-            drawRect(&di, 1, true);
+            if (item->a_channels > 1){
+                QRect rc(width()-4 - AUDIO_WIDTH*2, height()-2 - AUDIO_HEIGHT, AUDIO_WIDTH, AUDIO_HEIGHT);
+                drawAudioStyle1(rc, item->a_average[1]);
+            }
+        }else if(g_dsCtx->m_tInit.audiostyle == 2){
+            QRect rc(width()-2 - AUDIO_WIDTH,  38, AUDIO_WIDTH, height() - 40);
+            drawAudioStyle2(rc, item->a_average[0]);
+
+            if (item->a_channels > 1){
+                QRect rc(width()-4 - AUDIO_WIDTH*2, 38, AUDIO_WIDTH, height() - 40);
+                drawAudioStyle2(rc, item->a_average[1]);
+            }
         }
-
-        di.left = width()-2 - AUDIO_WIDTH;
-        di.top = height()-2 - AUDIO_HEIGHT;
-        di.right = di.left + AUDIO_WIDTH;
-        di.bottom = di.top + AUDIO_HEIGHT;
-        di.color = g_dsCtx->m_tInit.audiocolor_bg;
-        drawRect(&di, 1, true);
-
-        di.left += 1;
-        di.right -= 1;
-        di.bottom -= 1;
-        di.top = di.bottom - item->a_average[0] * AUDIO_HEIGHT / 65536;
-        if (item->a_average[0] > 39322)
-            di.color = g_dsCtx->m_tInit.audiocolor_fg_high;
-        else
-            di.color = g_dsCtx->m_tInit.audiocolor_fg_low;
-        drawRect(&di, 1, true);
 
         item->bUpdateAverage = true;
     }
@@ -270,7 +310,7 @@ void HGLWidget::drawTitle(){
         DrawInfo di;
         di.left = 2;
         di.top = 2;
-        di.color = m_titcolor;
+        di.color = g_dsCtx->m_tInit.titcolor;
         drawStr(g_dsCtx->m_pFont, item->title.c_str(), &di);
     }
 }
@@ -280,7 +320,7 @@ void HGLWidget::drawTaskInfo(){
     if (item){
         DrawInfo di;
         di.left = 0;
-        di.top = height() - g_dsCtx->m_pFont->LineHeight() - 3;
+        di.top = height() - g_dsCtx->m_pFont->LineHeight() - 8;
         di.right = width()-1;
         di.bottom = height()-1;
         di.color = 0x000000FF;
@@ -290,9 +330,8 @@ void HGLWidget::drawTaskInfo(){
         font.setPixelSize(g_dsCtx->m_pFont->FaceSize());
         QFontMetrics fm(font);
         int w = fm.width(item->taskinfo.c_str());
-        int x = (width()-w)/2;
+        int x = (di.right-di.left-w)/2;
         di.left += x > 2 ? x : 2;
-        di.top -= 2;
         di.color = g_dsCtx->m_tInit.infcolor;
         drawStr(g_dsCtx->m_pFont, item->taskinfo.c_str(), &di);
     }
@@ -304,7 +343,7 @@ void HGLWidget::drawOutline(){
     di.top = 0;
     di.right = width() - 1;
     di.bottom = height() - 1;
-    di.color = m_outlinecolor;
+    di.color = g_dsCtx->m_tInit.outlinecolor;
     drawRect(&di, 3);
 }
 
@@ -338,18 +377,18 @@ void HGLWidget::paintGL(){
                 drawFps();
         }
 
-        if (m_status & PLAY_AUDIO){
-            if (m_bDrawInfo && g_dsCtx->m_tInit.drawaudio){
-                drawAudio();
-            }
-        }
-
         if (m_bDrawInfo && g_dsCtx->m_tInit.drawtitle){
             drawTitle();
         }
 
         if (m_bDrawInfo && g_dsCtx->m_tInit.drawinfo){
             drawTaskInfo();
+        }
+
+        if (m_status & PLAY_AUDIO){
+            if (m_bDrawInfo && g_dsCtx->m_tInit.drawaudio){
+                drawAudio();
+            }
         }
 
         break;
@@ -364,6 +403,7 @@ void HGLWidget::paintGL(){
 HGeneralGLWidget::HGeneralGLWidget(QWidget* parent)
     : HGLWidget(parent)
 {
+    type = GENERAL;
     initUI();
     initConnect();
 }
@@ -421,12 +461,13 @@ void HGeneralGLWidget::showTitlebar(bool bShow){
         DsSrvItem* item = g_dsCtx->getSrvItem(srvid);
 
         if (item){
-            if (g_dsCtx->m_tInit.show_wndid){
-                QString title = QString::asprintf("%02d %s", wndid, item->title.c_str());
-                m_titlebar->m_label->setText(title);
-            }else{
-                m_titlebar->m_label->setText(item->title.c_str());
-            }
+            QString str = g_dsCtx->m_tInit.title_format;
+            char szWndid[5];
+            sprintf(szWndid, "%02d", wndid);
+            str.replace("%wndid", szWndid);
+            str.replace("%title", item->title.c_str());
+            str.replace("%src", item->src_addr);
+            m_titlebar->m_label->setText(str);
         }
 
 #if LAYOUT_TYPE_OUTPUT_AND_MV
@@ -489,7 +530,8 @@ void HGeneralGLWidget::showToolbar(bool bShow){
             m_toolbar->m_btnPause->hide();
         }
 
-        if (g_dsCtx->getSrvItem(srvid)->src_type == SRC_TYPE_FILE){
+        DsSrvItem* item = g_dsCtx->getSrvItem(srvid);
+        if (item && item->src_type == SRC_TYPE_FILE){
             m_toolbar->m_slider->show();
         }else{
             m_toolbar->m_slider->hide();
@@ -511,10 +553,8 @@ bool HGeneralGLWidget::showToolWidgets(bool bShow){
 
     showTitlebar(bShow);
     DsSrvItem* item = g_dsCtx->getSrvItem(srvid);
-    if (item){
-        if (g_dsCtx->getSrvItem(srvid)->src_type == SRC_TYPE_FILE){
+    if (item && item->src_type == SRC_TYPE_FILE){
             showToolbar(bShow);
-        }
     }
 
     return bShow;
@@ -614,7 +654,7 @@ void HGeneralGLWidget::drawOutline(){
     if (m_titlebar->isVisible() && !isResetStatus()){
         di.color = g_dsCtx->m_tInit.focus_outlinecolor;
     }else{
-        di.color = m_outlinecolor;
+        di.color = g_dsCtx->m_tInit.outlinecolor;
     }
     drawRect(&di, 3);
 }
@@ -646,6 +686,8 @@ void HGeneralGLWidget::paintGL(){
 HCombGLWidget::HCombGLWidget(QWidget* parent)
     : HGLWidget(parent)
 {
+    type = COMB;
+
     m_bMouseMoving = false;
     m_target = NULL;
     m_targetPrev = NULL;
@@ -763,6 +805,9 @@ void HCombGLWidget::showToolbar(bool bShow){
 
 bool HCombGLWidget::showToolWidgets(bool bShow){
     if (m_bLockToolbar)
+        return true;
+
+    if(!bShow && m_targetWdg->isVisible())
         return true;
 
     HGLWidget::showToolWidgets(bShow);
@@ -937,7 +982,11 @@ void HCombGLWidget::onOverlayChanged(){
 }
 
 void HCombGLWidget::onUndo(){
-    HAbstractItem::onUndo();
+    if (m_targetWdg->isVisible()){
+        onTrash();
+    }else{
+        HAbstractItem::onUndo();
+    }
 }
 
 void HCombGLWidget::onTrash(){
@@ -1182,13 +1231,14 @@ void HCombGLWidget::drawOutline(){
     di.top = 0;
     di.right = width() - 1;
     di.bottom = height() - 1;
-    di.color = m_outlinecolor;
+    di.color = g_dsCtx->m_tInit.outlinecolor;
     drawRect(&di, 3);
 }
 
 void HCombGLWidget::drawTaskInfo(){
-    DrawInfo di;
-    if (g_dsCtx->m_pFont){
+    DsSrvItem* item = g_dsCtx->getSrvItem(srvid);
+    if (item && g_dsCtx->m_pFont){
+        DrawInfo di;
         int oldSize = g_dsCtx->m_pFont->FaceSize();
         g_dsCtx->m_pFont->FaceSize(32);
         separator sept(g_dsCtx->getSrvItem(srvid)->taskinfo.c_str(), "\r\n");
@@ -1200,7 +1250,7 @@ void HCombGLWidget::drawTaskInfo(){
             di.top += g_dsCtx->m_pFont->LineHeight() + 10;
         }
         g_dsCtx->m_pFont->FaceSize(oldSize);
-    }
+   }
 }
 
 void HCombGLWidget::drawScreenInfo(){
@@ -1220,7 +1270,7 @@ void HCombGLWidget::drawScreenInfo(){
         di.top = rc.top();
         di.right = rc.right();
         di.bottom = rc.bottom();
-        di.color = m_outlinecolor;
+        di.color = g_dsCtx->m_tInit.outlinecolor;
         drawRect(&di);
     }
 }
@@ -1234,7 +1284,7 @@ void HCombGLWidget::drawPictureInfo(){
         di.top = rc.top();
         di.right = rc.right();
         di.bottom = rc.bottom();
-        di.color = m_outlinecolor;
+        di.color = g_dsCtx->m_tInit.outlinecolor;
         drawRect(&di);
     }
 }
@@ -1248,7 +1298,7 @@ void HCombGLWidget::drawTextInfo(){
         di.top = rc.top();
         di.right = rc.right();
         di.bottom = rc.bottom();
-        di.color = m_outlinecolor;
+        di.color = g_dsCtx->m_tInit.outlinecolor;
         drawRect(&di);
     }
 }

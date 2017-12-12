@@ -10,7 +10,9 @@
 #include <QElapsedTimer>
 
 #define AUDIO_WIDTH         16
-#define AUDIO_HEIGHT        160
+#define AUDIO_HEIGHT        200
+
+#define TASKINFO_HEIGHT     32
 
 enum GLWND_STATUS{
     MAJOR_STATUS_MASK = 0x00FF,
@@ -38,6 +40,11 @@ class HGLWidget : public QGLWidgetImpl
 {
     Q_OBJECT
 public:
+    enum TYPE{
+        GENERAL = 1,
+        COMB    = 2,
+    };
+
     HGLWidget(QWidget* parent = Q_NULLPTR);
     virtual ~HGLWidget();
 
@@ -52,9 +59,7 @@ public:
         return srvid == 0 && m_status == STOP;
     }
     inline void resetStatus(){
-        if (srvid != 1){// srvid=1 is comb,reserve
-            srvid = 0;
-        }
+        srvid = 0;
         m_status = STOP;
         fps = 0;
         m_mapIcons.clear();
@@ -65,10 +70,15 @@ public:
     void removeIcon(int type);
     Texture* getTexture(int type);
 
-    void setTitleColor(int color) {m_titcolor = color;}
-    void setOutlineColor(int color) {m_outlinecolor = color;}
-
     virtual bool showToolWidgets(bool bShow = true);
+
+    QRect videoArea(){
+#if LAYOUT_TYPE_ONLY_MV
+        return QRect(0,0,width()-(AUDIO_WIDTH*2+6),height()-TASKINFO_HEIGHT);
+#else
+        return QRect(0,0,width(),height());
+#endif
+    }
 
 signals:
     void fullScreen(bool);
@@ -97,6 +107,8 @@ public slots:
 protected:
     virtual void drawVideo();
     virtual void drawAudio();
+    virtual void drawAudioStyle1(QRect rc, int num);
+    virtual void drawAudioStyle2(QRect rc, int num);
     virtual void drawIcon();
     virtual void drawTitle();
     virtual void drawTaskInfo();
@@ -117,6 +129,7 @@ protected:
     void drawFps();
 
 public:
+    TYPE type;
     int wndid;
     int srvid;
     int m_status;
@@ -130,9 +143,6 @@ public:
     QLabel* m_snapshot;
     bool m_bDrawInfo;
     bool m_bFullScreen;
-
-    int m_titcolor;
-    int m_outlinecolor;
 
     ulong m_tmMousePressed;
     QPoint m_ptMousePressed;

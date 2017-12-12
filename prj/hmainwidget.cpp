@@ -33,14 +33,11 @@ void HMainWidget::initUI(){
             HGLWidget* wdg;
             if (wndid == g_dsCtx->m_tInit.output){
                 wdg = new HCombGLWidget(this);
-                wdg->srvid = 1; // output srvid = 1
+                //wdg->srvid = OUTPUT_SRVID;
             }else{
                 wdg = new HGeneralGLWidget(this);
-                wdg->srvid = 0;
             }
             wdg->wndid = wndid;
-            wdg->setTitleColor(g_dsCtx->m_tInit.titcolor);
-            wdg->setOutlineColor(g_dsCtx->m_tInit.outlinecolor);
             m_vecGLWdg.push_back(wdg);
             wdg->hide();
         }
@@ -60,15 +57,12 @@ void HMainWidget::initUI(){
             HGLWidget* wdg;
             if (wndid == g_dsCtx->m_tInit.output){
                 wdg = new HCombGLWidget(this);
-                wdg->srvid = 1; // output srvid = 1
+                //wdg->srvid = OUTPUT_SRVID;
             }else{
                 wdg = new HGeneralGLWidget(this);
-                wdg->srvid = 0;
             }
             wdg->wndid = wndid;
             wdg->setGeometry(g_dsCtx->m_tLayout.items[i]);
-            wdg->setTitleColor(g_dsCtx->m_tInit.titcolor);
-            wdg->setOutlineColor(g_dsCtx->m_tInit.outlinecolor);
             m_vecGLWdg.push_back(wdg);
         }
     }
@@ -152,6 +146,10 @@ HGLWidget* HMainWidget::allocGLWdgForsrvid(int srvid){
 
     int min_wndid = 10000;
     for (int i = 0; i < m_vecGLWdg.size(); ++i){
+        if (isOutputSrvid(srvid)){
+            if (m_vecGLWdg[i]->type != HGLWidget::COMB)
+                continue;
+        }
         if (m_vecGLWdg[i]->isResetStatus() && m_vecGLWdg[i]->isVisible() && m_vecGLWdg[i]->wndid < min_wndid){
             wdg = m_vecGLWdg[i];
             min_wndid = wdg->wndid;
@@ -232,7 +230,7 @@ void HMainWidget::mouseMoveEvent(QMouseEvent *event){
             m_dragSrcWdg = wdg;
 
             if (m_eOperate == EXCHANGE){
-                if (wdg->srvid <= 1)
+                if (wdg->type == HGLWidget::COMB)
                     return;
 
                 if (!wdg->isResetStatus()){
@@ -269,7 +267,7 @@ void HMainWidget::mouseReleaseEvent(QMouseEvent *event){
             m_labelDrag->hide();
             HGLWidget* wdg = getGLWdgByPos(event->x(), event->y());
             if (wdg && m_dragSrcWdg != wdg){
-                if (wdg->srvid == 1){
+                if (wdg->type == HGLWidget::COMB){
                     // changeScreenSource
                     HOperateTarget* target = ((HCombGLWidget*)wdg)->getItemByPos(QPoint(event->x()-wdg->x(), event->y()-wdg->y()), HAbstractItem::SCREEN);
                     if (target)
@@ -308,13 +306,10 @@ void HMainWidget::mouseReleaseEvent(QMouseEvent *event){
 void HMainWidget::onTimerRepaint(){
     for (int i = 0; i < m_vecGLWdg.size(); ++i){
         HGLWidget* wdg = m_vecGLWdg[i];
-        DsSrvItem* item = g_dsCtx->getSrvItem(wdg->srvid);
-        if (item){
-            if (!wdg->isResetStatus() ){
-                if (g_dsCtx->pop_video(wdg->srvid) == 0)
-                    wdg->repaint();
-            }
-        }   
+        if (!wdg->isResetStatus() ){
+            if (g_dsCtx->pop_video(wdg->srvid) == 0)
+                wdg->repaint();
+        }
     }
 }
 
@@ -336,12 +331,12 @@ void HMainWidget::onRequestShow(int srvid){
     if (wdg == NULL)
         return;
 
-    g_dsCtx->onRequestShowSucceed(srvid, wdg->size());
+    g_dsCtx->onRequestShowSucceed(srvid, wdg->videoArea());
 }
 
 void HMainWidget::onvideoPushed(int srvid, bool bFirstFrame){
     HGLWidget* wdg = getGLWdgBysrvid(srvid);
-    if (wdg == NULL){
+    if (wdg == NULL || bFirstFrame){
         onRequestShow(srvid);
         return;
     }
@@ -378,7 +373,9 @@ void HMainWidget::onProgressNty(int srvid, int progress){
     if (wdg == NULL)
         return;
 
-    ((HGeneralGLWidget*)wdg)->setProgress(progress);
+    if (wdg->type == HGLWidget::GENERAL){
+        ((HGeneralGLWidget*)wdg)->setProgress(progress);
+    }
 }
 
 #if LAYOUT_TYPE_OUTPUT_AND_MV

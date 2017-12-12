@@ -133,6 +133,25 @@ void QGLWidgetImpl::setVertices(double ratio){
     memcpy(vertices, tmp, sizeof(GLfloat)*8);
 }
 
+void QGLWidgetImpl::setVertices(QRect rc){
+    int wnd_w = width();
+    int wnd_h = height();
+    GLfloat left = (GLfloat)rc.left() * 2 / wnd_w - 1;
+    GLfloat right = (GLfloat)(rc.right()+1) * 2 / wnd_w - 1;
+    GLfloat top = 1 - (GLfloat)rc.top() * 2 / wnd_h;
+    GLfloat bottom = 1 - (GLfloat)(rc.bottom()+1) * 2 / wnd_h;
+    qDebug("l=%d, r=%d, t=%d, b=%d", rc.left(), rc.right(), rc.top(), rc.bottom());
+    qDebug("l=%f, r=%f, t=%f, b=%f", left, right, top, bottom);
+    GLfloat tmp[] = {
+        left,  bottom,
+        right, bottom,
+        left,  top,
+        right, top
+    };
+
+    memcpy(vertices, tmp, sizeof(GLfloat)*8);
+}
+
 void QGLWidgetImpl::initVAO(){
 //    static const GLfloat vertices[] = {
 //        -1.0f, -1.0f,

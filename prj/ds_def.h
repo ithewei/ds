@@ -25,9 +25,11 @@ struct DsInitInfo{
     unsigned int outlinecolor;
     unsigned int focus_outlinecolor;
 
+    int audiostyle;
     unsigned int audiocolor_bg;
     unsigned int audiocolor_fg_low;
     unsigned int audiocolor_fg_high;
+    unsigned int audiocolor_fg_top;
 
     int debug;
     int mouse;
@@ -56,7 +58,8 @@ struct DsInitInfo{
     int output_titlebar_height;
     int output_toolbar_height;
 
-    int show_wndid;
+    QString title_format;
+    QString taskinfo_format;
 
     DsInitInfo(){
         infcolor = 0x00FF00FF;
@@ -64,9 +67,11 @@ struct DsInitInfo{
         outlinecolor = 0xFFFFFFFF;
         focus_outlinecolor = 0xFF0000FF;
 
-        audiocolor_bg = 0x0000FFFF;
-        audiocolor_fg_low = 0x00FF00FF;
+        audiostyle = 1;
+        audiocolor_bg = 0x00FFFF80;
+        audiocolor_fg_low = 0xFFFF0080;
         audiocolor_fg_high = 0xFF0000FF;
+        audiocolor_fg_top = 0xFF0000FF;
 
         debug = 0;
         autolayout = 0;
@@ -95,7 +100,8 @@ struct DsInitInfo{
         output_titlebar_height = 64;
         output_toolbar_height = 64;
 
-        show_wndid = 0;
+        title_format = "%title";
+        taskinfo_format = "%rate";
     }
 };
 
@@ -148,6 +154,7 @@ struct DsSrvItem{
     bool bVoice;
 
     int src_type;
+    QString src_addr;
 
     std::string title;
     int pic_w;
@@ -204,6 +211,7 @@ struct DsSrvItem{
         pSwsCtx = NULL;
 
         src_type = 0;
+        src_addr.clear();
 
         a_channels = 0;
         a_average[0] = 0;
