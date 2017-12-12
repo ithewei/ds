@@ -299,30 +299,36 @@ int HDsContext::parse_layout_xml(const char* xml_file){
             m_tInit.drawaudio = v.toInt();
         }else if(n == "drawinfo")
             m_tInit.drawinfo = v.toInt();
+        else if (n == "taskinfo_format")
+            m_tInit.taskinfo_format = v;
+        else if (n == "title_format")
+            m_tInit.title_format = v;
         else if (n == "drawoutline")
             m_tInit.drawoutline = v.toInt();
         else if(n == "infcolor")
             m_tInit.infcolor = v.toUInt(NULL, 16);
         else if(n == "titcolor")
             m_tInit.titcolor = v.toUInt(NULL, 16);
+        else if (n == "audiostyle")
+            m_tInit.audiostyle = v.toInt();
         else if(n == "audiocolor_bg")
             m_tInit.audiocolor_bg = v.toUInt(NULL, 16);
         else if(n == "audiocolor_fg_low")
             m_tInit.audiocolor_fg_low = v.toUInt(NULL, 16);
         else if(n == "audiocolor_fg_high")
             m_tInit.audiocolor_fg_high = v.toUInt(NULL, 16);
+        else if(n == "audiocolor_fg_top")
+            m_tInit.audiocolor_fg_top = v.toUInt(NULL, 16);
         else if (n == "spacing")
             m_tInit.spacing = v.toInt();
         else if (n == "titlebar_height")
             m_tInit.titlebar_height = v.toInt();
         else if (n == "toolbar_height")
-            m_tInit.titcolor = v.toInt();
+            m_tInit.toolbar_height = v.toInt();
         else if (n == "output_titlebar_height")
             m_tInit.output_titlebar_height = v.toInt();
         else if (n == "output_toolbar_height")
             m_tInit.output_toolbar_height = v.toInt();
-        else if (n == "show_wndid")
-            m_tInit.show_wndid = v.toInt();
         else
             qWarning("Invalid key:%s", n.toLocal8Bit().data());
 
@@ -604,6 +610,15 @@ int HDsContext::parse_audio_xml(const char* xml){
                 m_tComb.items[i].a = a;
             }
         }
+        HScreenItem* pScreen = getScreenItem(src);
+        if (pScreen){
+            pScreen->a = a;
+        }
+
+        DsSrvItem* pItem = getSrvItem(src);
+        if (pItem){
+            pItem->bVoice = a;
+        }
     }
 
     return 0;
@@ -656,6 +671,7 @@ int HDsContext::parse_taskinfo_xml(const char* xml){
     int outputspeed = -1;
     int inputpkgs[2] = {-1};
     std::string inputchar;
+    std::string ttid;
     const ook::xml_element * e;
     ook::xml_parser::enum_childen(item, NULL);
     while(1)
@@ -665,7 +681,9 @@ int HDsContext::parse_taskinfo_xml(const char* xml){
             break;
         const std::string & n = e->get_attribute("n");
         const std::string & v = e->get_attribute("v");
-        if(n == "buffer"){
+        if (n == "TTID")
+            ttid = v;
+        else if(n == "buffer"){
             separator sept(v.c_str(), "/");
             if(sept[0])
                 buffer[0] = atoi(sept[0]);
@@ -849,11 +867,25 @@ int HDsContext::parse_taskinfo_xml(const char* xml){
         s_cont += cont;
     }
 
+    DsSrvItem* pItem = g_dsCtx->getSrvItem(req_srvid);
+    if (!pItem)
+        return -100;
+
     if (req_srvid == 1)
-        g_dsCtx->getSrvItem(req_srvid)->taskinfo = s_cont;
+        pItem->taskinfo = s_cont;
     else{
-        QString str = QString::asprintf("%s 码率:%dkps", inputchar.c_str(), inputpkgs[0]);
-        g_dsCtx->getSrvItem(req_srvid)->taskinfo = str.toLocal8Bit().data();
+        QString str(m_tInit.taskinfo_format);
+        str.replace("%title", g_dsCtx->getSrvItem(req_srvid)->title.c_str());
+        str.replace("%avcodec", inputchar.c_str());
+        QString rate = QString::asprintf("码率:%dkps", inputpkgs[0]);
+        str.replace("%rate", rate);
+        pItem->taskinfo = str.toLocal8Bit().data();
+    }
+
+    QMap<QString, QString>::iterator iter = m_mapTTID2Src.find(ttid.c_str());
+    if (iter != m_mapTTID2Src.end()){
+        pItem->src_addr = iter.value();
+        //qDebug("srvid:%d, src_addr:%s", req_srvid, pItem->src_addr.toLocal8Bit().data());
     }
 
     return 0;
@@ -908,7 +940,7 @@ int HDsContext::push_video(int srvid, const av_picture* pic){
         m_tComb.width = w;
         m_tComb.height = h;
         m_tComb.itemCnt = 1;
-        m_tComb.items[0].srvid = 1;
+        m_tComb.items[0].srvid = OUTPUT_SRVID;
         m_tComb.items[0].rc.setRect(0,0,w,h);
 
         qInfo("m_tComb w=%d h=%d", w, h);
@@ -953,12 +985,12 @@ int HDsContext::push_video(int srvid, const av_picture* pic){
     emit videoPushed(srvid, bFirst);
 }
 
-void HDsContext::onWndSizeChanged(int srvid, QSize sz){
+void HDsContext::onWndSizeChanged(int srvid, QRect rc){
     DsSrvItem* pItem = getSrvItem(srvid);
     if (pItem){
         pItem->mutex.lock();
-        pItem->wnd_w = sz.width();
-        pItem->wnd_h = sz.height();
+        pItem->wnd_w = rc.width();
+        pItem->wnd_h = rc.height();
 
         double ratio = 1.0;
         if (pItem->isAdjustRatio(&ratio)){
@@ -970,7 +1002,9 @@ void HDsContext::onWndSizeChanged(int srvid, QSize sz){
         }
         pItem->mutex.unlock();
 
-        g_mainWdg->getGLWdgBysrvid(srvid)->setVertices(ratio);
+        //g_mainWdg->getGLWdgBysrvid(srvid)->setVertices(ratio);
+        QRect vertices(rc.x() + (pItem->wnd_w - pItem->show_w) / 2, rc.y() + (pItem->wnd_h - pItem->show_h) / 2, pItem->show_w, pItem->show_h);
+        g_mainWdg->getGLWdgBysrvid(srvid)->setVertices(vertices);
         pItem->bNeedReallocTexture = true;
     }
 }
@@ -1110,6 +1144,18 @@ HScreenItem* HDsContext::getScreenItem(int srvid){
     return item;
 }
 
+HScreenItem* HDsContext::getScreenItem(QString src){
+    HScreenItem* item = NULL;
+    for (int i = 0; i < m_tComb.itemCnt; ++i){
+        if (m_tComb.items[i].src == src){
+            item = & m_tComb.items[i];
+            break;
+        }
+    }
+
+    return item;
+}
+
 void HDsContext::pause(int srvid, bool bPause){
     DsSrvItem* item = getSrvItem(srvid);
     if (item && item->ifcb){
@@ -1117,7 +1163,7 @@ void HDsContext::pause(int srvid, bool bPause){
 #if LAYOUT_TYPE_ONLY_OUTPUT
         item->ifcb->onservice_callback(ifservice_callback::e_service_cb_pause, libchar(), 0, 0, bPause, NULL);
 #else
-        if (srvid == 1){
+        if (isOutputSrvid(srvid)){
             item->ifcb->onservice_callback(ifservice_callback::e_service_cb_chr, libchar(), OOK_FOURCC('P', 'A', 'U', 'S'), 0, 0, NULL);
         }else{
             item->ifcb->onservice_callback(ifservice_callback::e_service_cb_pause, libchar(), OOK_FOURCC('P', 'A', 'U', 'S'), 0, bPause, NULL);

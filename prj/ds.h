@@ -12,7 +12,9 @@ enum MediaType{
 enum SrcType{
     SRC_TYPE_NUKNOWN   = 0,
     SRC_TYPE_FILE      = 1,
-    SRC_TYPE_LMIC      = 2,
+    SRC_TYPE_HTTP      = 2,
+    SRC_TYPE_RTSP      = 3,
+    SRC_TYPE_LMIC      = 4,
 };
 
 extern "C" {

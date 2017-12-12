@@ -31,11 +31,21 @@ public:
     void start_gui_thread();
 
     HScreenItem* getScreenItem(int srvid);
+    HScreenItem* getScreenItem(QString src);
 
     DsSrvItem* getSrvItem(int srvid){
         if (srvid < 1 || srvid > DIRECTOR_MAX_SERVS)
             return NULL;
         return &m_tItems[srvid-1];
+    }
+
+    DsSrvItem* getSrvItem(QString src){
+        for (int i = 0 ; i < DIRECTOR_MAX_SERVS; ++i){
+            if (m_tItems[i].src_addr.size() != 0 && src.contains(m_tItems[i].src_addr)){
+                return &m_tItems[i];
+            }
+        }
+        return NULL;
     }
 
     int lmicid2srvid(int lmicid){
@@ -119,7 +129,7 @@ signals:
     void requestShow(int srvid);
 
 public:
-    void onWndSizeChanged(int srvid, QSize sz);
+    void onWndSizeChanged(int srvid, QRect rc);
 
     void onWndVisibleChanged(int srvid, bool bShow){
         DsSrvItem* pItem = getSrvItem(srvid);
@@ -128,11 +138,11 @@ public:
         }
     }
 
-    void onRequestShowSucceed(int srvid, QSize sz){
+    void onRequestShowSucceed(int srvid, QRect rc){
         DsSrvItem* pItem = getSrvItem(srvid);
         if (pItem){
             pItem->bShow = true;
-            onWndSizeChanged(srvid, sz);
+            onWndSizeChanged(srvid, rc);
         }
     }
 
@@ -149,6 +159,8 @@ public:
     int init;
     QMutex m_mutex;
     int action; // window show or hide
+
+    QMap<QString, QString> m_mapTTID2Src;
 
     DsInitInfo m_tInit;
     DsLayoutInfo m_tLayout;
@@ -172,6 +184,12 @@ public:
 extern HDsContext* g_dsCtx;
 class HMainWidget;
 extern HMainWidget* g_mainWdg;
+
+#define OUTPUT_SRVID    1
+
+inline bool isOutputSrvid(int srvid){
+    return srvid == OUTPUT_SRVID;
+}
 
 inline bool isLmic(int srvid){
     if (srvid >= DIRECTOR_LMICID_BEGIN && srvid <= DIRECTOR_LMICID_END)

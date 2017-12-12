@@ -80,6 +80,7 @@ public:
     virtual ~QGLWidgetImpl();
 
     void setVertices(double ratio);
+    void setVertices(QRect rc);
 
 protected:
     static void loadYUVShader();
