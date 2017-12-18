@@ -1,19 +1,24 @@
 #include "hoperatetarget.h"
 
 //<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-HOperateTargetWidget::HOperateTargetWidget(QWidget* parent)
+HOperateWidget::HOperateWidget(QWidget* parent)
     : QLabel(parent)
 {
-    setStyleSheet("border:3px dashed red;");
+    //setStyleSheet("border:3px dashed red;");
     setMargin(0);
+    border_color.setRgb(255,0,0);
+
+    QTimer *timer = new QTimer(this);
+    connect(timer, SIGNAL(timeout()), this, SLOT(onTimerUpdate()));
+    timer->start(100);
 }
 
-void HOperateTargetWidget::setPixmap(const QPixmap& pixmap){
+void HOperateWidget::setPixmap(const QPixmap& pixmap){
     src_pixmap = pixmap;
     QLabel::setPixmap(src_pixmap.scaled(size()));
 }
 
-void HOperateTargetWidget::setGeometry(const QRect& rc){
+void HOperateWidget::setGeometry(const QRect& rc){
     if (!src_pixmap.isNull()){
         if (rc.size() != size()){
             QLabel::setPixmap(src_pixmap.scaled(rc.size()));
@@ -21,23 +26,54 @@ void HOperateTargetWidget::setGeometry(const QRect& rc){
     }
     QLabel::setGeometry(rc);
 }
-//>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
-HOperateTarget::HOperateTarget(HAbstractItem* p)
-{
-    pItem = p;
-    wdg = NULL;
+void HOperateWidget::onTimerUpdate(){
+    if (isVisible()){
+        update();
+    }
 }
 
-bool HOperateTarget::isExist(){
+void HOperateWidget::paintEvent(QPaintEvent *e){
+    QLabel::paintEvent(e);
+
+    static uint i = 0;
+    i += 1;
+    QPainter painter(this);
+    QPen pen = painter.pen();
+    pen.setStyle(Qt::DashLine);
+    pen.setColor(border_color);
+    pen.setDashOffset(i);
+    pen.setWidth(3);
+    painter.setPen(pen);
+    painter.drawRect(3,3,width()-6,height()-6);
+}
+
+//>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
+HOperateObject::HOperateObject(HAbstractItem* p)
+{
+    pItem = p;
+}
+
+bool HOperateObject::isNull(){
+    return pItem == NULL;
+}
+
+bool HOperateObject::isExist(){
+    if (isNull())
+        return false;
+
     if (pItem && pItem->id >= 0)
         return true;
     return false;
 }
 
-bool HOperateTarget::isModifiable(){
+bool HOperateObject::isModifiable(){
+    if (isNull())
+        return false;
+
     if (pItem->type == HAbstractItem::SCREEN){
-        HScreenItem* p = (HScreenItem*)pItem;
+        HCombItem* p = (HCombItem*)pItem;
         if (p->bMainScreen){
             return false;
         }
@@ -45,23 +81,31 @@ bool HOperateTarget::isModifiable(){
     return true;
 }
 
-void HOperateTarget::attachItem(HAbstractItem* p){
+void HOperateObject::attachItem(HAbstractItem* p){
     detachItem();
     pItem = p;
 }
 
-void HOperateTarget::detachItem(){
+void HOperateObject::detachItem(){
+    if (isNull())
+        return;
+
     if (!isExist()){
         delete pItem;
         pItem = NULL;
     }
 }
+//==========================================================================
 
-void HOperateTarget::attachWidget(HOperateTargetWidget* p){
-    wdg = p;
-    wdg->setStyleSheet("border:3px dashed red;");
+bool HOperateTarget::isNull(){
+    return obj.isNull();
 }
 
-void HOperateTarget::detachWidget(){
-    wdg = NULL;
+bool HOperateTarget::isOperating(){
+    return !obj.isNull() && pWdg->isVisible();
+}
+
+void HOperateTarget::cancel(){
+    pWdg->hide();
+    obj.pItem = NULL;
 }

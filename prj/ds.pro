@@ -49,7 +49,8 @@ SOURCES += \
     hcolorwidget.cpp \
     heffectwidget.cpp \
     hringbuffer.cpp \
-    hlayout.cpp
+    hlayout.cpp \
+    hdsconf.cpp
 
 HEADERS += \
         ds.h \
@@ -79,7 +80,8 @@ HEADERS += \
     hringbuffer.h \
     hlayout.h \
     singleton.h \
-    ds_version.h
+    ds_version.h \
+    hdsconf.h
 
 unix {
     target.path = /usr/lib

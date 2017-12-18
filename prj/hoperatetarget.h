@@ -4,37 +4,56 @@
 #include "qtheaders.h"
 #include "habstractitem.h"
 
-class HOperateTargetWidget : public QLabel
+class HOperateWidget : public QLabel
 {
     Q_OBJECT
 public:
-    HOperateTargetWidget(QWidget* parent = NULL);
+    HOperateWidget(QWidget* parent = NULL);
 
     void setPixmap(const QPixmap& pixmap);
     void setGeometry(const QRect& rc);
+    void setBorderColor(QColor color) {border_color = color;}
+
+    virtual void paintEvent(QPaintEvent *e);
+
+public slots:
+    void onTimerUpdate();
 
 public:
+    QColor border_color;
     QPixmap src_pixmap;
 };
 
-class HOperateTarget
+class HOperateObject
 {
 public:
-    HOperateTarget(HAbstractItem* p);
+    HOperateObject(HAbstractItem* p = NULL);
 
-    bool isModifiable();
+    bool isNull();
     bool isExist();
+    bool isModifiable();
 
     void attachItem(HAbstractItem* p);
     void detachItem();
 
-    void attachWidget(HOperateTargetWidget* p);
-    void detachWidget();
-
 public:
     QRect rcDraw;
     HAbstractItem* pItem;
-    HOperateTargetWidget* wdg;
+};
+
+class HOperateTarget{
+
+public:
+    HOperateTarget() {pWdg = NULL;}
+
+public:
+    bool isNull();
+    bool isOperating();
+    void cancel();
+
+public:
+    HOperateObject obj;
+    HOperateWidget* pWdg;
 };
 
 #endif // HOPERATETARGET_H

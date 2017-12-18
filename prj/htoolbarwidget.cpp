@@ -5,6 +5,8 @@
 HToolbarWidget::HToolbarWidget(QWidget *parent) : HWidget(parent){
     initUI();
     initConnect();
+
+    m_bCanSlider = true;
 }
 
 void HToolbarWidget::initUI(){
@@ -26,42 +28,51 @@ void HToolbarWidget::initUI(){
     m_slider = new QSlider;
     m_slider->setOrientation(Qt::Horizontal);
     m_slider->setRange(0,100);
-    m_slider->setStyleSheet(
-                            "QSlider::groove:horizontal {"
-                            "   height: 16px;"
-                            "   background: #C0C0C0;"
-                            "   border: 1px solid green;"
-                            "   border-radius: 5px;"
-                            "   padding-left:-1px;"
-                            "   padding-right:-1px;"
-                            "}"
-                            "QSlider::sub-page:horizontal"
-                            "{"
-                                "height: 16px;"
-                                "background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #B1B1B1, stop:1 #c4c4c4);"
-                                "background: qlineargradient(x1:0, y1:0.2, x2:1, y2:1, stop:0 #5DCCFF, stop:1 #1874CD);"
-                                "border: 1px solid #00FFFF;"
-                                "border-radius: 2px;"
-                            "}"
-                            "QSlider::add-page:horizontal"
-                            "{"
-                                "height: 16px;"
-                                "background: #575757;"
-                                "border: 1px solid #00FFFF;"
-                                "border-radius: 2px;"
-                            "}"
-                            "QSlider::handle:horizontal"
-                            "{"
-                                "width: 16px;"
-                                "background: qradialgradient"
-                                "("
-                                    "spread:pad, cx:0.5, cy:0.5, radius:0.5, fx:0.5, fy:0.5,"
-                                    "stop:0.6 #FFD700, stop:0.778409 #696969"
-                                ");"
-                                "margin-top: -8px;"
-                                "margin-bottom: -8px;"
-                                "border-radius: 5px;"
-                            "}"
+    m_slider->setFixedHeight(32);
+    m_slider->setStyleSheet("\
+                QSlider::groove:horizontal {\
+                border: 2px solid #4A708B;\
+                background: #C0C0C0;\
+                height: 16px;\
+                border-radius: 2px;\
+                padding-left:-1px;\
+                padding-right:-1px;\
+                }\
+                \
+                QSlider::sub-page:horizontal {\
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, \
+                    stop:0 #B1B1B1, stop:1 #c4c4c4);\
+                background: qlineargradient(x1: 0, y1: 0.2, x2: 1, y2: 1,\
+                    stop: 0 #5DCCFF, stop: 1 #1874CD);\
+                border: 2px solid #4A708B;\
+                height: 16px;\
+                border-radius: 2px;\
+                }\
+                \
+                QSlider::add-page:horizontal {\
+                background: #575757;\
+                border: 2px solid #777;\
+                height: 16px;\
+                border-radius: 2px;\
+                }\
+                QSlider::handle:horizontal \
+                {\
+                    background: qradialgradient(spread:pad, cx:0.5, cy:0.5, radius:0.5, fx:0.5, fy:0.5, \
+                    stop:0.6 #45ADED, stop:0.778409 rgba(255, 255, 255, 255));\
+                    width: 26px;\
+                    margin-top: -5px;\
+                    margin-bottom: -5px;\
+                    border-radius: 13px;\
+               }\
+                \
+               QSlider::handle:horizontal:hover {\
+                    background: qradialgradient(spread:pad, cx:0.5, cy:0.5, radius:0.5, fx:0.5, fy:0.5, stop:0.6 #2A8BDA, \
+                    stop:0.778409 rgba(255, 255, 255, 255));\
+                    width: 26px;\
+                    margin-top: -5px;\
+                    margin-bottom: -5px;\
+                    border-radius: 13px;\
+                }"
                             );
     hbox->addWidget(m_slider);
 
@@ -96,8 +107,18 @@ void HToolbarWidget::onSlider(){
 void HToolbarWidget::onSlider(int action){
     if (action == QAbstractSlider::SliderPageStepAdd ||
         action == QAbstractSlider::SliderPageStepSub){
-        qDebug("slider = %d", m_slider->value());
-        emit progressChanged(m_slider->value());
+
+        if (action == QAbstractSlider::SliderPageStepAdd){
+            last_slider = m_slider->value() + 10;
+            last_slider = last_slider > 100 ? 100 : last_slider;
+        }else if (action == QAbstractSlider::SliderPageStepSub){
+            last_slider = m_slider->value() - 10;
+            last_slider = last_slider < 0 ? 0 : last_slider;
+        }
+        if (m_bCanSlider){
+            m_bCanSlider = false;
+            QTimer::singleShot(1000, this, SLOT(onTimerSlider()));
+        }
     }
 }
 

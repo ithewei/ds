@@ -8,6 +8,11 @@ class HToolbarWidget : public HWidget
     Q_OBJECT
 public:
     explicit HToolbarWidget(QWidget *parent = 0);
+    void setProgress(int value) {
+        if (m_bCanSlider){
+            m_slider->setValue(value);
+        }
+    }
 
 signals:
     void progressChanged(int progress);
@@ -15,6 +20,10 @@ signals:
 public slots:
     void onSlider();
     void onSlider(int action);
+    void onTimerSlider() {
+        emit progressChanged(last_slider);
+        m_bCanSlider = true;
+    }
 
 protected:
     void initUI();
@@ -26,6 +35,8 @@ public:
     QPushButton* m_btnPause;
     QPushButton* m_btnStop;
     QSlider* m_slider;
+    bool m_bCanSlider;
+    int last_slider;
 };
 
 class HCombToolbarWidget : public HWidget

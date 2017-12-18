@@ -56,6 +56,9 @@ void myLogHandler(QtMsgType type, const QMessageLogContext & ctx, const QString 
 #include <QLibraryInfo>
 #include <QSplashScreen>
 #include <QProgressBar>
+#include "heffectwidget.h"
+#include "hexprewidget.h"
+#include "hdsconf.h"
 #ifdef WIN32
 void HDsContext::thread_gui(void* param) {
 #else
@@ -68,9 +71,6 @@ void* HDsContext::thread_gui(void* param){
     qputenv("QT_IM_MODULE", QByteArray("qtvirtualkeyboard"));
     int argc = 0;
     QApplication app(argc, NULL);
-
-    qInstallMessageHandler(myLogHandler);
-    qInfo("-------------------log print start------------------");
 
 #ifndef QT_NO_TRANSLATION
     QString translatorFileName = QLatin1String("qt_");
@@ -100,30 +100,53 @@ void* HDsContext::thread_gui(void* param){
     splash->showFullScreen();
     app.processEvents();
 
-    splash->showMessage("Loading icon...", Qt::AlignCenter, Qt::white);
+    splash->showMessage("Loading settings...", Qt::AlignCenter, Qt::white);
     progress->setValue(10);
     app.processEvents();
+    QString str = g_dsCtx->cur_path.c_str();
+#if LAYOUT_TYPE_OUTPUT_AND_MV
+    QFile file("/var/www/appname.txt");
+    if (file.open(QIODevice::ReadOnly)){
+        QString appname = file.readAll();
+        if (appname == "transcoder_sohu")
+            str += "ds_sohu.conf";
+        else
+            str += "ds.conf";
+    }else{
+        str += "ds.conf";
+    }
+#else
+    str += "ds_out.conf";
+#endif
+    HDsConf::instance()->load(str);
+
+    splash->showMessage("Loading icon...", Qt::AlignCenter, Qt::white);
+    progress->setValue(20);
+    app.processEvents();
     HRcLoader::instance()->loadIcon();
-    HNetwork::instance();
+
+    splash->showMessage("Creating widgets...", Qt::AlignCenter, Qt::white);
+    progress->setValue(30);
+    app.processEvents();
+    HExpreWidget::instance();
+    HEffectWidget::instance();
 
     splash->showMessage("Creating main UI...", Qt::AlignCenter, Qt::white);
     progress->setValue(50);
     app.processEvents();
-
     g_mainWdg = new HMainWidget;
 
     splash->showMessage("Loading completed!", Qt::AlignCenter, Qt::white);
-    progress->setValue(100);
+    progress->setValue(90);
     app.processEvents();
 
-    qInfo("--------------------mainwdg create succeed----------------");
+    qInfo("-----------------enter event loop----------------");
     pObj->m_mutex.unlock();
-
     splash->finish(g_mainWdg);
-    delete splash;
-
     app.exec();
 
+    HEffectWidget::exitInstance();
+    HExpreWidget::exitInstance();
     HRcLoader::exitInstance();
     HNetwork::exitInstance();
 
@@ -147,11 +170,6 @@ HDsContext::~HDsContext(){
         delete m_audioPlay;
         m_audioPlay = NULL;
     }
-
-    if (m_pFont){
-        delete m_pFont;
-        m_pFont = NULL;
-    }
 }
 
 #include <QWaitCondition>
@@ -173,9 +191,10 @@ void HDsContext::start_gui_thread(){
     //WaitForSingleObject((HANDLE)hThread_glut, INFINITE);
 #endif
 
-    // wait until gui create succeed
+    // beacause QApplication not create in main thread so wait until event-loop start
     m_mutex.lock();
     m_mutex.unlock();
+    sleep(1);
     qInfo("start_gui_thread>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>");
 }
 
@@ -261,6 +280,8 @@ int HDsContext::parse_layout_xml(const char* xml_file){
         QString v = elem_param.attribute("v");
         if (n == "debug")
             m_tInit.debug = v.toInt();
+        else if (n == "drawDebugInfo")
+            m_tInit.drawDebugInfo = v.toInt();
         else if (n == "mouse")
             m_tInit.mouse = v.toInt();
         else if (n == "autolayout")
@@ -433,7 +454,7 @@ int HDsContext::parse_comb_xml(const char* xml){
 
     ook::xml_parser::enum_childen(head, NULL);
     const ook::xml_element * e;
-    DsScreenInfo ci;
+    DsCombInfo ci;
     while(1)
     {
         e = ook::xml_parser::enum_childen(head, "param");
@@ -517,7 +538,7 @@ int HDsContext::parse_comb_xml(const char* xml){
 
         if ((w > ci.width - 10) && (h > ci.height - 10)){
             ci.items[ci.itemCnt].bMainScreen = true;
-            ci.comb_type = DsScreenInfo::PIP;
+            ci.comb_type = DsCombInfo::PIP;
         }else{
             ci.items[ci.itemCnt].bMainScreen = false;
         }
@@ -610,7 +631,7 @@ int HDsContext::parse_audio_xml(const char* xml){
                 m_tComb.items[i].a = a;
             }
         }
-        HScreenItem* pScreen = getScreenItem(src);
+        HCombItem* pScreen = getScreenItem(src);
         if (pScreen){
             pScreen->a = a;
         }
@@ -646,8 +667,12 @@ int HDsContext::parse_audio_xml(const char* xml){
     </list>
     </rsp>
  */
-int HDsContext::parse_taskinfo_xml(const char* xml){
+int HDsContext::parse_taskinfo_xml(int srvid, const char* xml){
     //qDebug(xml);
+
+    DsSrvItem* pItem = g_dsCtx->getSrvItem(srvid);
+    if (!pItem)
+        return -100;
 
     ook::xml_element root;
     if(!root.parse(xml, strlen(xml)))
@@ -716,166 +741,162 @@ int HDsContext::parse_taskinfo_xml(const char* xml){
         }
     }
 
-    const ook::xml_element * elem_outputpkgs  = ook::xml_parser::get_element(item, "<outputpkgs>");
-    const ook::xml_element * udptransfer = NULL;
-    udptrf_s us;
-    init_udptrf_s(&us);
-    if(elem_outputpkgs)
-        udptransfer = ook::xml_parser::get_element(elem_outputpkgs, "<udp-transfer>");
-    if (udptransfer){
-        /*
-            <outputpkgs>
-            <udp-transfer>
-            <server>192.168.1.21:3066</server>
-            <dest>127.0.0.1:1234</dest>
+    if (srvid == OUTPUT_SRVID){
+        const ook::xml_element * elem_outputpkgs  = ook::xml_parser::get_element(item, "<outputpkgs>");
+        const ook::xml_element * udptransfer = NULL;
+        udptrf_s us;
+        init_udptrf_s(&us);
+        if(elem_outputpkgs)
+            udptransfer = ook::xml_parser::get_element(elem_outputpkgs, "<udp-transfer>");
+        if (udptransfer){
+            /*
+                <outputpkgs>
+                <udp-transfer>
+                <server>192.168.1.21:3066</server>
+                <dest>127.0.0.1:1234</dest>
 
-            <received>578</received>
-            <dispatch>578</dispatch>
-            <resend>0</resend>
-            <loss>0</loss>
-            <buffer>0</buffer>
-            <overflow>0</overflow>
+                <received>578</received>
+                <dispatch>578</dispatch>
+                <resend>0</resend>
+                <loss>0</loss>
+                <buffer>0</buffer>
+                <overflow>0</overflow>
 
-            <intf>
-            <name>eth0</name>
-            <state>on</state>
-            <disp>578</disp>
-            <loss>0</loss>
-            <speeds>230</speeds>
-            <speedl>235</speedl>
-            </intf>
-            </udp-transfer>
-            </outputpkgs>
-         */
-        const ook::xml_element * received = ook::xml_parser::get_element(udptransfer, "<received>");
-        if(received)
-            us.received = (unsigned int)strtoul(received->text().c_str(), NULL, 10);
+                <intf>
+                <name>eth0</name>
+                <state>on</state>
+                <disp>578</disp>
+                <loss>0</loss>
+                <speeds>230</speeds>
+                <speedl>235</speedl>
+                </intf>
+                </udp-transfer>
+                </outputpkgs>
+             */
+            const ook::xml_element * received = ook::xml_parser::get_element(udptransfer, "<received>");
+            if(received)
+                us.received = (unsigned int)strtoul(received->text().c_str(), NULL, 10);
 
-        const ook::xml_element * dispatch = ook::xml_parser::get_element(udptransfer, "<dispatch>");
-        if(dispatch)
-            us.dispatch = (unsigned int)strtoul(dispatch->text().c_str(), NULL, 10);
+            const ook::xml_element * dispatch = ook::xml_parser::get_element(udptransfer, "<dispatch>");
+            if(dispatch)
+                us.dispatch = (unsigned int)strtoul(dispatch->text().c_str(), NULL, 10);
 
-        const ook::xml_element * resend   = ook::xml_parser::get_element(udptransfer, "<resend>");
-        if(resend)
-            us.resend   = (unsigned int)strtoul(resend->text().c_str(), NULL, 10);
+            const ook::xml_element * resend   = ook::xml_parser::get_element(udptransfer, "<resend>");
+            if(resend)
+                us.resend   = (unsigned int)strtoul(resend->text().c_str(), NULL, 10);
 
-        const ook::xml_element * loss     = ook::xml_parser::get_element(udptransfer, "<loss>");
-        if(loss)
-            us.loss     = (unsigned int)strtoul(loss->text().c_str(), NULL, 10);
+            const ook::xml_element * loss     = ook::xml_parser::get_element(udptransfer, "<loss>");
+            if(loss)
+                us.loss     = (unsigned int)strtoul(loss->text().c_str(), NULL, 10);
 
-        const ook::xml_element * buffer   = ook::xml_parser::get_element(udptransfer, "<buffer>");
-        if(buffer)
-            us.buffer   = (unsigned int)strtoul(buffer->text().c_str(), NULL, 10);
+            const ook::xml_element * buffer   = ook::xml_parser::get_element(udptransfer, "<buffer>");
+            if(buffer)
+                us.buffer   = (unsigned int)strtoul(buffer->text().c_str(), NULL, 10);
 
-        const ook::xml_element * overflow = ook::xml_parser::get_element(udptransfer, "<overflow>");
-        if(overflow)
-            us.overflow = (unsigned int)strtoul(overflow->text().c_str(), NULL, 10);
+            const ook::xml_element * overflow = ook::xml_parser::get_element(udptransfer, "<overflow>");
+            if(overflow)
+                us.overflow = (unsigned int)strtoul(overflow->text().c_str(), NULL, 10);
 
-        int index = 0;
-        ook::xml_parser::enum_childen(udptransfer, NULL);
-        const ook::xml_element * e_intf = NULL;
-        while(1)
-        {
-            e_intf = ook::xml_parser::enum_childen(udptransfer, "intf");
-            if(!e_intf)
-                break;
-
-            const ook::xml_element * e_name  = ook::xml_parser::get_element(e_intf, "<name>");
-            if(e_name)
-                us.intf[index].name  = e_name->text();
-
-            const ook::xml_element * e_stat  = ook::xml_parser::get_element(e_intf, "<state>");
-            if(e_stat)
+            int index = 0;
+            ook::xml_parser::enum_childen(udptransfer, NULL);
+            const ook::xml_element * e_intf = NULL;
+            while(1)
             {
-                if(e_stat->text() != "on")
+                e_intf = ook::xml_parser::enum_childen(udptransfer, "intf");
+                if(!e_intf)
+                    break;
+
+                const ook::xml_element * e_name  = ook::xml_parser::get_element(e_intf, "<name>");
+                if(e_name)
+                    us.intf[index].name  = e_name->text();
+
+                const ook::xml_element * e_stat  = ook::xml_parser::get_element(e_intf, "<state>");
+                if(e_stat)
                 {
-                    us.intf[index].name = "";
-                    continue;
+                    if(e_stat->text() != "on")
+                    {
+                        us.intf[index].name = "";
+                        continue;
+                    }
                 }
+
+                const ook::xml_element * e_loss  = ook::xml_parser::get_element(e_intf, "<loss>");
+                if(e_loss)
+                    us.intf[index].loss  = (unsigned int)strtoul(e_loss->text().c_str(), NULL, 10);
+
+                const ook::xml_element * e_speed = ook::xml_parser::get_element(e_intf, "<speeds>");
+                if(e_speed)
+                    us.intf[index].speed = (unsigned int)strtoul(e_speed->text().c_str(), NULL, 10);
+                index++;
             }
-
-            const ook::xml_element * e_loss  = ook::xml_parser::get_element(e_intf, "<loss>");
-            if(e_loss)
-                us.intf[index].loss  = (unsigned int)strtoul(e_loss->text().c_str(), NULL, 10);
-
-            const ook::xml_element * e_speed = ook::xml_parser::get_element(e_intf, "<speeds>");
-            if(e_speed)
-                us.intf[index].speed = (unsigned int)strtoul(e_speed->text().c_str(), NULL, 10);
-            index++;
         }
-    }
 
-    std::string s_cont;
-    char cont[128];
-    __snprintf(cont, 128, "缓 存 %d/%d/%d ", buffer[0], buffer[1], buffer[2]);
-    s_cont = cont;
+        std::string s_cont;
+        char cont[128] = {0};
+        __snprintf(cont, 128, "缓 存 %d/%d/%d ", buffer[0], buffer[1], buffer[2]);
+        s_cont = cont;
 
-    if(udptransfer)
-    {
-        __snprintf(cont, 128, "接 收 %d", us.received);
-        s_cont += "\r\n";
-        s_cont += cont;
-        __snprintf(cont, 128, "发 送 %d", us.dispatch);
-        s_cont += "\r\n";
-        s_cont += cont;
-        __snprintf(cont, 128, "重 传 %d", us.resend);
-        s_cont += "\r\n";
-        s_cont += cont;
-        __snprintf(cont, 128, "丢 失 %d", us.loss);
-        s_cont += "\r\n";
-        s_cont += cont;
-        __snprintf(cont, 128, "待 发 %d", us.buffer);
-        s_cont += "\r\n";
-        s_cont += cont;
-        __snprintf(cont, 128, "溢 出 %d", us.overflow);
-        s_cont += "\r\n";
-        s_cont += cont;
-
-        int i = 0;
-        int total_speed = 0;
-        for(; i < 8; i++)
+        if(udptransfer)
         {
-            if(us.intf[i].name.length() == 0)
-                break;
-            total_speed += us.intf[i].speed;
-            __snprintf(cont, 128, "%-5s: %5ukps (%u) ", us.intf[i].name.c_str(), us.intf[i].speed, us.intf[i].loss);
+            __snprintf(cont, 128, "接 收 %d", us.received);
             s_cont += "\r\n";
             s_cont += cont;
-        }
-        if(i > 1 && total_speed > 0)
-        {
-            s_cont += "\r\n";
-            s_cont += "------------";
-            __snprintf(cont, 128, "%-4s: %5ukps ", "TOT", total_speed);
+            __snprintf(cont, 128, "发 送 %d", us.dispatch);
             s_cont += "\r\n";
             s_cont += cont;
-        }
-    }
-    else
-    {
-        if(queue[0] > -1)
-        {
-            __snprintf(cont, 128, "排 队 %d/%d", queue[0], queue[1]);
+            __snprintf(cont, 128, "重 传 %d", us.resend);
             s_cont += "\r\n";
             s_cont += cont;
+            __snprintf(cont, 128, "丢 失 %d", us.loss);
+            s_cont += "\r\n";
+            s_cont += cont;
+            __snprintf(cont, 128, "待 发 %d", us.buffer);
+            s_cont += "\r\n";
+            s_cont += cont;
+            __snprintf(cont, 128, "溢 出 %d", us.overflow);
+            s_cont += "\r\n";
+            s_cont += cont;
+
+            int i = 0;
+            int total_speed = 0;
+            for(; i < 8; i++)
+            {
+                if(us.intf[i].name.length() == 0)
+                    break;
+                total_speed += us.intf[i].speed;
+                __snprintf(cont, 128, "%-5s: %5ukps (%u) ", us.intf[i].name.c_str(), us.intf[i].speed, us.intf[i].loss);
+                s_cont += "\r\n";
+                s_cont += cont;
+            }
+            if(i > 1 && total_speed > 0)
+            {
+                s_cont += "\r\n";
+                s_cont += "------------";
+                __snprintf(cont, 128, "%-4s: %5ukps ", "TOT", total_speed);
+                s_cont += "\r\n";
+                s_cont += cont;
+            }
         }
-        if(outputspeed > -1)
-            __snprintf(cont, 128, "发 送 %d/%d (%dkps)", outputpkgs[0], outputpkgs[1], outputspeed);
         else
-            __snprintf(cont, 128, "发 送 %d (%dkps)", outputpkgs[0], outputpkgs[1]);
-        s_cont += "\r\n";
-        s_cont += cont;
-    }
+        {
+            if(queue[0] > -1)
+            {
+                __snprintf(cont, 128, "排 队 %d/%d", queue[0], queue[1]);
+                s_cont += "\r\n";
+                s_cont += cont;
+            }
+            if(outputspeed > -1)
+                __snprintf(cont, 128, "发 送 %d/%d (%dkps)", outputpkgs[0], outputpkgs[1], outputspeed);
+            else
+                __snprintf(cont, 128, "发 送 %d (%dkps)", outputpkgs[0], outputpkgs[1]);
+            s_cont += "\r\n";
+            s_cont += cont;
+        }
 
-    DsSrvItem* pItem = g_dsCtx->getSrvItem(req_srvid);
-    if (!pItem)
-        return -100;
-
-    if (req_srvid == 1)
         pItem->taskinfo = s_cont;
-    else{
+    }else{
         QString str(m_tInit.taskinfo_format);
-        str.replace("%title", g_dsCtx->getSrvItem(req_srvid)->title.c_str());
+        str.replace("%title", pItem->title.c_str());
         str.replace("%avcodec", inputchar.c_str());
         QString rate = QString::asprintf("码率:%dkps", inputpkgs[0]);
         str.replace("%rate", rate);
@@ -889,19 +910,6 @@ int HDsContext::parse_taskinfo_xml(const char* xml){
     }
 
     return 0;
-}
-
-void HDsContext::initImg(std::string& path){
-    img_path = path;
-}
-
-void HDsContext::initFont(std::string& path, int h){
-    ttf_path = path;
-    m_pFont = new FTGLPixmapFont(ttf_path.c_str());
-    if (m_pFont){
-        m_pFont->CharMap(FT_ENCODING_UNICODE);
-        m_pFont->FaceSize(h);
-    }
 }
 
 #include "hffmpeg.h"
@@ -1051,7 +1059,7 @@ int HDsContext::pop_video(int srvid){
     item->mutex.lock();
     char* ptr = item->video_buffer->read();
     if (!ptr){
-        qDebug("[srvid=%d]read to fast", srvid);
+        //qDebug("[srvid=%d]read to fast", srvid);
         if (++item->pop_video_failed_cnt > 3*m_tInit.fps)
             stop(srvid);
     }else{
@@ -1132,8 +1140,8 @@ int HDsContext::push_audio(int srvid, const av_pcmbuff* pcm){
     return 0;
 }
 
-HScreenItem* HDsContext::getScreenItem(int srvid){
-    HScreenItem* item = NULL;
+HCombItem* HDsContext::getScreenItem(int srvid){
+    HCombItem* item = NULL;
     for (int i = 0; i < m_tComb.itemCnt; ++i){
         if (INNER_SRVID(m_tComb.items[i].srvid) == srvid){
             item = & m_tComb.items[i];
@@ -1144,8 +1152,8 @@ HScreenItem* HDsContext::getScreenItem(int srvid){
     return item;
 }
 
-HScreenItem* HDsContext::getScreenItem(QString src){
-    HScreenItem* item = NULL;
+HCombItem* HDsContext::getScreenItem(QString src){
+    HCombItem* item = NULL;
     for (int i = 0; i < m_tComb.itemCnt; ++i){
         if (m_tComb.items[i].src == src){
             item = & m_tComb.items[i];

@@ -10,25 +10,23 @@
 #include <QJsonArray>
 
 #include "ds_def.h"
+#include "singleton.h"
 
 class HNetwork : public QObject
 {
     Q_OBJECT
+
+    DECLARE_SINGLETON(HNetwork)
 private:
     HNetwork();
 
 public:
-    static HNetwork* instance();
-    static void exitInstance();
-
-    void confUrl();
-
     void addItem(HAbstractItem* item);
     void removeItem(HAbstractItem* item);
     void modifyItem(HAbstractItem* item);
     void queryItem(HAbstractItem* item);
 
-    void postScreenInfo(DsScreenInfo& info);
+    void postCombInfo(DsCombInfo& info);
 
     void addPicture(HPictureItem& item);
     void addText(HTextItem& item);
@@ -45,6 +43,8 @@ public:
 
     void setVoice(int srvid, int a);
 
+    void notifyFullscreen(bool bFullscreen);
+
 signals:
     void overlayChanged();
 
@@ -55,17 +55,7 @@ public slots:
     void queryVoice();
     void onQueryVoiceReply(QNetworkReply* reply);
 
-public:
-    std::vector<HScreenItem> m_vecScreens;
-    std::vector<HPictureItem> m_vecPictures;
-    std::vector<HTextItem> m_vecTexts;
-
-public:
-    QString appname;
-
 private:
-    static HNetwork* s_pNetwork;
-
     QNetworkAccessManager* m_nam_post_screeninfo;
     QNetworkAccessManager* m_nam_add_overlay;
     QNetworkAccessManager* m_nam_query_overlay;
@@ -74,14 +64,7 @@ private:
     QNetworkAccessManager* m_nam_micphone;
     QNetworkAccessManager* m_nam_voice;
     QNetworkAccessManager* m_nam_query_voice;
-
-    QUrl url_query_overlay;
-    QUrl url_add_overlay;
-    QUrl url_remove_overlay;
-    QUrl url_modify_overlay;
-    QUrl url_post_combinfo;
-    QUrl url_micphone;
-    QUrl url_voice;
+    QNetworkAccessManager* m_nam_post_notify;
 };
 
 #endif // HNETWORK_H

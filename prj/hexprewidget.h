@@ -44,9 +44,11 @@ public:
 };
 
 #include <QListWidgetItem>
+#include "singleton.h"
 class HExpreWidget : public HWidget
 {
     Q_OBJECT
+    DECLARE_SINGLETON(HExpreWidget)
 public:
     explicit HExpreWidget(QWidget *parent = 0);
 

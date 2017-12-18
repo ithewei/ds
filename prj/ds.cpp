@@ -25,12 +25,6 @@ DSSHARED_EXPORT int libinit(const char* xml, void* task, void** ctx){
         do {
             g_dsCtx = new HDsContext;
 
-    //        if (g_dsCtx->parse_init_xml(xml) != 0){
-    //            //qWarning("parse_init_xml failed");
-    //            err = -1003;
-    //            break;
-    //        }
-
     #if LAYOUT_TYPE_ONLY_OUTPUT
             DsSrvItem* item = g_dsCtx->getSrvItem(OUTPUT_SRVID);
             if (item){
@@ -40,6 +34,7 @@ DSSHARED_EXPORT int libinit(const char* xml, void* task, void** ctx){
 
             std::string strXmlPath = tid->cur_path;
             APPENDSEPARTOR(strXmlPath)
+            g_dsCtx->cur_path = strXmlPath;
     #if LAYOUT_TYPE_ONLY_MV
             strXmlPath += "director_service_mv.xml";
     #elif LAYOUT_TYPE_ONLY_OUTPUT
@@ -68,8 +63,6 @@ DSSHARED_EXPORT int libinit(const char* xml, void* task, void** ctx){
             img_path += "director_service";
             APPENDSEPARTOR(img_path)
             g_dsCtx->img_path = img_path;
-            if(job_check_path(img_path.c_str()) == 0)
-                g_dsCtx->initImg(img_path);
 
             std::string ttf_path = tid->cur_path;
             APPENDSEPARTOR(ttf_path)
@@ -78,8 +71,7 @@ DSSHARED_EXPORT int libinit(const char* xml, void* task, void** ctx){
             ttf_path += "fonts";
             APPENDSEPARTOR(ttf_path)
             ttf_path += "default.ttf";
-            if(job_check_path(ttf_path.c_str()) == 0)
-                g_dsCtx->initFont(ttf_path, 24);
+            g_dsCtx->ttf_path = ttf_path;
 
             *ctx = g_dsCtx;
             qInfo("============================libinit ok==========================");
@@ -141,10 +133,25 @@ DSSHARED_EXPORT int liboper(int media_type, int data_type, int opt, void* param,
                 }
                 g_dsCtx->setAction(*(int*)param);
                 break;
+            case SERVICE_OPT_TASKSRCINFO:
+            {
+                qInfo("SERVICE_OPT_TASKSRCINFO=%s", (char*)param);
+                separator sept((char*)param, "\r\n");
+                g_dsCtx->m_mapTTID2Src[QString(sept[0])] = QString(sept[1]);
+            }
+                break;
             case SERVICE_OPT_TASKSTATUS:
                 if (param){
                     std::string * str = (std::string *)param;
-                    g_dsCtx->parse_taskinfo_xml(str->c_str());
+                    qDebug("SERVICE_OPT_TASKSTATUS=%d", g_dsCtx->req_srvid);
+                    g_dsCtx->parse_taskinfo_xml(g_dsCtx->req_srvid, str->c_str());
+                }
+                break;
+            case SERVICE_OPT_TASKSTATUS2:
+                if (param){
+                    task_service_status_s * ss = (task_service_status_s *)param;
+                    qDebug("SERVICE_OPT_TASKSTATUS2=%d", ss->servid);
+                    g_dsCtx->parse_taskinfo_xml(ss->servid, ss->inf->c_str());
                 }
                 break;
             case SERVICE_OPT_TASKSTATUSREQ:
@@ -164,6 +171,7 @@ DSSHARED_EXPORT int liboper(int media_type, int data_type, int opt, void* param,
                     if (tick > g_dsCtx->getSrvItem(srvid)->tick + span){
                         g_dsCtx->req_srvid = srvid;
                         g_dsCtx->getSrvItem(srvid)->tick = tick;
+                        qDebug("SERVICE_OPT_TASKSTATUSREQ=%d", srvid);
                         return 1;
                     }
                 }
@@ -250,7 +258,7 @@ DSSHARED_EXPORT int liboper(int media_type, int data_type, int opt, void* param,
                 }
             }else if (dsc->action == OOK_FOURCC('P', 'L', 'Y', 'R')){
                 int progress = *(int*)dsc->ptr;
-                //qDebug("OOK_FOURCC('P', 'L', 'Y', 'R') progress=%d", progress);
+                qDebug("OOK_FOURCC('P', 'L', 'Y', 'R') progress=%d", progress);
                 emit g_dsCtx->sigProgressNty(srvid, progress);
             }else if (dsc->action == OOK_FOURCC('S', 'M', 'I', 'X')){
                 qDebug("srvid=%d OOK_FOURCC('S', 'M', 'I', 'X')", srvid);

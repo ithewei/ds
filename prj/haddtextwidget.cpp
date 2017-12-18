@@ -8,7 +8,6 @@ HAddTextWidget::HAddTextWidget(QWidget *parent) : HWidget(parent){
 
 #include <QIntValidator>
 void HAddTextWidget::initUI(){
-    setWindowTitle("添加文字");
     setFixedSize(QSize(480,390));
     setAutoFillBackground(true);
     QPalette pal = palette();
@@ -58,10 +57,10 @@ void HAddTextWidget::initUI(){
 
     m_cmbFontSize = new QComboBox;
     m_cmbFontSize->setFixedWidth(100);
-    m_cmbFontSize->setEditable(true);
-    QIntValidator* v = new QIntValidator(0, 100, this);
-    m_cmbFontSize->lineEdit()->setValidator(v);
-    m_cmbFontSize->lineEdit()->setAlignment(Qt::AlignCenter);
+//    m_cmbFontSize->setEditable(true);
+//    QIntValidator* v = new QIntValidator(0, 100, this);
+//    m_cmbFontSize->lineEdit()->setValidator(v);
+//    m_cmbFontSize->lineEdit()->setAlignment(Qt::AlignCenter);
     int num[] = {6,9,12,16,20,24,28,32,36,40,48,56,64,72,84,96,-1};
     int i = 0;
     while (num[i] > 0){
@@ -111,7 +110,7 @@ void HAddTextWidget::initUI(){
     setLayout(grid);
 
     m_colorSelector = new HColorWidget(this);
-    m_colorSelector->setWindowFlags(Qt::Popup);
+    m_colorSelector->setWindowFlags(Qt::Popup | Qt::WindowDoesNotAcceptFocus);
     QObject::connect( m_colorSelector, SIGNAL(newColor(QColor)), this, SLOT(onNewColor(QColor)) );
 }
 

@@ -58,7 +58,7 @@ void HAbstractItem::onUndo(){
 
 
 //<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-HScreenItem::HScreenItem()
+HCombItem::HCombItem()
 {
     type = SCREEN;
 
@@ -69,33 +69,33 @@ HScreenItem::HScreenItem()
     bMainScreen = false;
 }
 
-void HScreenItem::remove(){
+void HCombItem::remove(){
     HAbstractItem::remove();
 
-    DsScreenInfo si = g_dsCtx->m_tComb;
+    DsCombInfo si = g_dsCtx->m_tComb;
     if (si.items[id].srvid != 0){
         si.items[id].srvid = 0;
         si.items[id].a = false;
-        HNetwork::instance()->postScreenInfo(si);
+        HNetwork::instance()->postCombInfo(si);
     }
 }
 
-void HScreenItem::modify(){
+void HCombItem::modify(){
     HAbstractItem::modify();
 
-    DsScreenInfo si = g_dsCtx->m_tComb;
+    DsCombInfo si = g_dsCtx->m_tComb;
     si.items[id] = *this;
-    HNetwork::instance()->postScreenInfo(g_dsCtx->m_tComb);
+    HNetwork::instance()->postCombInfo(g_dsCtx->m_tComb);
 }
 
-void HScreenItem::savePreStatus(){
+void HCombItem::savePreStatus(){
     HAbstractItem::savePreStatus();
 
     g_dsCtx->m_tCombUndo = g_dsCtx->m_tComb;
 }
 
-void HScreenItem::undo(){
-    HNetwork::instance()->postScreenInfo(g_dsCtx->m_tCombUndo);
+void HCombItem::undo(){
+    HNetwork::instance()->postCombInfo(g_dsCtx->m_tCombUndo);
 }
 
 //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
@@ -159,7 +159,7 @@ void HTextItem::modify(){
 HAbstractItem* HItemFactory::createItem(HAbstractItem::TYPE type){
     switch (type){
     case HAbstractItem::SCREEN:
-        return new HScreenItem;
+        return new HCombItem;
     case HAbstractItem::PICTURE:
         return new HPictureItem;
     case HAbstractItem::TEXT:

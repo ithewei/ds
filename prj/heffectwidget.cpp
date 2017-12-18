@@ -1,6 +1,8 @@
 #include "heffectwidget.h"
 #include "hrcloader.h"
 
+IMPL_SINGLETON(HEffectWidget)
+
 HEffectWidget::HEffectWidget(QWidget *parent) : HWidget(parent){
     initUI();
     initConnect();
