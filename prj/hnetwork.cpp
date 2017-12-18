@@ -1,38 +1,11 @@
 #include "hnetwork.h"
 #include "hdsctx.h"
+#include "hdsconf.h"
 
-const char* dir_trans = "/var/www/transcoder/";
-
-HNetwork* HNetwork::s_pNetwork = NULL;
-
-void HNetwork::confUrl(){
-#if LAYOUT_TYPE_ONLY_OUTPUT
-    url_query_overlay = "http://localhost:3001/api/v1/interface/get";
-    url_add_overlay = "http://localhost:3001/api/v1/interface/add";
-    url_remove_overlay = "http://localhost:3001/api/v1/interface/delete";
-    url_modify_overlay = "http://localhost:3001/api/v1/interface/update";
-#else
-    appname = "transcoder";
-    QFile file("/var/www/appname.txt");
-    if (file.open(QIODevice::ReadOnly)){
-        appname = file.readAll();
-        qDebug("web appname = %d", appname.toLocal8Bit().data());
-    }
-    url_post_combinfo = "http://localhost/" + appname + "/index.php?controller=channels&action=Dragsave";
-    url_micphone = "http://localhost/" + appname + "/index.php?controller=channels&action=voiceover";
-    url_voice = "http://localhost/" + appname + "/index.php?controller=channels&action=voiceinfo";
-
-    url_query_overlay = "http://localhost/" + appname + "/index.php?controller=logo&action=allinfo";
-    url_add_overlay = "http://localhost/" + appname + "/index.php?controller=logo&action=logoadd";
-    url_remove_overlay = "http://localhost/" + appname + "/index.php?controller=logo&action=ddelete";
-    url_modify_overlay = "http://localhost/" + appname + "/index.php?controller=logo&action=editpt";
-#endif
-}
+IMPL_SINGLETON(HNetwork)
 
 HNetwork::HNetwork() : QObject()
 {
-    confUrl();
-
     m_nam_post_screeninfo = new QNetworkAccessManager(this);
 
     m_nam_add_overlay = new QNetworkAccessManager(this);
@@ -55,21 +28,7 @@ HNetwork::HNetwork() : QObject()
     m_nam_query_voice = new QNetworkAccessManager(this);
     QObject::connect( m_nam_query_voice, SIGNAL(finished(QNetworkReply*)), this, SLOT(onQueryVoiceReply(QNetworkReply*)) );
 
-    queryVoice();
-}
-
-HNetwork* HNetwork::instance(){
-    if (s_pNetwork == NULL){
-        s_pNetwork = new HNetwork;
-    }
-    return s_pNetwork;
-}
-
-void HNetwork::exitInstance(){
-    if (s_pNetwork){
-        delete s_pNetwork;
-        s_pNetwork = NULL;
-    }
+    m_nam_post_notify = new QNetworkAccessManager(this);
 }
 
 void HNetwork::addItem(HAbstractItem* item){
@@ -84,11 +43,11 @@ void HNetwork::addItem(HAbstractItem* item){
 
 void HNetwork::removeItem(HAbstractItem* item){
     if (item->type == HAbstractItem::SCREEN){
-        DsScreenInfo si = g_dsCtx->m_tComb;
+        DsCombInfo si = g_dsCtx->m_tComb;
         if (si.items[item->id].srvid != 0){
             si.items[item->id].srvid = 0;
             si.items[item->id].a = false;
-            postScreenInfo(si);
+            postCombInfo(si);
         }
     }else if (item->type == HAbstractItem::PICTURE){
         removePicture(*(HPictureItem*)item);
@@ -99,9 +58,9 @@ void HNetwork::removeItem(HAbstractItem* item){
 
 void HNetwork::modifyItem(HAbstractItem* item){
     if (item->type == HAbstractItem::SCREEN){
-        DsScreenInfo si = g_dsCtx->m_tComb;
+        DsCombInfo si = g_dsCtx->m_tComb;
         si.items[item->id].rc = item->rc;
-        HNetwork::instance()->postScreenInfo(si);
+        HNetwork::instance()->postCombInfo(si);
     }else if (item->type == HAbstractItem::PICTURE){
         modifyPicture(*(HPictureItem*)item);
     }else if (item->type == HAbstractItem::TEXT){
@@ -113,10 +72,10 @@ void HNetwork::queryItem(HAbstractItem* item){
 
 }
 
-void HNetwork::postScreenInfo(DsScreenInfo& si){
+void HNetwork::postCombInfo(DsCombInfo& si){
     QJsonArray arr;
     for (int i = 0; i < si.itemCnt; ++i){
-        HScreenItem& item = si.items[i];
+        HCombItem& item = si.items[i];
         if (!item.v)
             continue;
         QJsonObject obj;
@@ -131,21 +90,23 @@ void HNetwork::postScreenInfo(DsScreenInfo& si){
     QJsonDocument doc;
     doc.setArray(arr);
     QByteArray bytes = doc.toJson();
-    qDebug(bytes.constData());
-    qDebug(url_post_combinfo.url().toLocal8Bit().data());
 
     QNetworkRequest req;
-    req.setUrl(QUrl(url_post_combinfo));
+    req.setUrl(QUrl(HDsConf::instance()->value("URL/combinfo")));
     req.setHeader(QNetworkRequest::ContentTypeHeader, "text/plain;charset=UTF-8");
     m_nam_post_screeninfo->post(req, bytes);
+
+    qDebug() << req.url().url();
+    qDebug(bytes.constData());
 }
 
 void HNetwork::queryOverlayInfo(){
-    m_nam_query_overlay->get(QNetworkRequest(QUrl(url_query_overlay)));
+    qDebug("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+    m_nam_query_overlay->get(QNetworkRequest(QUrl(HDsConf::instance()->value("URL/query_overlay"))));
 }
 
-#include "hdsctx.h"
 void HNetwork::onQueryOverlayReply(QNetworkReply* reply){
+    qDebug("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb");
     QByteArray bytes = reply->readAll();
     qDebug(bytes.constData());
 
@@ -156,12 +117,13 @@ void HNetwork::onQueryOverlayReply(QNetworkReply* reply){
     obj_root = dom.object();
     if (obj_root.contains("picture")){
         QJsonArray arr_picture = obj_root.value("picture").toArray();
-        m_vecPictures.clear();
-        for (int i = 0; i < arr_picture.size(); ++i){
+        g_dsCtx->m_pics.itemCnt = qMin(arr_picture.size(), MAXNUM_PICTURE_ITEM);
+        for (int i = 0; i < g_dsCtx->m_pics.itemCnt; ++i){
             QJsonObject obj_picture = arr_picture[i].toObject();
-            HPictureItem item;
+
+            HPictureItem* item = &g_dsCtx->m_pics.items[i];
             if (obj_picture.contains("id")){
-                item.id = obj_picture.value("id").toString().toInt();
+                item->id = obj_picture.value("id").toString().toInt();
             }
 
             if (obj_picture.contains("x_pos") && obj_picture.contains("y_pos") &&
@@ -170,30 +132,30 @@ void HNetwork::onQueryOverlayReply(QNetworkReply* reply){
                 int y = obj_picture.value("y_pos").toInt();
                 int w = obj_picture.value("width").toInt();
                 int h = obj_picture.value("height").toInt();
-                item.rc.setRect(x,y,w,h);
+                item->rc.setRect(x,y,w,h);
             }
 
             if (obj_picture.contains("path")){
                 QString src;
-                src = dir_trans;
+                src = HDsConf::instance()->value("PATH/pic_local");
                 src += obj_picture.value("path").toString();
-                strncpy(item.src, src.toLocal8Bit().constData(), MAXLEN_STR);
+                strncpy(item->src, src.toLocal8Bit().constData(), MAXLEN_STR);
             }
 
-            m_vecPictures.push_back(item);
-            qDebug("id=%d,x=%d,y=%d,w=%d,h=%d,src=%s", item.id, item.rc.x(), item.rc.y(), item.rc.width(), item.rc.height(),
-                   item.src);
+            qDebug("id=%d,x=%d,y=%d,w=%d,h=%d,src=%s", item->id, item->rc.x(), item->rc.y(), item->rc.width(), item->rc.height(),
+                   item->src);
         }
     }
 
     if (obj_root.contains("text")){
         QJsonArray arr_text = obj_root.value("text").toArray();
-        m_vecTexts.clear();
-        for (int i = 0; i < arr_text.size(); ++i){
+
+        g_dsCtx->m_texts.itemCnt = qMin(arr_text.size(), MAXNUM_TEXT_ITEM);
+        for (int i = 0; i < g_dsCtx->m_texts.itemCnt; ++i){
             QJsonObject obj_text = arr_text[i].toObject();
-            HTextItem item;
+            HTextItem* item = &g_dsCtx->m_texts.items[i];
             if (obj_text.contains("id")){
-                item.id = obj_text.value("id").toString().toInt();
+                item->id = obj_text.value("id").toString().toInt();
             }
 
             if (obj_text.contains("x_pos") && obj_text.contains("y_pos") &&
@@ -202,52 +164,51 @@ void HNetwork::onQueryOverlayReply(QNetworkReply* reply){
                 int y = obj_text.value("y_pos").toInt();
                 int w = obj_text.value("width").toInt();
                 int h = obj_text.value("height").toInt();
-                item.rc.setRect(x,y,w,h);
+                item->rc.setRect(x,y,w,h);
             }
 
             if (obj_text.contains("content")){
                 QString text = obj_text.value("content").toString();
-                strncpy(item.text, text.toLocal8Bit().constData(), MAXLEN_STR);
+                strncpy(item->text, text.toLocal8Bit().constData(), MAXLEN_STR);
             }
 
             if (obj_text.contains("font_size")){
-                item.font_size = obj_text.value("font_size").toInt();
+                item->font_size = obj_text.value("font_size").toInt();
             }
 
             if (obj_text.contains("font_color")){
-                item.font_color = obj_text.value("font_color").toString().toInt(NULL, 16);
+                item->font_color = obj_text.value("font_color").toString().toInt(NULL, 16);
             }
 
             QFont font;
-            font.setPixelSize(item.font_size);
+            font.setPixelSize(item->font_size);
             font.setLetterSpacing(QFont::AbsoluteSpacing, 0);
             font.setWordSpacing(0);
             QFontMetrics fm(font);
             int h = fm.height();
             int w = 256;
-            QString text = item.text;
+            QString text = item->text;
             if (text.contains("__%%TIMER%%__")){
-                item.text_type = HTextItem::TIME;
+                item->text_type = HTextItem::TIME;
                 w = fm.width("2017-09-10 12:34:56");
             }else if (text.contains("__%%WATCHER%%__")){
-                item.text_type = HTextItem::WATCHER;
+                item->text_type = HTextItem::WATCHER;
                 w = fm.width("00:00:00:0");
             }else if (text.contains("__%%subtitle_index%%__")){
-                item.text_type = HTextItem::SUBTITLE;
+                item->text_type = HTextItem::SUBTITLE;
                 w = 360;
             }else{
-                item.text_type = HTextItem::LABEL;
+                item->text_type = HTextItem::LABEL;
                 font.setLetterSpacing(QFont::AbsoluteSpacing, 4);
                 QFontMetrics fm(font);
-                w = fm.width(item.text);
+                w = fm.width(item->text);
             }
-            int x = item.rc.x();
-            int y = g_dsCtx->m_tComb.height - item.rc.y() - h;//y_pos is from bottom
-            item.rc.setRect(x,y,w,h);
+            int x = item->rc.x();
+            int y = g_dsCtx->m_tComb.height - item->rc.y() - h;//y_pos is from bottom
+            item->rc.setRect(x,y,w,h);
 
-            m_vecTexts.push_back(item);
-            qDebug("id=%d,x=%d,y=%d,w=%d,h=%d,content=%s,font_size=%d,font_color=0x%x", item.id, item.rc.x(), item.rc.y(), item.rc.width(), item.rc.height(),
-                   item.text,item.font_size, item.font_color);
+            qDebug("id=%d,x=%d,y=%d,w=%d,h=%d,content=%s,font_size=%d,font_color=0x%x", item->id, item->rc.x(), item->rc.y(), item->rc.width(), item->rc.height(),
+                   item->text,item->font_size, item->font_color);
         }
     }
 
@@ -260,7 +221,7 @@ void HNetwork::addPicture(HPictureItem &item){
     QJsonObject obj;
     QString src;
     if (item.pic_type == HPictureItem::IMAGE){
-        src = item.src + strlen(dir_trans);
+        src = item.src + HDsConf::instance()->value("PATH/pic_local").size();
     }else if (item.pic_type == HPictureItem::MOSAIC){
         src = "Upload/mosaic.png";
         //src = "__%%MOSAIC%%__";
@@ -284,11 +245,14 @@ void HNetwork::addPicture(HPictureItem &item){
     QJsonDocument dom;
     dom.setObject(obj_pic);
     QByteArray bytes = dom.toJson();
-    qDebug(bytes.constData());
+
     QNetworkRequest req;
-    req.setUrl(QUrl(url_add_overlay));
+    req.setUrl(QUrl(HDsConf::instance()->value("URL/add_overlay")));
     req.setHeader(QNetworkRequest::ContentTypeHeader, "text/plain;charset=UTF-8");
     m_nam_add_overlay->post(req, bytes);
+
+    qDebug() << req.url().url();
+    qDebug(bytes.constData());
 }
 
 void HNetwork::addText(HTextItem& item){
@@ -307,11 +271,14 @@ void HNetwork::addText(HTextItem& item){
     QJsonDocument dom;
     dom.setObject(obj_pic);
     QByteArray bytes = dom.toJson();
-    qDebug(bytes.constData());
+
     QNetworkRequest req;
-    req.setUrl(QUrl(url_add_overlay));
+    req.setUrl(QUrl(HDsConf::instance()->value("URL/add_overlay")));
     req.setHeader(QNetworkRequest::ContentTypeHeader, "text/plain;charset=UTF-8");
     m_nam_add_overlay->post(req, bytes);
+
+    qDebug() << req.url().url();
+    qDebug(bytes.constData());
 }
 
 void HNetwork::modifyPicture(HPictureItem& item){
@@ -328,11 +295,14 @@ void HNetwork::modifyPicture(HPictureItem& item){
     QJsonDocument dom;
     dom.setObject(obj_pic);
     QByteArray bytes = dom.toJson();
-    qDebug(bytes.constData());
+
     QNetworkRequest req;
-    req.setUrl(QUrl(url_modify_overlay));
+    req.setUrl(QUrl(HDsConf::instance()->value("URL/modify_overlay")));
     req.setHeader(QNetworkRequest::ContentTypeHeader, "text/plain;charset=UTF-8");
     m_nam_modify_overlay->post(req, bytes);
+
+    qDebug() << req.url().url();
+    qDebug(bytes.constData());
 }
 
 void HNetwork::modifyText(HTextItem& item){
@@ -351,11 +321,14 @@ void HNetwork::modifyText(HTextItem& item){
     QJsonDocument dom;
     dom.setObject(obj_pic);
     QByteArray bytes = dom.toJson();
-    qDebug(bytes.constData());
+
     QNetworkRequest req;
-    req.setUrl(QUrl(url_modify_overlay));
+    req.setUrl(QUrl(HDsConf::instance()->value("URL/modify_overlay")));
     req.setHeader(QNetworkRequest::ContentTypeHeader, "text/plain;charset=UTF-8");
     m_nam_modify_overlay->post(req, bytes);
+
+    qDebug() << req.url().url();
+    qDebug(bytes.constData());
 }
 
 void HNetwork::removePicture(HPictureItem& item){
@@ -367,11 +340,14 @@ void HNetwork::removePicture(HPictureItem& item){
     QJsonDocument dom;
     dom.setArray(arr);
     QByteArray bytes = dom.toJson();
-    qDebug(bytes.constData());
+
     QNetworkRequest req;
-    req.setUrl(QUrl(url_remove_overlay));
+    req.setUrl(QUrl(HDsConf::instance()->value("URL/remove_overlay")));
     req.setHeader(QNetworkRequest::ContentTypeHeader, "text/plain;charset=UTF-8");
     m_nam_remove_overlay->post(req, bytes);
+
+    qDebug() << req.url().url();
+    qDebug(bytes.constData());
 }
 
 void HNetwork::removeText(HTextItem& item){
@@ -383,24 +359,30 @@ void HNetwork::removeText(HTextItem& item){
     QJsonDocument dom;
     dom.setArray(arr);
     QByteArray bytes = dom.toJson();
-    qDebug(bytes.constData());
+
     QNetworkRequest req;
-    req.setUrl(QUrl(url_remove_overlay));
+    req.setUrl(QUrl(HDsConf::instance()->value("URL/remove_overlay")));
     req.setHeader(QNetworkRequest::ContentTypeHeader, "text/plain;charset=UTF-8");
     m_nam_remove_overlay->post(req, bytes);
+
+    qDebug() << req.url().url();
+    qDebug(bytes.constData());
 }
 
 void HNetwork::setMicphone(int srvid){
     QString json = QString::asprintf("{\"id\":%d}", srvid);
-    qDebug(json.toUtf8().constData());
+
     QNetworkRequest req;
-    req.setUrl(QUrl(url_micphone));
+    req.setUrl(QUrl(HDsConf::instance()->value("URL/micphone")));
     req.setHeader(QNetworkRequest::ContentTypeHeader, "text/plain;charset=UTF-8");
     m_nam_micphone->post(req, json.toUtf8());
+
+    qDebug() << req.url().url();
+    qDebug(json.toUtf8().constData());
 }
 
 void HNetwork::queryVoice(){
-    m_nam_query_voice->get(QNetworkRequest(QUrl(url_voice)));
+    m_nam_query_voice->get(QNetworkRequest(QUrl(HDsConf::instance()->value("URL/voiceinfo"))));
 }
 
 void HNetwork::onQueryVoiceReply(QNetworkReply *reply){
@@ -432,10 +414,30 @@ void HNetwork::onQueryVoiceReply(QNetworkReply *reply){
 
 void HNetwork::setVoice(int srvid, int a){
     QString json = QString::asprintf("{\"id\":%d,\"a\":%d}", srvid, a);
-    qDebug(json.toUtf8().constData());
+
     QNetworkRequest req;
-    req.setUrl(QUrl(url_voice));
+    req.setUrl(QUrl(HDsConf::instance()->value("URL/voiceinfo")));
     req.setHeader(QNetworkRequest::ContentTypeHeader, "text/plain;charset=UTF-8");
     m_nam_voice->post(req, json.toUtf8());
+
+    qDebug() << req.url().url();
+    qDebug(json.toUtf8().constData());
+}
+
+void HNetwork::notifyFullscreen(bool bFullscreen){
+    QString json;
+    if (bFullscreen){
+        json = "{\"full_screen\":true}";
+    }else{
+        json = "{\"full_screen\":false}";
+    }
+
+    QNetworkRequest req;
+    req.setUrl(QUrl(HDsConf::instance()->value("URL/notify_fullscreen")));
+    req.setHeader(QNetworkRequest::ContentTypeHeader, "text/plain;charset=UTF-8");
+    m_nam_post_notify->post(req, json.toUtf8());
+
+    qDebug() << req.url().url();
+    qDebug(json.toUtf8().constData());
 }
 

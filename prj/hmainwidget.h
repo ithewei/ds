@@ -37,8 +37,8 @@ protected:
     virtual void mouseMoveEvent(QMouseEvent *e);
     virtual void mouseReleaseEvent(QMouseEvent *e);
 
-    void changeScreenSource(int index, int srvid);
-    void addScreenSource(int srvid);
+    void changeCombItem(int index, int srvid);
+    void addCombItem(int srvid);
 
     void updateGLWdgsByLayout();
     void mergeGLWdg(int lt, int rb);
@@ -69,6 +69,7 @@ private:
 private:
     std::vector<HGLWidget*> m_vecGLWdg;
     HGLWidget* m_focusGLWdg;
+    HGLWidget* m_fullscreenGLWdg;
 
 #if LAYOUT_TYPE_OUTPUT_AND_MV
     QPushButton* m_btnLeftExpand;

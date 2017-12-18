@@ -113,6 +113,7 @@ protected:
     virtual void drawTitle();
     virtual void drawTaskInfo();
     virtual void drawOutline();
+    virtual void drawDebugInfo();
     virtual void paintGL();
 
     virtual void mousePressEvent(QMouseEvent* e);
@@ -158,7 +159,7 @@ public:
     void showTitlebar(bool bShow = true);
     void showToolbar(bool bShow = true);
     virtual bool showToolWidgets(bool bShow = true);
-    void setProgress(int progress) {m_toolbar->m_slider->setValue(progress);}
+    void setProgress(int progress) {m_toolbar->setProgress(progress);}
 
 public slots:
     void onNumSelected(int num);
@@ -211,7 +212,7 @@ public:
     HCombGLWidget(QWidget* parent = Q_NULLPTR);
     ~HCombGLWidget();
 
-    HOperateTarget* getItemByPos(QPoint pt, HAbstractItem::TYPE type = HAbstractItem::ALL);
+    HOperateObject getObejctByPos(QPoint pt, HAbstractItem::TYPE type = HAbstractItem::ALL);
 
     void showTitlebar(bool bShow = true);
     void showToolbar(bool bShow = true);
@@ -227,6 +228,7 @@ public slots:
     void onUndo();
     void onTrash();
     void onOK();
+    void onCancel();
     void onZoomIn();
     void onZoomOut();
     void showExpre();
@@ -252,26 +254,22 @@ protected:
     virtual void mouseMoveEvent(QMouseEvent *e);
     virtual void mouseReleaseEvent(QMouseEvent *e);
 
-    void onTargetChanged();
     QRect adjustPos(QRect rc);
     QRect scaleToOrigin(QRect rc);
     QRect scaleToDraw(QRect rc);
 
-    bool showTargetWidget();
-    void updateTargetWidget(QPoint pt, HTextItem* pItem);
+    void onTargetChanged();
+    bool updateOperateTarget();
+    bool showOperateTarget();
 
 private:
-    std::vector<HOperateTarget> m_vecScreens;
-    std::vector<HOperateTarget> m_vecPictures;
-    std::vector<HOperateTarget> m_vecTexts;
-    HOperateTarget* m_virtualTarget;
-
-    HOperateTarget* m_target;
-    HOperateTarget* m_targetPrev;
-    HOperateTarget* m_targetShow;
+    std::vector<HOperateObject> m_vecScreens;
+    std::vector<HOperateObject> m_vecPictures;
+    std::vector<HOperateObject> m_vecTexts;
+    HOperateTarget m_target;
 
 private:
-    HOperateTargetWidget* m_targetWdg;
+    HOperateWidget* m_targetWdg;
     HCombTitlebarWidget* m_titlebar;
     HCombToolbarWidget*  m_toolbar;
     HChangeColorWidget* m_wdgTrash;

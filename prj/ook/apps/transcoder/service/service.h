@@ -34,6 +34,8 @@ public:
 		e_service_cb_stampcacu,
 		e_service_cb_playratio,
 		
+		e_service_cb_filestate,
+		
 		e_service_cb_pic = 0x80,
 		e_service_cb_pcm,
 		
@@ -83,6 +85,8 @@ typedef int	(SERVICE_STDCALL * __service_libstop)   (void * ctx);
 #define SERVICE_OPT_TASKSTATUS		 	0x03
 #define SERVICE_OPT_FILEOPER		 	0x04
 #define SERVICE_OPT_TASKSTATUSREQ		0x05
+#define SERVICE_OPT_TASKSRCINFO			0x06 // add @ 2017/12/13 for srcinfo update
+#define SERVICE_OPT_TASKSTATUS2		 	0x07
 
 #define SERVICE_OPT_ENCSTARTING			0x10
 #define SERVICE_OPT_ENCINPTOVER			0x11
@@ -113,7 +117,18 @@ typedef int	(SERVICE_STDCALL * __service_libstop)   (void * ctx);
 #define SERVICE_POSITION_AUDIO_BFENC 	0x40
 #define SERVICE_POSITION_AUDIO_AFENC 	0x80
 
-#define SERVICE_POSITION_MEDIA_AFPKG   0x100
+#define SERVICE_POSITION_MEDIA_AFPKG  0x0100
+#define SERVICE_POSITION_AUDIO_FMSVR  0x1000
+
+//
+// SERVICE_OPT_FILEOPER sub-opt 
+//
+#define SERVICE_FILEOPER_SAVING 		0x01
+#define SERVICE_FILEOPER_COMPLETED 		0x02
+
+#define SERVICE_FILEOPER_PICFOLDER		0x0A
+#define SERVICE_FILEOPER_FILENAME 		0x0B
+#define SERVICE_FILEOPER_HLSMODE 		0x0C
 
 /*
 	struct
@@ -216,5 +231,14 @@ inline void init_task_service_return_s(task_service_return_s * s)
 	s->pic  = NULL;
 	s->ptr  = NULL;
 }
+
+//
+// task status struct
+//
+struct task_service_status_s
+{
+	int servid;
+	std::string * inf;
+};
 
 #endif

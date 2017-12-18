@@ -1,8 +1,10 @@
 #include "qglwidgetimpl.h"
 #include "hrcloader.h"
+#include "hdsctx.h"
 
 //<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 bool QGLWidgetImpl::s_bInitGLEW = false;
+FTGLPixmapFont* QGLWidgetImpl::m_pFont = NULL;
 GLuint QGLWidgetImpl::prog_yuv;
 GLuint QGLWidgetImpl::texUniformY;
 GLuint QGLWidgetImpl::texUniformU;
@@ -19,6 +21,14 @@ QGLWidgetImpl::~QGLWidgetImpl()
 
 }
 
+void QGLWidgetImpl::initFont(QString ttf_path, int h){
+    m_pFont = new FTGLPixmapFont(ttf_path.toLocal8Bit().data());
+    if (m_pFont){
+        m_pFont->CharMap(FT_ENCODING_UNICODE);
+        m_pFont->FaceSize(h);
+    }
+}
+
 void QGLWidgetImpl::initializeGL(){
     if (!s_bInitGLEW){
         if (glewInit() != 0){
@@ -26,6 +36,7 @@ void QGLWidgetImpl::initializeGL(){
             return;
         }
 
+        initFont(g_dsCtx->ttf_path.c_str(), 24);
         loadYUVShader();
         HRcLoader::instance()->loadTexture();
         s_bInitGLEW = true;
@@ -254,8 +265,8 @@ void QGLWidgetImpl::drawTex(Texture* tex, DrawInfo* di){
     glDisable(GL_BLEND);
 }
 
-void QGLWidgetImpl::drawStr(FTGLPixmapFont *pFont, const char* str, DrawInfo* di){
-    if (!pFont)
+void QGLWidgetImpl::drawStr(const char* str, DrawInfo* di){
+    if (!m_pFont)
         return ;
 
     glMatrixMode(GL_PROJECTION);
@@ -274,8 +285,8 @@ void QGLWidgetImpl::drawStr(FTGLPixmapFont *pFont, const char* str, DrawInfo* di
 //    mbstowcs(wcs, mbs, strlen(mbs)+1);
 
     glColor3ub(R(di->color), G(di->color), B(di->color));
-    glRasterPos2i(di->left, di->top + pFont->LineHeight());
-    pFont->Render(str);
+    glRasterPos2i(di->left, di->top + m_pFont->LineHeight());
+    m_pFont->Render(str);
     glColor3ub(255,255,255);
 
     //delete[] wcs;

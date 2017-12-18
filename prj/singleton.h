@@ -12,7 +12,6 @@
         static Class* instance(); \
         static void exitInstance(); \
     private: \
-        Class() {}; \
         DISABLE_COPY(Class) \
         static Class* s_pInstance;
 

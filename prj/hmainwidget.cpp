@@ -3,6 +3,7 @@
 
 HMainWidget::HMainWidget(QWidget *parent) : HWidget(parent){
     m_focusGLWdg = NULL;
+    m_fullscreenGLWdg = NULL;
     m_bMouseMoving = false;
     m_eOperate = EXCHANGE;
 
@@ -149,6 +150,9 @@ HGLWidget* HMainWidget::allocGLWdgForsrvid(int srvid){
         if (isOutputSrvid(srvid)){
             if (m_vecGLWdg[i]->type != HGLWidget::COMB)
                 continue;
+        }else{
+            if (m_vecGLWdg[i]->type != HGLWidget::GENERAL)
+                continue;
         }
         if (m_vecGLWdg[i]->isResetStatus() && m_vecGLWdg[i]->isVisible() && m_vecGLWdg[i]->wndid < min_wndid){
             wdg = m_vecGLWdg[i];
@@ -268,12 +272,12 @@ void HMainWidget::mouseReleaseEvent(QMouseEvent *event){
             HGLWidget* wdg = getGLWdgByPos(event->x(), event->y());
             if (wdg && m_dragSrcWdg != wdg){
                 if (wdg->type == HGLWidget::COMB){
-                    // changeScreenSource
-                    HOperateTarget* target = ((HCombGLWidget*)wdg)->getItemByPos(QPoint(event->x()-wdg->x(), event->y()-wdg->y()), HAbstractItem::SCREEN);
-                    if (target)
-                        changeScreenSource(target->pItem->id, m_dragSrcWdg->srvid);
+                    // changeCombItem
+                    HOperateObject obj = ((HCombGLWidget*)wdg)->getObejctByPos(QPoint(event->x()-wdg->x(), event->y()-wdg->y()), HAbstractItem::SCREEN);
+                    if (obj.isNull())
+                        addCombItem(m_dragSrcWdg->srvid);
                     else
-                        addScreenSource(m_dragSrcWdg->srvid);
+                        changeCombItem(obj.pItem->id, m_dragSrcWdg->srvid);
                 }else{
                     // exchange wndid for order
                     std::swap(m_dragSrcWdg->wndid, wdg->wndid);
@@ -306,6 +310,8 @@ void HMainWidget::mouseReleaseEvent(QMouseEvent *event){
 void HMainWidget::onTimerRepaint(){
     for (int i = 0; i < m_vecGLWdg.size(); ++i){
         HGLWidget* wdg = m_vecGLWdg[i];
+        if (m_fullscreenGLWdg && wdg != m_fullscreenGLWdg)
+            continue;
         if (!wdg->isResetStatus() ){
             if (g_dsCtx->pop_video(wdg->srvid) == 0)
                 wdg->repaint();
@@ -314,16 +320,33 @@ void HMainWidget::onTimerRepaint(){
 }
 
 void HMainWidget::onActionChanged(int action){
+    qDebug("mainwdg::action=%d", action);
     if (action == 0){
         hide();
     }else if (action == 1){
+        qDebug("0000000000000000000000000000");
         showFullScreen();
+        qDebug("1111111111111111111111111111");
+        if (g_dsCtx->m_tInit.output != 0){
+            qDebug("2222222222222222222222222");
+            HNetwork::instance()->queryOverlayInfo();
+#if LAYOUT_TYPE_OUTPUT_AND_MV
+            if (g_dsCtx->m_tComb.itemCnt != 0){
+                HNetwork::instance()->postCombInfo(g_dsCtx->m_tComb);// for refresh combinfo
+            }
+            HNetwork::instance()->queryVoice();
+#endif
+        }
 
         // when hide,status change but not repaint
         for (int i = 0; i < m_vecGLWdg.size(); ++i){
             m_vecGLWdg[i]->update();
         }
     }
+
+#if LAYOUT_TYPE_ONLY_OUTPUT
+    HNetwork::instance()->notifyFullscreen(action);
+#endif
 }
 
 void HMainWidget::onRequestShow(int srvid){
@@ -405,6 +428,8 @@ void HMainWidget::onFullScreen(bool  bFullScreen){
         pSender->setWindowFlags(Qt::Window);
         pSender->showFullScreen();
 
+        m_fullscreenGLWdg = pSender;
+
         DsSrvItem* pItem = g_dsCtx->getSrvItem(pSender->srvid);
         if (pItem && g_dsCtx->m_tInit.fps != pItem->framerate){
             timer_repaint.stop();
@@ -414,6 +439,8 @@ void HMainWidget::onFullScreen(bool  bFullScreen){
         pSender->setWindowFlags(Qt::SubWindow);
         pSender->setGeometry(m_rcSavedGeometry);
         pSender->showNormal();
+
+        m_fullscreenGLWdg = NULL;
 
         DsSrvItem* pItem = g_dsCtx->getSrvItem(pSender->srvid);
         if (pItem && g_dsCtx->m_tInit.fps != pItem->framerate){
@@ -439,20 +466,20 @@ void HMainWidget::onGLWdgClicked(){
     }
 }
 
-void HMainWidget::changeScreenSource(int index, int srvid){
-    DsScreenInfo si = g_dsCtx->m_tComb;
+void HMainWidget::changeCombItem(int index, int srvid){
+    DsCombInfo si = g_dsCtx->m_tComb;
     if (si.items[index].srvid != srvid){
         si.items[index].srvid = srvid;
         if (srvid == 0){
             si.items[index].a = false;
         }
-        HNetwork::instance()->postScreenInfo(si);
+        HNetwork::instance()->postCombInfo(si);
     }
 }
 
-void HMainWidget::addScreenSource(int srvid){
-    DsScreenInfo old = g_dsCtx->m_tComb;
-    DsScreenInfo si;
+void HMainWidget::addCombItem(int srvid){
+    DsCombInfo old = g_dsCtx->m_tComb;
+    DsCombInfo si;
     si.items[0].srvid = srvid;
     si.items[0].v = true;
     si.items[0].a = true;
@@ -461,7 +488,7 @@ void HMainWidget::addScreenSource(int srvid){
         si.items[i+1] = old.items[i];
     }
     si.itemCnt = old.itemCnt + 1;
-    HNetwork::instance()->postScreenInfo(si);
+    HNetwork::instance()->postCombInfo(si);
 }
 
 void HMainWidget::onMerge(){

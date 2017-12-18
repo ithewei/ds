@@ -63,13 +63,13 @@ public:
     static void onUndo();
 };
 
-class HScreenItem : public HAbstractItem
+class HCombItem : public HAbstractItem
 {
 public:
-    HScreenItem();
+    HCombItem();
 
     void clone(HAbstractItem* rhs){
-        memcpy(this, rhs, sizeof(HScreenItem));
+        memcpy(this, rhs, sizeof(HCombItem));
     }
 
     virtual void remove();

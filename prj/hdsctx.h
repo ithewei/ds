@@ -19,30 +19,26 @@ public:
     ~HDsContext();
 
 public:
-    //int parse_init_xml(const char* xml); //DEPRECATED
     int parse_layout_xml(const char* xml_file);
     int parse_comb_xml(const char* xml);
     int parse_audio_xml(const char* xml);
-    int parse_taskinfo_xml(const char* xml);
-
-    void initImg(std::string& path);
-    void initFont(std::string& path, int h);
+    int parse_taskinfo_xml(int srvid, const char* xml);
 
     void start_gui_thread();
 
-    HScreenItem* getScreenItem(int srvid);
-    HScreenItem* getScreenItem(QString src);
+    HCombItem* getScreenItem(int srvid);
+    HCombItem* getScreenItem(QString src);
 
     DsSrvItem* getSrvItem(int srvid){
         if (srvid < 1 || srvid > DIRECTOR_MAX_SERVS)
             return NULL;
-        return &m_tItems[srvid-1];
+        return &m_srvs[srvid-1];
     }
 
     DsSrvItem* getSrvItem(QString src){
         for (int i = 0 ; i < DIRECTOR_MAX_SERVS; ++i){
-            if (m_tItems[i].src_addr.size() != 0 && src.contains(m_tItems[i].src_addr)){
-                return &m_tItems[i];
+            if (m_srvs[i].src_addr.size() != 0 && src.contains(m_srvs[i].src_addr)){
+                return &m_srvs[i];
             }
         }
         return NULL;
@@ -89,6 +85,7 @@ public:
     int push_audio(int srvid, const av_pcmbuff* pcm);
 
     void setAction(int action) {
+        qDebug("action=%d this->action=%d", action, this->action);
         if (this->action != action){
             this->action = action;
             emit actionChanged(action);
@@ -164,17 +161,19 @@ public:
 
     DsInitInfo m_tInit;
     DsLayoutInfo m_tLayout;
-    DsScreenInfo m_tComb;
-    DsScreenInfo m_tCombUndo;
+    DsCombInfo m_tComb;
+    DsCombInfo m_tCombUndo;
     int m_preselect[MAXNUM_COMB_SCREEN];
+    DsPictureInfo m_pics;
+    DsTextInfo m_texts;
 
+    std::string cur_path;
     std::string img_path;
     std::string ttf_path;
 
-    FTGLPixmapFont* m_pFont;
     HAudioPlay* m_audioPlay;
 
-    DsSrvItem m_tItems[DIRECTOR_MAX_SERVS];
+    DsSrvItem m_srvs[DIRECTOR_MAX_SERVS];
     QMap<int ,int> m_mapLmic2Srvid;
 
     int req_srvid;

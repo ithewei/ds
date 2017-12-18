@@ -3,6 +3,7 @@
 
 #include <GL/glew.h>
 #include <FTGL/ftgl.h>
+#include <FTGL/FTGLPixmapFont.h>
 #include <qopenglwidget.h>
 
 // GL PixelFormat extend
@@ -84,10 +85,11 @@ public:
 
 protected:
     static void loadYUVShader();
+    static void initFont(QString ttf_path, int h);
     void initVAO();
     void drawYUV(Texture* tex);
     void drawTex(Texture* tex, DrawInfo* di);
-    void drawStr(FTGLPixmapFont *pFont, const char* str, DrawInfo* di);
+    void drawStr(const char* str, DrawInfo* di);
     void drawRect(DrawInfo* di, int linewidth = 1, bool bFill = false);
 
 protected:
@@ -95,6 +97,8 @@ protected:
     virtual void resizeGL(int w, int h);
     //virtual void paintGL();
 
+public:
+    static FTGLPixmapFont* m_pFont;
 protected:
     static bool s_bInitGLEW;
     static GLuint prog_yuv;

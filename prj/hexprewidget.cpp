@@ -1,6 +1,7 @@
 #include "hexprewidget.h"
 #include "hrcloader.h"
 #include "hdsctx.h"
+#include "hdsconf.h"
 
 #define CATEGORY_INDEX  Qt::UserRole + 100
 #define FILEPATH  Qt::UserRole + 200
@@ -17,9 +18,6 @@ enum EXPRE_ACTION{
     REMOVE_MODE = 11,
     SELECT_MODE = 12
 };
-
-const char* dir_upload = "/var/www/transcoder/Upload/";
-const char* dir_usb = "/usb/";
 
 #include <QDir>
 bool delDir(const QString &path)
@@ -56,12 +54,12 @@ QStringList HExportWidget::selectedFiles(){
 
     QList<QListWidgetItem*> items = m_listLocal->selectedItems();
     for (int i = 0; i < items.size(); ++i){
-        ret.push_back(QString(dir_upload) + items[i]->text());
+        ret.push_back(HDsConf::instance()->value("PATH/pic_upload") + items[i]->text());
     }
 
     items = m_listUsb->selectedItems();
     for (int i = 0; i < items.size(); ++i){
-        ret.push_back(QString(dir_usb) + items[i]->text());
+        ret.push_back(HDsConf::instance()->value("PATH/pic_usb") + items[i]->text());
     }
 
     return ret;
@@ -76,14 +74,14 @@ void HExportWidget::initUI(){
     vbox_local->addWidget(new QLabel("本地："));
     m_listLocal = new QListWidget;
     vbox_local->addWidget(m_listLocal);
-    initList(m_listLocal, dir_upload);
+    initList(m_listLocal, HDsConf::instance()->value("PATH/pic_upload"));
     hbox->addLayout(vbox_local);
 
     QVBoxLayout* vbox_usb = new QVBoxLayout;
     vbox_usb->addWidget(new QLabel("U盘："));
     m_listUsb = new QListWidget;
     vbox_usb->addWidget(m_listUsb);
-    initList(m_listUsb, dir_usb);
+    initList(m_listUsb, HDsConf::instance()->value("PATH/pic_usb"));
     hbox->addLayout(vbox_usb);
 
     vbox->addLayout(hbox);
@@ -121,6 +119,7 @@ void HExportWidget::initList(QListWidget* list, QString dir){
     }
 }
 //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+IMPL_SINGLETON(HExpreWidget)
 
 HExpreWidget::HExpreWidget(QWidget *parent) : HWidget(parent){
     initUI();
@@ -233,7 +232,7 @@ void HExpreWidget::initList(QListWidget* list, QString filepath){
 #include <QJsonArray>
 #include <QJsonObject>
 void HExpreWidget::readConf(){
-    QString strFile = dir_upload;
+    QString strFile = HDsConf::instance()->value("PATH/pic_upload");
     strFile += "conf.json";
 
     FILE* fp = fopen(strFile.toLocal8Bit().constData(), "r");
@@ -317,7 +316,7 @@ void HExpreWidget::writeConf(){
 
     QByteArray bytes = dom.toJson();
 
-    QString strFile = dir_upload;
+    QString strFile = HDsConf::instance()->value("PATH/pic_upload");
     strFile += "conf.json";
 
     FILE* fp = fopen(strFile.toLocal8Bit().constData(), "w");
@@ -345,7 +344,7 @@ void HExpreWidget::genUI(){
         item->setTextAlignment(Qt::AlignCenter);
         item->setText(record.label);
         item->setData(CATEGORY_INDEX, i);
-        item->setData(FILEPATH, QString(dir_upload)+record.dir);
+        item->setData(FILEPATH, HDsConf::instance()->value("PATH/pic_upload")+record.dir);
         m_listCategory->addItem(item);
 
         QListWidget* list = new QListWidget;
@@ -526,7 +525,7 @@ void HExpreWidget::onMkdir(){
     char dir[16];
     snprintf(dir, 16, "%02d", allocid);
 
-    QDir(dir_upload).mkdir(dir);
+    QDir(HDsConf::instance()->value("PATH/pic_upload")).mkdir(dir);
 
     ExpreRecord record;
     record.id = allocid;
@@ -552,7 +551,7 @@ void HExpreWidget::onRmdir(){
         for (int i = 0; iter != m_conf.records.end(); ++i, ++iter){
             ExpreRecord record = *iter;
             if (label == record.label){
-                QString dir = dir_upload;
+                QString dir = HDsConf::instance()->value("PATH/pic_upload");
                 dir += record.dir;
                 delDir(dir);
                 m_conf.records.erase(iter);

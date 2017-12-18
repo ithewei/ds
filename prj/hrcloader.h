@@ -87,6 +87,8 @@ enum RCID{
 class HRcLoader
 {
     DECLARE_SINGLETON(HRcLoader)
+private:
+    HRcLoader() {}
 
 public:
     void loadIcon();

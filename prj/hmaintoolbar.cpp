@@ -45,12 +45,12 @@ HWebView::HWebView(QWidget* parent)
 
     QObject::connect( this, SIGNAL(urlChanged(QUrl)), this, SLOT(onUrlChanged(QUrl)) );
 
-    page()->profile()->setPersistentCookiesPolicy(QWebEngineProfile::NoPersistentCookies);
-    page()->profile()->setHttpCacheType(QWebEngineProfile::NoCache);
-    page()->profile()->clearHttpCache();
-    QWebEngineCookieStore* pCookie = page()->profile()->cookieStore();
-    pCookie->deleteAllCookies();
-    pCookie->deleteSessionCookies();
+//    page()->profile()->setPersistentCookiesPolicy(QWebEngineProfile::NoPersistentCookies);
+//    page()->profile()->setHttpCacheType(QWebEngineProfile::NoCache);
+//    page()->profile()->clearHttpCache();
+//    QWebEngineCookieStore* pCookie = page()->profile()->cookieStore();
+//    pCookie->deleteAllCookies();
+//    pCookie->deleteSessionCookies();
 
     setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Minimum);
 }
@@ -127,11 +127,11 @@ void HMainToolbar::initConnect(){
     QObject::connect( m_webview, SIGNAL(loadFinished(bool)), m_webview, SLOT(show()) );
 }
 
-#include "hnetwork.h"
+#include "hdsconf.h"
 void HMainToolbar::show(){
+    qDebug("w=%d h=%d", width(), height());
     m_webview->setFixedSize(width(), height());
-    QString str = "http://localhost/" + HNetwork::instance()->appname + "/audio/index.html";
-    m_webview->setUrl(QUrl(str));
+    m_webview->setUrl(QUrl(HDsConf::instance()->value("URL/toolbar")));
     QWidget::show();
 }
 

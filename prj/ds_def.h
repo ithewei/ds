@@ -6,6 +6,8 @@
 
 #define MAXNUM_LAYOUT   64
 #define MAXNUM_COMB_SCREEN     8
+#define MAXNUM_PICTURE_ITEM    64
+#define MAXNUM_TEXT_ITEM       64
 
 #define DIRECTOR_MAX_SERVS		   64
 #define DIRECTOR_SRVID_BEGIN       1
@@ -32,6 +34,7 @@ struct DsInitInfo{
     unsigned int audiocolor_fg_top;
 
     int debug;
+    int drawDebugInfo;
     int mouse;
     int autolayout;
     int maxnum_layout;
@@ -74,13 +77,18 @@ struct DsInitInfo{
         audiocolor_fg_top = 0xFF0000FF;
 
         debug = 0;
+        drawDebugInfo = 0;
         autolayout = 0;
         maxnum_layout = 0;
         row = 0;
         col = 0;
         merge[0] = 0;
         merge[1] = 0;
+#if LAYOUT_TYPE_ONLY_OUTPUT
+        output = 1;
+#else
         output = 0;
+#endif
 
         audio = 1;
         display_mode = DISPLAY_MODE_TIMER;
@@ -119,7 +127,7 @@ struct DsLayoutInfo{
 };
 
 #include "habstractitem.h"
-struct DsScreenInfo{
+struct DsCombInfo{
     enum COMB_TYPE{
         UNKNOW = 0,
         PIP = 1, //pic in pic 画中画，主画面不能移动和缩放
@@ -129,18 +137,36 @@ struct DsScreenInfo{
     int width;
     int height;
 
-    HScreenItem items[MAXNUM_COMB_SCREEN];
+    HCombItem items[MAXNUM_COMB_SCREEN];
     int itemCnt;
 
     COMB_TYPE comb_type;
     int micphone;
 
-    DsScreenInfo(){
+    DsCombInfo(){
         width = 0;
         height = 0;
         itemCnt = 0;
         comb_type = UNKNOW;
         micphone = 0;
+    }
+};
+
+struct DsPictureInfo{
+    HPictureItem items[MAXNUM_PICTURE_ITEM];
+    int itemCnt;
+
+    DsPictureInfo(){
+        itemCnt = 0;
+    }
+};
+
+struct DsTextInfo{
+    HTextItem items[MAXNUM_TEXT_ITEM];
+    int itemCnt;
+
+    DsTextInfo(){
+        itemCnt = 0;
     }
 };
 

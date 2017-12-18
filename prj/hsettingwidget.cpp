@@ -12,7 +12,6 @@ HSettingWidget::HSettingWidget(QWidget* parent)
 void HSettingWidget::initUI(){
     setFixedSize(QSize(300,300));
     setStyleSheet("background-color: #FFFFF0");
-    setWindowTitle("设置位置");
 
     QGridLayout* grid = new QGridLayout;
 

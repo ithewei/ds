@@ -3,10 +3,13 @@
 
 #include "qtheaders.h"
 #include "habstractitem.h"
+#include "singleton.h"
 
 class HEffectWidget : public HWidget
 {
     Q_OBJECT
+
+    DECLARE_SINGLETON(HEffectWidget)
 public:
     explicit HEffectWidget(QWidget *parent = 0);
 
