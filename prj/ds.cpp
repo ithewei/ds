@@ -11,6 +11,7 @@ DSSHARED_EXPORT int libchar()       {
 }
 DSSHARED_EXPORT int libtrace(int t) { return t; }
 
+ifservice_callback * ifcb_cache = NULL;
 DSSHARED_EXPORT int libinit(const char* xml, void* task, void** ctx){
     if(!xml || !task || !ctx)
         return -1;
@@ -20,21 +21,17 @@ DSSHARED_EXPORT int libinit(const char* xml, void* task, void** ctx){
 
     if (!g_dsCtx){
         qInstallMessageHandler(myLogHandler);
-        qInfo("--------libinit version=%d,%s----------------", VERSION, RELEASEINFO);
+        qInfo("--------libinit version=%d verbose=%s----------------", VERSION, RELEASEINFO);
         int err = 0;
         do {
             g_dsCtx = new HDsContext;
 
-    #if LAYOUT_TYPE_ONLY_OUTPUT
-            DsSrvItem* item = g_dsCtx->getSrvItem(OUTPUT_SRVID);
-            if (item){
-                item->ifcb = ti->ifcb;
-            }
-    #endif
-
             std::string strXmlPath = tid->cur_path;
             APPENDSEPARTOR(strXmlPath)
             g_dsCtx->cur_path = strXmlPath;
+            strXmlPath += "ds";
+            APPENDSEPARTOR(strXmlPath)
+            g_dsCtx->ds_path = strXmlPath;
     #if LAYOUT_TYPE_ONLY_MV
             strXmlPath += "director_service_mv.xml";
     #elif LAYOUT_TYPE_ONLY_OUTPUT
@@ -94,6 +91,10 @@ DSSHARED_EXPORT int libinit(const char* xml, void* task, void** ctx){
            tid->TTID.c_str(), ti->src_addr.c_str(), ti->src_label.c_str(), ti->dst_addr.c_str(), ti->dst_label.c_str());
     g_dsCtx->m_mapTTID2Src[QString(tid->TTID.c_str())] = QString(ti->src_addr.c_str());
 
+#if LAYOUT_TYPE_ONLY_OUTPUT
+    ifcb_cache = ti->ifcb;
+#endif
+
     return SERVICE_POSITION_VIDEO_AFDEC | SERVICE_POSITION_AUDIO_AFDEC;
 }
 
@@ -151,7 +152,12 @@ DSSHARED_EXPORT int liboper(int media_type, int data_type, int opt, void* param,
                 if (param){
                     task_service_status_s * ss = (task_service_status_s *)param;
                     qDebug("SERVICE_OPT_TASKSTATUS2=%d", ss->servid);
-                    g_dsCtx->parse_taskinfo_xml(ss->servid, ss->inf->c_str());
+#if LAYOUT_TYPE_ONLY_OUTPUT
+                    int srvid = OUTPUT_SRVID;
+#else
+                    int srvid = ss->servid;
+#endif
+                    g_dsCtx->parse_taskinfo_xml(srvid, ss->inf->c_str());
                 }
                 break;
             case SERVICE_OPT_TASKSTATUSREQ:
@@ -176,6 +182,17 @@ DSSHARED_EXPORT int liboper(int media_type, int data_type, int opt, void* param,
                     }
                 }
                 break;
+            case SERVICE_OPT_SESSION:
+            {
+#if LAYOUT_TYPE_ONLY_OUTPUT
+                DsSrvItem* item = g_dsCtx->getSrvItem(OUTPUT_SRVID);
+                if (item){
+                    qInfo("LAYOUT_TYPE_ONLY_OUTPUT set ifcb=%x", ifcb_cache);
+                    item->ifcb = ifcb_cache;
+                }
+#endif
+            }
+                break;
             case SERVICE_OPT_PREVSTOP:
                 if(param)
                 {
@@ -190,13 +207,20 @@ DSSHARED_EXPORT int liboper(int media_type, int data_type, int opt, void* param,
                 }
                 break;
             case SERVICE_OPT_SPACERTYPE:
-                qDebug("SERVICE_OPT_SPACERTYPE");
-                if (*(int *)param > 1){ // backup stream
-                    DsSrvItem* pItem = g_dsCtx->getSrvItem(OUTPUT_SRVID);
-                    if (pItem && pItem->ifcb){
-                        pItem->ifcb->onservice_callback(ifservice_callback::e_service_cb_stampcacu, libchar(), 0, 0, 1, NULL);
-                    }
+            {
+                qInfo("SERVICE_OPT_SPACERTYPE");
+                DsSrvItem* pItem = g_dsCtx->getSrvItem(OUTPUT_SRVID);
+                if (pItem){
+                    pItem->spacer = true;
+
+//                    if (*(int *)param > 1){ // backup stream
+//                        if (pItem->ifcb){
+//                            qInfo("ifservice_callback::e_service_cb_stampcacu");
+//                            pItem->ifcb->onservice_callback(ifservice_callback::e_service_cb_stampcacu, libchar(), 0, 0, 1, NULL);
+//                        }
+//                    }
                 }
+            }
                 break;
             default:
                 if(opt > 0x1000)

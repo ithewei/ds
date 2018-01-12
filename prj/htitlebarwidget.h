@@ -30,8 +30,6 @@ public:
 
     QPushButton* m_btnSnapshot;
 
-    QPushButton* m_btnDrawInfo;
-
     QPushButton* m_btnFullScreen;
     QPushButton* m_btnExitFullScreen;
 };
@@ -56,7 +54,8 @@ public:
     QPushButton* m_btnPinb;
     QPushButton* m_btnPinr;
 
-    QPushButton* m_btnDrawInfo;
+    QPushButton* m_btnInfob;
+    QPushButton* m_btnInfor;
 
     QPushButton* m_btnSnapshot;
 

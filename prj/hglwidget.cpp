@@ -29,6 +29,7 @@ HGLWidget::~HGLWidget(){
 }
 
 bool HGLWidget::showToolWidgets(bool bShow){
+    updateToolWidgets();
     return bShow;
 }
 
@@ -38,7 +39,7 @@ void HGLWidget::onStart(){
 
 void HGLWidget::onPause(){    
     g_dsCtx->pause(srvid, true);
-    setStatus(PAUSE | status(MINOR_STATUS_MASK));
+    setStatus(PAUSE);
 }
 
 void HGLWidget::onStop(){
@@ -171,7 +172,7 @@ void HGLWidget::removeIcon(int type){
 Texture* HGLWidget::getTexture(int type){
     switch(type){
     case HAVE_AUDIO:
-        return &HRcLoader::instance()->tex_sound;
+        return &rcloader->tex_sound;
     }
 
     return NULL;
@@ -331,11 +332,11 @@ void HGLWidget::drawTaskInfo(){
         QFont font;
         font.setPixelSize(QGLWidgetImpl::m_pFont->FaceSize());
         QFontMetrics fm(font);
-        int w = fm.width(item->taskinfo.c_str());
+        int w = fm.width(item->taskinfo);
         int x = (di.right-di.left-w)/2;
         di.left += x > 2 ? x : 2;
         di.color = g_dsCtx->m_tInit.infcolor;
-        drawStr(item->taskinfo.c_str(), &di);
+        drawStr(item->taskinfo.toLocal8Bit().data(), &di);
     }
 }
 
@@ -473,7 +474,6 @@ void HGeneralGLWidget::initUI(){
 void HGeneralGLWidget::initConnect(){
     QObject::connect( m_titlebar->m_btnFullScreen, SIGNAL(clicked(bool)), this, SLOT(onFullScreen()) );
     QObject::connect( m_titlebar->m_btnExitFullScreen, SIGNAL(clicked(bool)), this, SLOT(onExitFullScreen()) );
-    QObject::connect( m_titlebar->m_btnDrawInfo, SIGNAL(clicked(bool)), this, SLOT(toggleDrawInfo()) );
     QObject::connect( m_titlebar->m_btnSnapshot, SIGNAL(clicked(bool)), this, SLOT(snapshot()) );
     //QObject::connect( m_titlebar->m_btnStartRecord, SIGNAL(clicked(bool)), this, SLOT(startRecord()) );
     //QObject::connect( m_titlebar->m_btnStopRecord, SIGNAL(clicked(bool)), this, SLOT(stopRecord()) );
@@ -493,89 +493,92 @@ void HGeneralGLWidget::initConnect(){
     QObject::connect( m_numSelector, SIGNAL(numCanceled(int)), this, SLOT(onNumCanceled(int)) );
 }
 
-void HGeneralGLWidget::showTitlebar(bool bShow){
-    if (bShow){
-        DsSrvItem* item = g_dsCtx->getSrvItem(srvid);
+void HGeneralGLWidget::updateToolWidgets(){
+    DsSrvItem* item = g_dsCtx->getSrvItem(srvid);
+    if (!item)
+        return;
 
-        if (item){
-            QString str = g_dsCtx->m_tInit.title_format;
-            char szWndid[5];
-            sprintf(szWndid, "%02d", wndid);
-            str.replace("%wndid", szWndid);
-            str.replace("%title", item->title.c_str());
-            str.replace("%src", item->src_addr);
-            m_titlebar->m_label->setText(str);
-        }
+    QString str = g_dsCtx->m_tInit.title_format;
+    char szWndid[5];
+    sprintf(szWndid, "%02d", wndid);
+    str.replace("%wndid", szWndid);
+    str.replace("%title", item->title.c_str());
+    str.replace("%src", item->src_addr);
+    m_titlebar->m_label->setText(str);
 
 #if LAYOUT_TYPE_OUTPUT_AND_MV
-        m_titlebar->m_btnMicphoneOpened->hide();
-        m_titlebar->m_btnMicphoneClosed->hide();
-        HCombItem* screen = g_dsCtx->getScreenItem(srvid);
-        if (m_status & PLAY_AUDIO){
-            if (screen){
-                if (!screen->v && screen->a){
+    if (m_status | PLAY_AUDIO){
+        if (item->bVoice){
+            m_titlebar->m_btnMute->hide();
+            m_titlebar->m_btnVoice->show();
+
+            HCombItem* ci = g_dsCtx->getCombItem(srvid);
+            if (ci){
+                if (!ci->v && ci->a){
+                    m_titlebar->m_btnMicphoneClosed->hide();
                     m_titlebar->m_btnMicphoneOpened->show();
+                }else{
+                    m_titlebar->m_btnMicphoneOpened->hide();
+                    m_titlebar->m_btnMicphoneClosed->hide();
                 }
             }else{
+                m_titlebar->m_btnMicphoneOpened->hide();
                 m_titlebar->m_btnMicphoneClosed->show();
             }
+        }else{
+            m_titlebar->m_btnVoice->hide();
+            m_titlebar->m_btnMute->show();
+            m_titlebar->m_btnMicphoneClosed->hide();
+            m_titlebar->m_btnMicphoneOpened->hide();
         }
-
-        m_titlebar->m_btnVoice->hide();
+    }else{
         m_titlebar->m_btnMute->hide();
-        if (item){
-            if (item->bVoice){
-                m_titlebar->m_btnVoice->show();
-            }else{
-                m_titlebar->m_btnMute->show();
-            }
-        }
+        m_titlebar->m_btnVoice->hide();
+        m_titlebar->m_btnMicphoneClosed->hide();
+        m_titlebar->m_btnMicphoneOpened->hide();
+    }
 #endif
 
 #if LAYOUT_TYPE_ONLY_MV
-        m_titlebar->m_btnVoice->hide();
-        m_titlebar->m_btnMute->show();
-        if (g_dsCtx->m_playaudio_srvid == srvid){
+    if (m_status | PLAY_AUDIO){
+        if (g_dsCtx->playaudio_srvid == srvid){
             m_titlebar->m_btnMute->hide();
             m_titlebar->m_btnVoice->show();
-        }
-#endif
-        if (item){
-            if (item->src_type == SRC_TYPE_LMIC){
-                m_titlebar->m_btnVoice->hide();
-                m_titlebar->m_btnMute->hide();
-            }
-        }
-
-        m_titlebar->m_btnExitFullScreen->setVisible(m_bFullScreen);
-        m_titlebar->m_btnFullScreen->setVisible(!m_bFullScreen);
-
-        m_titlebar->show();
-    }else{
-        m_titlebar->hide();
-    }
-}
-
-void HGeneralGLWidget::showToolbar(bool bShow){
-    if (bShow){
-        if ((m_status & MAJOR_STATUS_MASK) == PLAYING){
-            m_toolbar->m_btnStart->hide();
-            m_toolbar->m_btnPause->show();
-        }
-        if ((m_status & MAJOR_STATUS_MASK) == PAUSE){
-            m_toolbar->m_btnStart->show();
-            m_toolbar->m_btnPause->hide();
-        }
-
-        DsSrvItem* item = g_dsCtx->getSrvItem(srvid);
-        if (item && item->src_type == SRC_TYPE_FILE){
-            m_toolbar->m_slider->show();
         }else{
-            m_toolbar->m_slider->hide();
+            m_titlebar->m_btnVoice->hide();
+            m_titlebar->m_btnMute->show();
         }
-            m_toolbar->show();
     }else{
-        m_toolbar->hide();
+        m_titlebar->m_btnVoice->hide();
+        m_titlebar->m_btnMute->hide();
+    }
+#endif
+    if (item->src_type == SRC_TYPE_LMIC){
+        m_titlebar->m_btnVoice->hide();
+        m_titlebar->m_btnMute->hide();
+        m_titlebar->m_btnMicphoneClosed->hide();
+        m_titlebar->m_btnMicphoneOpened->hide();
+    }
+
+#if LAYOUT_TYPE_ONLY_MV
+#else
+    m_titlebar->m_btnExitFullScreen->setVisible(m_bFullScreen);
+    m_titlebar->m_btnFullScreen->setVisible(!m_bFullScreen);
+#endif
+
+    if ((m_status & MAJOR_STATUS_MASK) == PLAYING){
+        m_toolbar->m_btnStart->hide();
+        m_toolbar->m_btnPause->show();
+    }
+    if ((m_status & MAJOR_STATUS_MASK) == PAUSE){
+        m_toolbar->m_btnStart->show();
+        m_toolbar->m_btnPause->hide();
+    }
+
+    if (item->src_type == SRC_TYPE_FILE){
+        m_toolbar->m_slider->show();
+    }else{
+        m_toolbar->m_slider->hide();
     }
 }
 
@@ -583,15 +586,15 @@ bool HGeneralGLWidget::showToolWidgets(bool bShow){
     HGLWidget::showToolWidgets(bShow);
 
     if (isResetStatus()){
-        showTitlebar(false);
-        showToolbar(false);
+        m_titlebar->hide();
+        m_toolbar->hide();
         return false;
     }
 
-    showTitlebar(bShow);
+    m_titlebar->setVisible(bShow);
     DsSrvItem* item = g_dsCtx->getSrvItem(srvid);
     if (item && item->src_type == SRC_TYPE_FILE){
-            showToolbar(bShow);
+        m_toolbar->setVisible(bShow);
     }
 
     return bShow;
@@ -621,25 +624,23 @@ void HGeneralGLWidget::showNumSelector(){
     m_numSelector->show();
 }
 
-void HGeneralGLWidget::onProgressChanged(int progress){
-    DsSrvItem* item = g_dsCtx->getSrvItem(srvid);
-    if (item && item->ifcb){
-        qDebug("srvid=%d progress=%d ifservice_callback::e_service_cb_playratio", srvid, progress);
-        item->ifcb->onservice_callback(ifservice_callback::e_service_cb_playratio, libchar(), 0, 0, progress, NULL);
-    }
+void HGeneralGLWidget::onProgressChanged(int progress){    
+    g_dsCtx->setPlayProgress(srvid, progress);
 }
 
 void HGeneralGLWidget::openMicphone(){
-    HNetwork::instance()->setMicphone(srvid);
+    dsnetwork->setMicphone(srvid);
+    g_dsCtx->pre_micphone_srvid = srvid;
 }
 
 void HGeneralGLWidget::closeMicphone(){
-    HNetwork::instance()->setMicphone(0);
+    dsnetwork->setMicphone(0);
+    g_dsCtx->pre_micphone_srvid = 0;
 }
 
 void HGeneralGLWidget::onVoice(){
 #if LAYOUT_TYPE_OUTPUT_AND_MV
-        HNetwork::instance()->setVoice(srvid, 0);
+        dsnetwork->setVoice(srvid, 0);
 #endif
 
 #if LAYOUT_TYPE_ONLY_MV
@@ -649,7 +650,7 @@ void HGeneralGLWidget::onVoice(){
 
 void HGeneralGLWidget::onMute(){   
 #if LAYOUT_TYPE_OUTPUT_AND_MV
-    HNetwork::instance()->setVoice(srvid, 1);
+    dsnetwork->setVoice(srvid, 1);
 #endif
 
 #if LAYOUT_TYPE_ONLY_MV
@@ -665,7 +666,7 @@ void HGeneralGLWidget::drawSelectNum(){
     di.right = 48;
     for (int i = 0; i < MAX_NUM_ICON; ++i){
         if (g_dsCtx->m_preselect[i] == OUTER_SRVID(srvid)){
-            drawTex(&HRcLoader::instance()->tex_numr[i], &di);
+            drawTex(&rcloader->tex_numr[i], &di);
             di.left += 48;
             di.right += 48;
         }
@@ -701,7 +702,7 @@ void HGeneralGLWidget::paintGL(){
 
     if (!isResetStatus()){
 #if LAYOUT_TYPE_OUTPUT_AND_MV
-        HCombItem* item = g_dsCtx->getScreenItem(srvid);
+        HCombItem* item = g_dsCtx->getCombItem(srvid);
         if (item && item->a){
             drawSound();
         }
@@ -710,7 +711,7 @@ void HGeneralGLWidget::paintGL(){
 #endif
 
 #if LAYOUT_TYPE_ONLY_MV
-        if (g_dsCtx->m_playaudio_srvid == srvid)
+        if (g_dsCtx->playaudio_srvid == srvid)
             drawSound();
 #endif
     }
@@ -765,7 +766,7 @@ void HCombGLWidget::initUI(){
     setLayout(vbox);
 
 //    m_wdgTrash = new HChangeColorWidget(this);
-//    m_wdgTrash->setPixmap(HRcLoader::instance()->get(RC_TRASH_BIG));
+//    m_wdgTrash->setPixmap(rcloader->get(RC_TRASH_BIG));
 //    m_wdgTrash->hide();
 
     m_wdgExpre = HExpreWidget::instance();
@@ -779,13 +780,14 @@ void HCombGLWidget::initUI(){
 
 void HCombGLWidget::initConnect(){
     QObject::connect( g_dsCtx, SIGNAL(combChanged()), this, SLOT(onCombChanged()) );
-    QObject::connect( HNetwork::instance(), SIGNAL(overlayChanged()), this, SLOT(onOverlayChanged()) );
+    QObject::connect( dsnetwork, SIGNAL(overlayChanged()), this, SLOT(onOverlayChanged()) );
 
     QObject::connect( m_titlebar->m_btnFullScreen, SIGNAL(clicked(bool)), this, SLOT(onFullScreen()) );
     QObject::connect( m_titlebar->m_btnExitFullScreen, SIGNAL(clicked(bool)), this, SLOT(onExitFullScreen()) );
     QObject::connect( m_titlebar->m_btnPinb, SIGNAL(clicked(bool)), this, SLOT(lockTools()) );
     QObject::connect( m_titlebar->m_btnPinr, SIGNAL(clicked(bool)), this, SLOT(unlockTools()) );
-    QObject::connect( m_titlebar->m_btnDrawInfo, SIGNAL(clicked(bool)), this, SLOT(toggleDrawInfo()) );
+    QObject::connect( m_titlebar->m_btnInfob, SIGNAL(clicked(bool)), this, SLOT(enableDrawInfo()) );
+    QObject::connect( m_titlebar->m_btnInfor, SIGNAL(clicked(bool)), this, SLOT(disableDrawInfo()) );
     QObject::connect( m_titlebar->m_btnSnapshot, SIGNAL(clicked(bool)), this, SLOT(snapshot()) );
     //QObject::connect( m_titlebar->m_btnStartRecord, SIGNAL(clicked(bool)), this, SLOT(startRecord()) );
     //QObject::connect( m_titlebar->m_btnStopRecord, SIGNAL(clicked(bool)), this, SLOT(stopRecord()) );
@@ -807,31 +809,21 @@ void HCombGLWidget::initConnect(){
     QObject::connect( m_wdgEffect, SIGNAL(effectSelected(HPictureItem)), this, SLOT(onEffectSelected(HPictureItem)) );
 }
 
-void HCombGLWidget::showTitlebar(bool bShow){
-    if (bShow){
-        DsSrvItem* item = g_dsCtx->getSrvItem(srvid);
-        if (item){
-            m_titlebar->m_label->setText(item->title.c_str());
-        }
-        m_titlebar->show();
-    }else{
-        m_titlebar->hide();
-    }
-}
+void HCombGLWidget::updateToolWidgets(){
+    DsSrvItem* item = g_dsCtx->getSrvItem(srvid);
+    if (item){
+        m_titlebar->m_label->setText(item->title.c_str());
 
-void HCombGLWidget::showToolbar(bool bShow){
-    if (bShow){
-        if ((m_status & MAJOR_STATUS_MASK) == PLAYING){
+        if (!item->spacer){
+            m_toolbar->m_btnStart->hide();
+            m_toolbar->m_btnPause->hide();
+        }else if (item->spacer_activate){
+            m_toolbar->m_btnStart->show();
+            m_toolbar->m_btnPause->hide();
+        }else{
             m_toolbar->m_btnStart->hide();
             m_toolbar->m_btnPause->show();
         }
-        if ((m_status & MAJOR_STATUS_MASK) == PAUSE){
-            m_toolbar->m_btnStart->show();
-            m_toolbar->m_btnPause->hide();
-        }
-        m_toolbar->show();
-    }else{
-        m_toolbar->hide();
     }
 }
 
@@ -844,8 +836,8 @@ bool HCombGLWidget::showToolWidgets(bool bShow){
 
     HGLWidget::showToolWidgets(bShow);
 
-    showTitlebar(bShow);
-    showToolbar(bShow);
+    m_titlebar->setVisible(bShow);
+    m_toolbar->setVisible(bShow);
     //m_wdgTrash->setVisible(bShow);
 
     return bShow;
@@ -962,9 +954,6 @@ void HCombGLWidget::onCombChanged(){
             HOperateObject target(&g_dsCtx->m_tComb.items[i]);
             target.rcDraw = scaleToDraw(target.pItem->rc);
             m_vecScreens.push_back(target);
-
-            if (g_dsCtx->m_tComb.micphone != 0 && g_dsCtx->m_tComb.items[i].srvid == g_dsCtx->m_tComb.micphone)
-                HNetwork::instance()->setMicphone(0);
         }
     }
 }
@@ -1151,9 +1140,9 @@ void HCombGLWidget::onEffectSelected(HPictureItem item){
     m_target.obj.attachItem(pItem);
 
     if (pItem->pic_type == HPictureItem::MOSAIC){
-        m_target.pWdg->setPixmap(HRcLoader::instance()->get(RC_MOSAIC));
+        m_target.pWdg->setPixmap(rcloader->get(RC_MOSAIC));
     }else if (pItem->pic_type == HPictureItem::BLUR){
-        m_target.pWdg->setPixmap(HRcLoader::instance()->get(RC_BLUR));
+        m_target.pWdg->setPixmap(rcloader->get(RC_BLUR));
     }
 
     int w = EXPRE_MAX_WIDTH;
@@ -1242,13 +1231,17 @@ void HCombGLWidget::drawTaskInfo(){
     if (item && QGLWidgetImpl::m_pFont){
         DrawInfo di;
         int oldSize = QGLWidgetImpl::m_pFont->FaceSize();
-        QGLWidgetImpl::m_pFont->FaceSize(32);
-        separator sept(g_dsCtx->getSrvItem(srvid)->taskinfo.c_str(), "\r\n");
+        QStringList sept = item->taskinfo.split("\r\n");
         di.top = 10;
         di.left = 10;
         di.color = g_dsCtx->m_tInit.infcolor;
+        if (sept.size() < 8){
+            QGLWidgetImpl::m_pFont->FaceSize(32);
+        }else{
+            QGLWidgetImpl::m_pFont->FaceSize(28);
+        }
         for (int i = 0; i < sept.size(); ++i){
-            drawStr(sept[i], &di);
+            drawStr(sept[i].toLocal8Bit().data(), &di);
             di.top += QGLWidgetImpl::m_pFont->LineHeight() + 10;
         }
         QGLWidgetImpl::m_pFont->FaceSize(oldSize);
@@ -1265,7 +1258,7 @@ void HCombGLWidget::drawScreenInfo(){
         di.top = di.bottom - 48 + 1;
         di.right = di.left + 48 - 1;
         if (i < MAX_NUM_ICON)
-            drawTex(&HRcLoader::instance()->tex_numr[i], &di);
+            drawTex(&rcloader->tex_numr[i], &di);
 
         // draw comb outline
         di.left = rc.left();
@@ -1309,7 +1302,12 @@ void HCombGLWidget::paintGL(){
     HGLWidget::paintGL();
 
     if (g_dsCtx->m_tInit.drawinfo){
+#if LAYOUT_TYPE_ONLY_OUTPUT
+        if (m_bDrawInfo)
+            drawTaskInfo();
+#else
         drawTaskInfo();
+#endif
     }
 
     if (m_bDrawInfo){

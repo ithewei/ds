@@ -28,7 +28,22 @@ void HMainWidget::initUI(){
     setGeometry(0,0,g_dsCtx->m_tLayout.width, g_dsCtx->m_tLayout.height);
     qInfo("screen_w=%d,screen_h=%d", width(), height());
 
-    if (g_dsCtx->m_tInit.autolayout){
+    HSaveInfo::instance()->read();
+    if (HSaveInfo::instance()->wnd_num != 0){
+        for (int i = 0; i < HSaveInfo::instance()->wnd_num; ++i){
+            WndInfo* wnd =  &HSaveInfo::instance()->wndinfo[i];
+            HGLWidget* wdg;
+            if (wnd->type == HGLWidget::GENERAL){
+                wdg = new HGeneralGLWidget(this);
+            }else if (wnd->type == HGLWidget::COMB){
+                wdg = new HCombGLWidget(this);
+            }
+            wdg->wndid = wnd->wndid;
+            wdg->setGeometry(wnd->rc);
+            wdg->setVisible(wnd->visible);
+            m_vecGLWdg.push_back(wdg);
+        }
+    }else if (g_dsCtx->m_tInit.autolayout){
         for (int i = 0; i < g_dsCtx->m_tInit.maxnum_layout; ++i){
             int wndid = i+1;
             HGLWidget* wdg;
@@ -78,14 +93,15 @@ void HMainWidget::initUI(){
 
 #if LAYOUT_TYPE_OUTPUT_AND_MV
     QSize sz(ICON_WIDTH, ICON_HEIGHT);
-    m_btnLeftExpand = genPushButton(sz, HRcLoader::instance()->get(RC_LEFT), this);
+    m_btnLeftExpand = genPushButton(sz, rcloader->get(RC_LEFT), this);
     m_btnLeftExpand->setGeometry(width()-ICON_WIDTH-1, height()-ICON_HEIGHT-1, ICON_WIDTH, ICON_HEIGHT);
 
-    m_btnRightFold = genPushButton(sz, HRcLoader::instance()->get(RC_RIGHT), this);
+    m_btnRightFold = genPushButton(sz, rcloader->get(RC_RIGHT), this);
     m_btnRightFold->setGeometry(width()-ICON_WIDTH-1, height()-ICON_HEIGHT-1, ICON_WIDTH, ICON_HEIGHT);
     m_btnRightFold->hide();
 
-    m_toolbar = new HMainToolbar(this);
+    m_toolbar = new HWebToolbar(this);
+    //m_toolbar = new HModelToolbar(this);
     m_toolbar->setGeometry(0, height()-ICON_HEIGHT-1, width()-ICON_WIDTH, ICON_HEIGHT);
     setBgFg(m_toolbar, Qt::transparent);
     m_toolbar->hide();
@@ -100,6 +116,7 @@ void HMainWidget::initUI(){
     m_labelRect->hide();
 }
 
+#include <QFileSystemWatcher>
 void HMainWidget::initConnect(){
     QObject::connect( g_dsCtx, SIGNAL(actionChanged(int)), this, SLOT(onActionChanged(int)) );
     QObject::connect( g_dsCtx, SIGNAL(requestShow(int)), this, SLOT(onRequestShow(int)) );
@@ -108,6 +125,8 @@ void HMainWidget::initConnect(){
     QObject::connect( g_dsCtx, SIGNAL(sigStop(int)), this, SLOT(onStop(int)) );
     QObject::connect( g_dsCtx, SIGNAL(quit()), this, SLOT(hide()) );
     QObject::connect( g_dsCtx, SIGNAL(sigProgressNty(int,int)), this, SLOT(onProgressNty(int,int)) );
+    QObject::connect( g_dsCtx, SIGNAL(combChanged()), this, SLOT(onCombChanged()) );
+    QObject::connect( g_dsCtx, SIGNAL(voiceChanged()), this, SLOT(onVoiceChanged()) );
 
     for (int i = 0; i < m_vecGLWdg.size(); ++i){
         HGLWidget* wdg = m_vecGLWdg[i];
@@ -129,6 +148,17 @@ void HMainWidget::initConnect(){
     if (g_dsCtx->m_tInit.display_mode == DISPLAY_MODE_TIMER){
         timer_repaint.start(1000 / g_dsCtx->m_tInit.fps);
     }
+
+
+    if (g_dsCtx->m_tInit.save_span > 0){
+        QObject::connect( &timer_save, SIGNAL(timeout()), this, SLOT(onTimerSave()) );
+        timer_save.start(g_dsCtx->m_tInit.save_span*1000);
+    }
+
+    QFileSystemWatcher* watcher = new QFileSystemWatcher(this);
+    watcher->addPath(g_dsCtx->ds_path.c_str());
+    QObject::connect(watcher, SIGNAL(fileChanged(QString)), this, SLOT(onFileChanged(QString)) );
+    QObject::connect(watcher, SIGNAL(directoryChanged(QString)), this, SLOT(onDirChanged(QString)) );
 }
 
 HGLWidget* HMainWidget::getGLWdgByWndid(int wndid){
@@ -145,24 +175,36 @@ HGLWidget* HMainWidget::allocGLWdgForsrvid(int srvid){
     if (wdg)
         return wdg;
 
-    int min_wndid = 10000;
-    for (int i = 0; i < m_vecGLWdg.size(); ++i){
-        if (isOutputSrvid(srvid)){
-            if (m_vecGLWdg[i]->type != HGLWidget::COMB)
-                continue;
-        }else{
-            if (m_vecGLWdg[i]->type != HGLWidget::GENERAL)
-                continue;
+    for (int i = 0; i < HSaveInfo::instance()->wnd_num; ++i){
+        if (HSaveInfo::instance()->wndinfo[i].srvid == srvid){
+            HGLWidget* p = getGLWdgByWndid(HSaveInfo::instance()->wndinfo[i].wndid);
+            if (p && p->isResetStatus() && p->isVisible()){
+                wdg = p;
+            }
+            break;
         }
-        if (m_vecGLWdg[i]->isResetStatus() && m_vecGLWdg[i]->isVisible() && m_vecGLWdg[i]->wndid < min_wndid){
-            wdg = m_vecGLWdg[i];
-            min_wndid = wdg->wndid;
+    }
+
+    if (!wdg){
+        int min_wndid = 10000;
+        for (int i = 0; i < m_vecGLWdg.size(); ++i){
+            if (isOutputSrvid(srvid)){
+                if (m_vecGLWdg[i]->type != HGLWidget::COMB)
+                    continue;
+            }else{
+                if (m_vecGLWdg[i]->type != HGLWidget::GENERAL)
+                    continue;
+            }
+            if (m_vecGLWdg[i]->isResetStatus() && m_vecGLWdg[i]->isVisible() && m_vecGLWdg[i]->wndid < min_wndid){
+                wdg = m_vecGLWdg[i];
+                min_wndid = wdg->wndid;
+            }
         }
     }
 
     if (wdg){
         wdg->srvid = srvid;
-        qDebug("srvid:%d ==> wndid:%d", wdg->srvid, wdg->wndid);
+        qInfo("srvid:%d ==> wndid:%d", wdg->srvid, wdg->wndid);
     }
 
     return wdg;
@@ -312,7 +354,7 @@ void HMainWidget::onTimerRepaint(){
         HGLWidget* wdg = m_vecGLWdg[i];
         if (m_fullscreenGLWdg && wdg != m_fullscreenGLWdg)
             continue;
-        if (!wdg->isResetStatus() ){
+        if (!wdg->isResetStatus() && wdg->isVisible()){
             if (g_dsCtx->pop_video(wdg->srvid) == 0)
                 wdg->repaint();
         }
@@ -320,21 +362,21 @@ void HMainWidget::onTimerRepaint(){
 }
 
 void HMainWidget::onActionChanged(int action){
-    qDebug("mainwdg::action=%d", action);
+    qInfo("mainwdg::action=%d", action);
     if (action == 0){
         hide();
     }else if (action == 1){
-        qDebug("0000000000000000000000000000");
+        hide();
         showFullScreen();
-        qDebug("1111111111111111111111111111");
+        activateWindow();
+        raise();
         if (g_dsCtx->m_tInit.output != 0){
-            qDebug("2222222222222222222222222");
-            HNetwork::instance()->queryOverlayInfo();
+            dsnetwork->queryOverlayInfo();
 #if LAYOUT_TYPE_OUTPUT_AND_MV
             if (g_dsCtx->m_tComb.itemCnt != 0){
-                HNetwork::instance()->postCombInfo(g_dsCtx->m_tComb);// for refresh combinfo
+                dsnetwork->postCombInfo(g_dsCtx->m_tComb);// for refresh combinfo
             }
-            HNetwork::instance()->queryVoice();
+            dsnetwork->queryVoice();
 #endif
         }
 
@@ -345,11 +387,12 @@ void HMainWidget::onActionChanged(int action){
     }
 
 #if LAYOUT_TYPE_ONLY_OUTPUT
-    HNetwork::instance()->notifyFullscreen(action);
+    dsnetwork->notifyFullscreen(action);
 #endif
 }
 
 void HMainWidget::onRequestShow(int srvid){
+    qDebug("onRequestShow=%d", srvid);
     HGLWidget* wdg = allocGLWdgForsrvid(srvid);
     if (wdg == NULL)
         return;
@@ -425,8 +468,14 @@ void HMainWidget::onFullScreen(bool  bFullScreen){
 
     if (bFullScreen){
         m_rcSavedGeometry = pSender->geometry();
-        pSender->setWindowFlags(Qt::Window);
+        qInfo() << m_rcSavedGeometry;
+        pSender->setWindowFlags(Qt::Window | Qt::FramelessWindowHint | Qt::X11BypassWindowManagerHint);
+        pSender->setGeometry(rect());
         pSender->showFullScreen();
+#if LAYOUT_TYPE_ONLY_MV
+#else
+        hide();
+#endif
 
         m_fullscreenGLWdg = pSender;
 
@@ -436,9 +485,10 @@ void HMainWidget::onFullScreen(bool  bFullScreen){
             timer_repaint.start(1000/pItem->framerate);
         }
     }else{
-        pSender->setWindowFlags(Qt::SubWindow);
+        pSender->setWindowFlags(Qt::Widget);
         pSender->setGeometry(m_rcSavedGeometry);
-        pSender->showNormal();
+        pSender->show();
+        show();
 
         m_fullscreenGLWdg = NULL;
 
@@ -473,7 +523,7 @@ void HMainWidget::changeCombItem(int index, int srvid){
         if (srvid == 0){
             si.items[index].a = false;
         }
-        HNetwork::instance()->postCombInfo(si);
+        dsnetwork->postCombInfo(si);
     }
 }
 
@@ -488,7 +538,7 @@ void HMainWidget::addCombItem(int srvid){
         si.items[i+1] = old.items[i];
     }
     si.itemCnt = old.itemCnt + 1;
-    HNetwork::instance()->postCombInfo(si);
+    dsnetwork->postCombInfo(si);
 }
 
 void HMainWidget::onMerge(){
@@ -551,4 +601,61 @@ void HMainWidget::mergeGLWdg(int lt, int rb){
         getGLWdgByWndid(lt)->srvid = select_srvid;
 
     updateGLWdgsByLayout();
+}
+
+void HMainWidget::updateAllToolWidgets(){
+    for (int i = 0; i < m_vecGLWdg.size(); ++i){
+        m_vecGLWdg[i]->updateToolWidgets();
+    }
+}
+
+void HMainWidget::onVoiceChanged(){
+    updateAllToolWidgets();
+}
+
+void HMainWidget::onCombChanged(){
+    updateAllToolWidgets();
+
+    // adjust micphone
+    HCombItem* ci = g_dsCtx->getCombItem(g_dsCtx->m_tComb.micphone);
+    if (g_dsCtx->m_tComb.micphone != 0 && ci && ci->v){
+        dsnetwork->setMicphone(0);
+    }
+    if (g_dsCtx->pre_micphone_srvid != 0){
+        DsSrvItem* item = g_dsCtx->getSrvItem(g_dsCtx->pre_micphone_srvid);
+        HCombItem* ci = g_dsCtx->getCombItem(g_dsCtx->pre_micphone_srvid);
+        if (item && item->bVoice && !ci){
+            dsnetwork->setMicphone(g_dsCtx->pre_micphone_srvid);
+        }
+    }
+}
+
+void HMainWidget::onTimerSave(){
+    if (!isVisible())
+        return;
+
+    if (m_fullscreenGLWdg)
+        return;
+
+    HSaveInfo::instance()->wnd_num = m_vecGLWdg.size();
+    for (int i = 0; i < m_vecGLWdg.size(); ++i){
+        HGLWidget* wdg = m_vecGLWdg[i];
+        if (wdg){
+            WndInfo* wnd = &HSaveInfo::instance()->wndinfo[i];
+            wnd->type = wdg->type;
+            wnd->wndid = wdg->wndid;
+            wnd->srvid = wdg->srvid;
+            wnd->visible = wdg->isVisible();
+            wnd->rc = wdg->geometry();
+        }
+    }
+    HSaveInfo::instance()->write();
+}
+
+void HMainWidget::onFileChanged(QString file){
+    g_dsCtx->parse_layout_xml(g_dsCtx->layout_file.c_str());
+}
+
+void HMainWidget::onDirChanged(QString file){
+    g_dsCtx->parse_layout_xml(g_dsCtx->layout_file.c_str());
 }

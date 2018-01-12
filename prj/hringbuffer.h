@@ -39,6 +39,8 @@ public:
         }
     }
 
+    int size() {return _size;}
+
     char* read(){
         char* ret = get(read_index);
 

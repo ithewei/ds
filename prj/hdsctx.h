@@ -26,8 +26,8 @@ public:
 
     void start_gui_thread();
 
-    HCombItem* getScreenItem(int srvid);
-    HCombItem* getScreenItem(QString src);
+    HCombItem* getCombItem(int srvid);
+    HCombItem* getCombItem(QString src);
 
     DsSrvItem* getSrvItem(int srvid){
         if (srvid < 1 || srvid > DIRECTOR_MAX_SERVS)
@@ -85,16 +85,18 @@ public:
     int push_audio(int srvid, const av_pcmbuff* pcm);
 
     void setAction(int action) {
-        qDebug("action=%d this->action=%d", action, this->action);
+        qInfo("action=%d this->action=%d", action, this->action);
         if (this->action != action){
             this->action = action;
-            emit actionChanged(action);
-            if (action > 0){
-                m_audioPlay->pausePlay(false);
-            }else{
-                m_audioPlay->pausePlay(true);
+            if (m_audioPlay){
+                if (action > 0){
+                    m_audioPlay->pausePlay(false);
+                }else{
+                    m_audioPlay->pausePlay(true);
+                }
             }
         }
+        emit actionChanged(action);
     }
 
     void setTitle(int srvid, const char* title){
@@ -113,6 +115,7 @@ public:
     }
 
     void pause(int srvid, bool bPause);
+    void setPlayProgress(int srvid, int progress);
     void setPlayaudioSrvid(int id);
 
 signals:
@@ -122,6 +125,7 @@ signals:
     void sigStop(int srvid);
     void quit();
     void combChanged();
+    void voiceChanged();
     void sigProgressNty(int srvid, int progress);
     void requestShow(int srvid);
 
@@ -163,13 +167,15 @@ public:
     DsLayoutInfo m_tLayout;
     DsCombInfo m_tComb;
     DsCombInfo m_tCombUndo;
-    int m_preselect[MAXNUM_COMB_SCREEN];
+    int m_preselect[MAXNUM_COMB_ITEM];
     DsPictureInfo m_pics;
     DsTextInfo m_texts;
 
     std::string cur_path;
     std::string img_path;
     std::string ttf_path;
+    std::string ds_path;
+    std::string layout_file;
 
     HAudioPlay* m_audioPlay;
 
@@ -177,7 +183,8 @@ public:
     QMap<int ,int> m_mapLmic2Srvid;
 
     int req_srvid;
-    int m_playaudio_srvid;
+    int playaudio_srvid;
+    int pre_micphone_srvid;
 };
 
 extern HDsContext* g_dsCtx;

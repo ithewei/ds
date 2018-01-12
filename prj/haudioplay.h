@@ -3,17 +3,19 @@
 
 #include <portaudio.h>
 #include "ds_global.h"
+#include "hringbuffer.h"
+#include <QMutex>
 
 class HAudioPlay
 {
 public:
-    explicit HAudioPlay();
+    explicit HAudioPlay(int buf_size = 10);
     ~HAudioPlay();
 
 public:
     int startPlay();
-    int stopPlay();
-    int pausePlay(bool bPause);
+    void stopPlay();
+    void pausePlay(bool bPause);
     int pushAudio(av_pcmbuff* pcm);
 
     static int playCallback(
@@ -26,9 +28,12 @@ public:
 private:
     PaStream* m_pStream;
 
-    av_pcmbuff m_pcmInfo;
-    cyc_buf<unsigned char, 0>* m_pcmBuf;
-    tmc_mutex_type m_mutex;
+    HRingBuffer* audio_buffer;
+    int buf_size;
+    QMutex audio_mutex;
+    int pcmlen;
+    int samplerate;
+    int channels;
 };
 
 #endif // HAUDIOPLAY_H

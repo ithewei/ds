@@ -3,9 +3,10 @@
 
 #include "ds_global.h"
 #include <QRect>
+#include <QString>
 
-#define MAXNUM_LAYOUT   64
-#define MAXNUM_COMB_SCREEN     8
+#define MAXNUM_WND   64
+#define MAXNUM_COMB_ITEM     8
 #define MAXNUM_PICTURE_ITEM    64
 #define MAXNUM_TEXT_ITEM       64
 
@@ -35,6 +36,7 @@ struct DsInitInfo{
 
     int debug;
     int drawDebugInfo;
+    int save_span;
     int mouse;
     int autolayout;
     int maxnum_layout;
@@ -47,6 +49,8 @@ struct DsInitInfo{
     int display_mode;
     int scale_mode;
     int fps;
+    int video_bufnum;
+    int audio_bufnum;
 
     int drawinfo;
     int drawtitle;
@@ -55,6 +59,7 @@ struct DsInitInfo{
     int drawaudio;
     int drawoutline;
 
+    int fontsize;
     int spacing;
     int titlebar_height;
     int toolbar_height;
@@ -76,8 +81,9 @@ struct DsInitInfo{
         audiocolor_fg_high = 0xFF0000FF;
         audiocolor_fg_top = 0xFF0000FF;
 
-        debug = 0;
+        debug = 4;
         drawDebugInfo = 0;
+        save_span = 0;
         autolayout = 0;
         maxnum_layout = 0;
         row = 0;
@@ -94,6 +100,8 @@ struct DsInitInfo{
         display_mode = DISPLAY_MODE_TIMER;
         scale_mode = ENABLE_SCALE;
         fps = 25;
+        video_bufnum = 10;
+        audio_bufnum = 10;
 
         drawinfo = 0;
         drawtitle = 1;
@@ -102,6 +110,7 @@ struct DsInitInfo{
         drawaudio = 1;
         drawoutline = 1;
 
+        fontsize = 24;
         spacing = 20;
         titlebar_height = 48;
         toolbar_height = 64;
@@ -116,7 +125,7 @@ struct DsInitInfo{
 struct DsLayoutInfo{
     int width;
     int height;
-    QRect items[MAXNUM_LAYOUT];
+    QRect items[MAXNUM_WND];
     int itemCnt;
 
     DsLayoutInfo(){
@@ -137,11 +146,12 @@ struct DsCombInfo{
     int width;
     int height;
 
-    HCombItem items[MAXNUM_COMB_SCREEN];
+    HCombItem items[MAXNUM_COMB_ITEM];
     int itemCnt;
 
     COMB_TYPE comb_type;
     int micphone;
+    int pre_micphone;
 
     DsCombInfo(){
         width = 0;
@@ -149,6 +159,7 @@ struct DsCombInfo{
         itemCnt = 0;
         comb_type = UNKNOW;
         micphone = 0;
+        pre_micphone = 0;
     }
 };
 
@@ -181,8 +192,8 @@ struct DsSrvItem{
 
     int src_type;
     QString src_addr;
-
     std::string title;
+
     int pic_w;
     int pic_h;
     int framerate;
@@ -192,21 +203,27 @@ struct DsSrvItem{
     int show_w;
     int show_h;
     HRingBuffer* video_buffer;
-    QMutex  mutex;
+    QMutex  video_mutex;
     bool bNeedReallocTexture;
     Texture tex_yuv;
     SwsContext* pSwsCtx; // for scale
 
+    int pcm_len;
     int a_channels;
+    int samplerate;
+    HRingBuffer* audio_buffer;
+    QMutex audio_mutex;
     unsigned short a_average[2];
     bool bUpdateAverage;
 
     unsigned int a_input;
     unsigned int v_input;
     ifservice_callback * ifcb;
+    bool spacer;
+    bool spacer_activate;
 
     unsigned long tick;
-    std::string taskinfo;
+    QString taskinfo;
 
     int pop_video_failed_cnt;
 
@@ -248,6 +265,8 @@ struct DsSrvItem{
         v_input = 0;
 
         ifcb = NULL;
+        spacer = false;
+        spacer_activate = false;
 
         pop_video_failed_cnt = 0;
     }

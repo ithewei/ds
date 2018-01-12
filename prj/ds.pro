@@ -4,7 +4,7 @@
 #
 #-------------------------------------------------
 
-QT       += core xml widgets opengl webenginewidgets network
+QT       += core gui widgets opengl webenginewidgets xml network sql
 
 TARGET = director_service
 #TARGET = pic_display_service
@@ -50,7 +50,9 @@ SOURCES += \
     heffectwidget.cpp \
     hringbuffer.cpp \
     hlayout.cpp \
-    hdsconf.cpp
+    hdsconf.cpp \
+    hsaveinfo.cpp \
+    hdsdb.cpp
 
 HEADERS += \
         ds.h \
@@ -81,7 +83,9 @@ HEADERS += \
     hlayout.h \
     singleton.h \
     ds_version.h \
-    hdsconf.h
+    hdsconf.h \
+    hsaveinfo.h \
+    hdsdb.h
 
 unix {
     target.path = /usr/lib

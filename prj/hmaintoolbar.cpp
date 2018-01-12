@@ -56,7 +56,7 @@ HWebView::HWebView(QWidget* parent)
 }
 
 void HWebView::onUrlChanged(QUrl url){
-    qDebug("url=%s", url.toString().toLocal8Bit().data());
+    qInfo("url=%s", url.toString().toLocal8Bit().data());
 
     if (m_bAdjustPos){
         const char* szUrl = url.toString().toLocal8Bit().data();
@@ -72,13 +72,10 @@ void HWebView::onUrlChanged(QUrl url){
             h = strtol(szHeight+strlen("height="), NULL, 10);
         }
 
-        qDebug("w=%d,h=%d", w,h);
+        qInfo("w=%d,h=%d", w,h);
 
-        int sw = QApplication::desktop()->width();
-        int sh = QApplication::desktop()->height();
-        if (w < sw && h < sh){
-            setGeometry((sw-w)/2, (sh-h)/2, w, h);
-        }
+        setFixedSize(w,h);
+        centerWidget(this);
     }
 }
 
@@ -94,7 +91,7 @@ QWebEngineView* HWebView::createWindow(QWebEnginePage::WebWindowType type){
     return view;
 }
 
-HMainToolbar::HMainToolbar(QWidget *parent) : HWidget(parent){
+HWebToolbar::HWebToolbar(QWidget *parent) : HWidget(parent){
     initUI();
     initConnect();
 
@@ -105,7 +102,7 @@ HMainToolbar::HMainToolbar(QWidget *parent) : HWidget(parent){
 }
 
 #include <QBoxLayout>
-void HMainToolbar::initUI(){
+void HWebToolbar::initUI(){
     QHBoxLayout* hbox = new QHBoxLayout;
     hbox->setMargin(0);
     hbox->setSpacing(0);
@@ -116,22 +113,19 @@ void HMainToolbar::initUI(){
     QPalette pal = m_webview->palette();
     pal.setColor(QPalette::Background, Qt::transparent);
     m_webview->setPalette(pal);
-    m_webview->hide();
+    m_webview->setUrl(QUrl(dsconf->value("URL/toolbar")));
     hbox->addWidget(m_webview);
-    hbox->setAlignment(m_webview, Qt::AlignHCenter);
 
     setLayout(hbox);
 }
 
-void HMainToolbar::initConnect(){
-    QObject::connect( m_webview, SIGNAL(loadFinished(bool)), m_webview, SLOT(show()) );
+void HWebToolbar::initConnect(){
+    //QObject::connect( m_webview, SIGNAL(loadFinished(bool)), m_webview, SLOT(show()) );
 }
 
 #include "hdsconf.h"
-void HMainToolbar::show(){
-    qDebug("w=%d h=%d", width(), height());
-    m_webview->setFixedSize(width(), height());
-    m_webview->setUrl(QUrl(HDsConf::instance()->value("URL/toolbar")));
+void HWebToolbar::show(){
+    m_webview->reload();
     QWidget::show();
 }
 
@@ -151,40 +145,40 @@ void HStyleToolbar::initUI(){
 
     QSize sz(90,90);
 
-    m_btnStyle1 = genPushButton(sz, HRcLoader::instance()->get(RC_STYLE1));
+    m_btnStyle1 = genPushButton(sz, rcloader->get(RC_STYLE1));
     hbox->addWidget(m_btnStyle1);
 
-    m_btnStyle2 = genPushButton(sz, HRcLoader::instance()->get(RC_STYLE2));
+    m_btnStyle2 = genPushButton(sz, rcloader->get(RC_STYLE2));
     hbox->addWidget(m_btnStyle2);
 
-    m_btnStyle4 = genPushButton(sz, HRcLoader::instance()->get(RC_STYLE4));
+    m_btnStyle4 = genPushButton(sz, rcloader->get(RC_STYLE4));
     hbox->addWidget(m_btnStyle4);
 
-    m_btnStyle9 = genPushButton(sz, HRcLoader::instance()->get(RC_STYLE9));
+    m_btnStyle9 = genPushButton(sz, rcloader->get(RC_STYLE9));
     hbox->addWidget(m_btnStyle9);
 
-    m_btnStyle16 = genPushButton(sz, HRcLoader::instance()->get(RC_STYLE16));
+    m_btnStyle16 = genPushButton(sz, rcloader->get(RC_STYLE16));
     hbox->addWidget(m_btnStyle16);
 
-    m_btnStyle25 = genPushButton(sz, HRcLoader::instance()->get(RC_STYLE25));
+    m_btnStyle25 = genPushButton(sz, rcloader->get(RC_STYLE25));
     hbox->addWidget(m_btnStyle25);
 
-    m_btnStyle36 = genPushButton(sz, HRcLoader::instance()->get(RC_STYLE36));
+    m_btnStyle36 = genPushButton(sz, rcloader->get(RC_STYLE36));
     hbox->addWidget(m_btnStyle36);
 
-    m_btnStyle49 = genPushButton(sz, HRcLoader::instance()->get(RC_STYLE49));
+    m_btnStyle49 = genPushButton(sz, rcloader->get(RC_STYLE49));
     hbox->addWidget(m_btnStyle49);
 
-    m_btnStyle64 = genPushButton(sz, HRcLoader::instance()->get(RC_STYLE64));
+    m_btnStyle64 = genPushButton(sz, rcloader->get(RC_STYLE64));
     hbox->addWidget(m_btnStyle64);
 
-    m_btnMerge = genPushButton(sz, HRcLoader::instance()->get(RC_MERGE));
+    m_btnMerge = genPushButton(sz, rcloader->get(RC_MERGE));
     m_btnMerge->setToolTip(tr("通过鼠标圈选，合并单元格"));
     hbox->addWidget(m_btnMerge);
 
     hbox->addStretch();
 
-    m_btnReturn = genPushButton(sz, HRcLoader::instance()->get(RC_RETURN));
+    m_btnReturn = genPushButton(sz, rcloader->get(RC_RETURN));
     m_btnReturn->setToolTip(tr("返回设置页面"));
     hbox->addWidget(m_btnReturn);
 
@@ -262,4 +256,145 @@ void HStyleToolbar::onStyleBtnClicked(int style){
 void HStyleToolbar::onReturn(){
     hide();
     g_dsCtx->setAction(0);
+}
+
+//===========================================================================
+
+void HModelWidget::paintEvent(QPaintEvent* e){
+    QPushButton::paintEvent(e);
+
+    QPainter painter(this);
+
+    QPen pen = painter.pen();
+
+    QFont font = painter.font();
+    font.setPixelSize(18);
+    painter.setFont(font);
+
+    if (w > 0 && h > 0){
+        double xscale = MODEL_WIDTH / (double)w;
+        double yscale = MODEL_HEIGHT / (double)h;
+
+        for (int i = 0; i < m_vecRects.size(); i++){
+            QRect rc = m_vecRects[i];
+            int x = rc.x() * xscale + MODEL_LEFT;
+            int y = rc.y() * yscale + MODEL_TOP;
+            int w = rc.width() * xscale;
+            int h = rc.height() * yscale;
+            QRect rcScale(x,y,w,h);
+            pen.setColor(Qt::white);
+            pen.setWidth(3);
+            painter.setPen(pen);
+            painter.drawRect(rcScale);
+            pen.setColor(Qt::red);
+            painter.setPen(pen);
+            painter.drawText(rcScale, Qt::AlignCenter, QString::asprintf("%d", i+1));
+        }
+    }
+}
+
+//=========================================================================================================
+
+void HModelToolbar::initUI(){
+    QHBoxLayout* hbox = genHBoxLayout();
+
+    hbox->addStretch();
+
+    model_widgets = new HModelWidget[MAXNUM_MODEL_WIDGET];
+    for (int i = 0; i < MAXNUM_MODEL_WIDGET; ++i){
+        hbox->addWidget(&(model_widgets[i]));
+    }
+
+    setLayout(hbox);
+
+    QSize sz(50,50);
+    btn_taskinfo = new QPushButton;
+    addClassForModelWidget(btn_taskinfo);
+    btn_taskinfo->setIconSize(sz);
+    btn_taskinfo->setIcon(rcloader->get(RC_TASKINFO).scaled(sz));
+    hbox->addWidget(btn_taskinfo);
+
+    btn_soundmixer = new QPushButton;
+    addClassForModelWidget(btn_soundmixer);
+    btn_soundmixer->setIconSize(sz);
+    btn_soundmixer->setIcon(rcloader->get(RC_SOUNDMIXER).scaled(sz));
+    hbox->addWidget(btn_soundmixer);
+
+    btn_home = new QPushButton;
+    addClassForModelWidget(btn_home);
+    btn_home->setIconSize(sz);
+    btn_home->setIcon(rcloader->get(RC_HOME).scaled(sz));
+    hbox->addWidget(btn_home);
+
+    updateUI();
+}
+
+void HModelToolbar::initConnect(){
+    QObject::connect(btn_home, SIGNAL(clicked(bool)), this, SLOT(onBtnHome()));
+    QObject::connect(btn_soundmixer, SIGNAL(clicked(bool)), this, SLOT(onBtnSoundmixer()));
+    QObject::connect(btn_taskinfo, SIGNAL(clicked(bool)), this, SLOT(onBtnTaskinfo()));
+}
+
+void HModelToolbar::updateUI(){
+    QSqlQuery query = dsdb->exec(dsconf->value("SQL/query_models"));
+    int idx_name = query.record().indexOf("name");
+    int idx_width = query.record().indexOf("width");
+    int idx_height = query.record().indexOf("height");
+    int idx_items = query.record().indexOf("items");
+    int i = 0;
+    while (query.next()){
+        QString name = query.value(idx_name).toString();
+        int w = query.value(idx_width).toInt();
+        int h = query.value(idx_height).toInt();
+        QByteArray items = query.value(idx_items).toByteArray();
+        qInfo("name=%s,w=%d,h=%d,items=%s", name.toLocal8Bit().data(), w, h, items.data());
+        QJsonDocument doc = QJsonDocument::fromJson(items);
+        QJsonArray arr = doc.array();
+        HModelWidget* wdg = &model_widgets[i];
+        wdg->m_vecRects.clear();
+        wdg->w = w;
+        wdg->h = h;
+        for (int i = 0; i < arr.size(); ++i){
+            QJsonObject obj = arr.at(i).toObject();
+            int x = obj.value("x").toString().toInt();
+            int y = obj.value("y").toString().toInt();
+            int w = obj.value("w").toString().toInt();
+            int h = obj.value("h").toString().toInt();
+            wdg->m_vecRects.push_back(QRect(x,y,w,h));
+        }
+        wdg->show();
+        ++i;
+    }
+
+    for (; i < MAXNUM_MODEL_WIDGET; ++i){
+        HModelWidget* wdg = &model_widgets[i];
+        wdg->hide();
+    }
+}
+
+void HModelToolbar::onBtnHome(){
+    g_dsCtx->setAction(0);
+}
+
+void HModelToolbar::onBtnSoundmixer(){
+    HWebView* view = new HWebView;
+    view->setWindowFlags(Qt::Popup);
+    view->setAttribute(Qt::WA_DeleteOnClose, true);
+    view->setUrl(QUrl(dsconf->value("URL/soundmixer")));
+    int n = 0;
+    for (int i = DIRECTOR_SRVID_BEGIN; i <= DIRECTOR_SRVID_END; ++i){
+        DsSrvItem* item = g_dsCtx->getSrvItem(i);
+        if (item && (item->a_input != 0 || item->v_input != 0))
+            ++n;
+    }
+    view->setFixedSize(QSize(n*160+(n-1)*4, 520));
+    centerWidget(view);
+    view->show();
+}
+
+void HModelToolbar::onBtnTaskinfo(){
+    if (g_dsCtx->m_tInit.drawinfo)
+        g_dsCtx->m_tInit.drawinfo = 0;
+    else
+        g_dsCtx->m_tInit.drawinfo = 1;
 }

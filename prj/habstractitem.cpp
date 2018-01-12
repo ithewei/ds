@@ -76,7 +76,7 @@ void HCombItem::remove(){
     if (si.items[id].srvid != 0){
         si.items[id].srvid = 0;
         si.items[id].a = false;
-        HNetwork::instance()->postCombInfo(si);
+        dsnetwork->postCombInfo(si);
     }
 }
 
@@ -85,7 +85,7 @@ void HCombItem::modify(){
 
     DsCombInfo si = g_dsCtx->m_tComb;
     si.items[id] = *this;
-    HNetwork::instance()->postCombInfo(g_dsCtx->m_tComb);
+    dsnetwork->postCombInfo(g_dsCtx->m_tComb);
 }
 
 void HCombItem::savePreStatus(){
@@ -95,7 +95,7 @@ void HCombItem::savePreStatus(){
 }
 
 void HCombItem::undo(){
-    HNetwork::instance()->postCombInfo(g_dsCtx->m_tCombUndo);
+    dsnetwork->postCombInfo(g_dsCtx->m_tCombUndo);
 }
 
 //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
@@ -110,19 +110,19 @@ HPictureItem::HPictureItem()
 void HPictureItem::add(){
     HAbstractItem::add();
 
-    HNetwork::instance()->addPicture(*this);
+    dsnetwork->addPicture(*this);
 }
 
 void HPictureItem::remove(){
     HAbstractItem::remove();
 
-    HNetwork::instance()->removePicture(*this);
+    dsnetwork->removePicture(*this);
 }
 
 void HPictureItem::modify(){
     HAbstractItem::modify();
 
-    HNetwork::instance()->modifyPicture(*this);
+    dsnetwork->modifyPicture(*this);
 }
 //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
@@ -139,19 +139,19 @@ HTextItem::HTextItem()
 void HTextItem::add(){
     HAbstractItem::add();
 
-    HNetwork::instance()->addText(*this);
+    dsnetwork->addText(*this);
 }
 
 void HTextItem::remove(){
     HAbstractItem::remove();
 
-    HNetwork::instance()->removeText(*this);
+    dsnetwork->removeText(*this);
 }
 
 void HTextItem::modify(){
     HAbstractItem::modify();
 
-    HNetwork::instance()->modifyText(*this);
+    dsnetwork->modifyText(*this);
 }
 //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 

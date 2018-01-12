@@ -38,7 +38,7 @@ void QGLWidgetImpl::initializeGL(){
 
         initFont(g_dsCtx->ttf_path.c_str(), 24);
         loadYUVShader();
-        HRcLoader::instance()->loadTexture();
+        rcloader->loadTexture();
         s_bInitGLEW = true;
     }
 

@@ -14,7 +14,8 @@
     \
     F(RC_FULLSCREEN, "fullscreen.png") \
     F(RC_EXIT_FULLSCREEN, "nofullscreen.png") \
-    F(RC_INFO, "info.png") \
+    F(RC_INFOB, "infob.png") \
+    F(RC_INFOR, "infor.png") \
     F(RC_SNAPSHOT, "snapshot.png") \
     F(RC_RECORD, "record.png") \
     F(RC_RECORDING, "recording.png") \
@@ -53,6 +54,10 @@
     \
     F(RC_MOSAIC, "mosaic.png") \
     F(RC_BLUR, "blur.png") \
+    \
+    F(RC_SOUNDMIXER, "soundmixer.png")\
+    F(RC_TASKINFO, "taskinfo.png")\
+    F(RC_HOME, "home.png")
 
 #define FOR_EACH_ICON_MV(F) \
     F(RC_STYLE1, "style1.png") \
@@ -106,5 +111,7 @@ public:
     Texture tex_sound;
     Texture tex_numr[MAX_NUM_ICON];
 };
+
+#define rcloader HRcLoader::instance()
 
 #endif // HRCLOADER_H
