@@ -18,4 +18,6 @@ private:
     QSettings* settings;
 };
 
+#define dsconf HDsConf::instance()
+
 #endif // HDSCONF_H

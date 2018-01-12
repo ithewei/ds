@@ -41,12 +41,23 @@ class HGLWidget : public QGLWidgetImpl
     Q_OBJECT
 public:
     enum TYPE{
+        UNKOWN = 0,
         GENERAL = 1,
         COMB    = 2,
     };
 
     HGLWidget(QWidget* parent = Q_NULLPTR);
     virtual ~HGLWidget();
+
+    // overwrite setGeometry for setFixedSize to avoid titlebar expand
+    void setGeometry(QRect rc){
+        setFixedSize(rc.size());
+        move(rc.topLeft());
+    }
+
+    void setGeometry(int x, int y, int w, int h){
+        setGeometry(QRect(x,y,w,h));
+    }
 
     int status(int mask = 0xFFFF) {return m_status & mask;}
     void setStatus(int status, bool bRepaint = true){
@@ -71,6 +82,7 @@ public:
     Texture* getTexture(int type);
 
     virtual bool showToolWidgets(bool bShow = true);
+    virtual void updateToolWidgets() {}
 
     QRect videoArea(){
 #if LAYOUT_TYPE_ONLY_MV
@@ -95,7 +107,9 @@ public slots:
         emit fullScreen(false);
     }
 
-    void toggleDrawInfo() {m_bDrawInfo = !m_bDrawInfo;}
+    void enableDrawInfo() {m_bDrawInfo = true;}
+    void disableDrawInfo() {m_bDrawInfo = false;}
+
     void snapshot();
     void startRecord();
     void stopRecord();
@@ -156,9 +170,8 @@ public:
     HGeneralGLWidget(QWidget* parent = Q_NULLPTR);
     virtual ~HGeneralGLWidget();
 
-    void showTitlebar(bool bShow = true);
-    void showToolbar(bool bShow = true);
     virtual bool showToolWidgets(bool bShow = true);
+    virtual void updateToolWidgets();
     void setProgress(int progress) {m_toolbar->setProgress(progress);}
 
 public slots:
@@ -214,9 +227,8 @@ public:
 
     HOperateObject getObejctByPos(QPoint pt, HAbstractItem::TYPE type = HAbstractItem::ALL);
 
-    void showTitlebar(bool bShow = true);
-    void showToolbar(bool bShow = true);
     virtual bool showToolWidgets(bool bShow = true);
+    virtual void updateToolWidgets();
 
 public slots:
     void onCombChanged();

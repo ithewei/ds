@@ -77,6 +77,16 @@ inline void connectButtons(QPushButton* btn1, QPushButton* btn2){
     QObject::connect(btn2, SIGNAL(clicked(bool)), btn1, SLOT(show()) );
 }
 
+inline void centerWidget(QWidget* wdg){
+    int w = wdg->width();
+    int h = wdg->height();
+    int sw = QApplication::desktop()->width();
+    int sh = QApplication::desktop()->height();
+    if (w < sw && h < sh){
+        wdg->setGeometry((sw-w)/2, (sh-h)/2, w, h);
+    }
+}
+
 typedef QWidget HWidget;
 //============================================================================
 #endif // QTHEADERS_H

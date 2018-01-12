@@ -7,6 +7,17 @@ HMainWidget* g_mainWdg = NULL;
 
 #include <QDateTime>
 void myLogHandler(QtMsgType type, const QMessageLogContext & ctx, const QString & msg){
+    // QtDebugMsg = 0, so
+    // debug=0, no all
+    // debug=1, print qInfo
+    // debug=4(QtInfoMsg), no qDebug
+    // debug>4, print all
+    if (g_dsCtx){
+        int threshold = QtInfoMsg - g_dsCtx->m_tInit.debug;
+        if (type <= threshold)
+            return;
+    }
+
     char szType[16];
     switch (type) {
     case QtDebugMsg:
@@ -81,7 +92,7 @@ void* HDsContext::thread_gui(void* param){
 #endif
 
     QFont font = QApplication::font();
-    font.setPointSize(18);
+    font.setPixelSize(24);
     QApplication::setFont(font);
 
     int sw = QApplication::desktop()->width();
@@ -100,7 +111,7 @@ void* HDsContext::thread_gui(void* param){
     splash->showFullScreen();
     app.processEvents();
 
-    splash->showMessage("Loading settings...", Qt::AlignCenter, Qt::white);
+    //splash->showMessage("Loading settings...", Qt::AlignCenter, Qt::white);
     progress->setValue(10);
     app.processEvents();
     QString str = g_dsCtx->cur_path.c_str();
@@ -118,25 +129,25 @@ void* HDsContext::thread_gui(void* param){
 #else
     str += "ds_out.conf";
 #endif
-    HDsConf::instance()->load(str);
+    dsconf->load(str);
 
-    splash->showMessage("Loading icon...", Qt::AlignCenter, Qt::white);
+    //splash->showMessage("Loading icon...", Qt::AlignCenter, Qt::white);
     progress->setValue(20);
     app.processEvents();
-    HRcLoader::instance()->loadIcon();
+    rcloader->loadIcon();
 
-    splash->showMessage("Creating widgets...", Qt::AlignCenter, Qt::white);
+    //splash->showMessage("Creating widgets...", Qt::AlignCenter, Qt::white);
     progress->setValue(30);
     app.processEvents();
     HExpreWidget::instance();
     HEffectWidget::instance();
 
-    splash->showMessage("Creating main UI...", Qt::AlignCenter, Qt::white);
+    //splash->showMessage("Creating main UI...", Qt::AlignCenter, Qt::white);
     progress->setValue(50);
     app.processEvents();
     g_mainWdg = new HMainWidget;
 
-    splash->showMessage("Loading completed!", Qt::AlignCenter, Qt::white);
+    //splash->showMessage("Loading completed!", Qt::AlignCenter, Qt::white);
     progress->setValue(90);
     app.processEvents();
 
@@ -161,8 +172,10 @@ HDsContext::HDsContext()
     init    = 0;
     action  = -1;
 
-    m_audioPlay = new HAudioPlay;
-    m_playaudio_srvid = 1;
+    playaudio_srvid = 1;
+    pre_micphone_srvid = 0;
+
+    m_audioPlay = NULL;
 }
 
 HDsContext::~HDsContext(){
@@ -256,7 +269,8 @@ void HDsContext::start_gui_thread(){
 */
 #include <QtXml/QDomComment>
 int HDsContext::parse_layout_xml(const char* xml_file){
-    qDebug(xml_file);
+    qInfo(xml_file);
+    layout_file = xml_file;
 
     QDomDocument dom;
     QFile file(xml_file);
@@ -282,6 +296,8 @@ int HDsContext::parse_layout_xml(const char* xml_file){
             m_tInit.debug = v.toInt();
         else if (n == "drawDebugInfo")
             m_tInit.drawDebugInfo = v.toInt();
+        else if (n == "save_span")
+            m_tInit.save_span = v.toInt();
         else if (n == "mouse")
             m_tInit.mouse = v.toInt();
         else if (n == "autolayout")
@@ -340,6 +356,8 @@ int HDsContext::parse_layout_xml(const char* xml_file){
             m_tInit.audiocolor_fg_high = v.toUInt(NULL, 16);
         else if(n == "audiocolor_fg_top")
             m_tInit.audiocolor_fg_top = v.toUInt(NULL, 16);
+        else if (n == "fontsize")
+            m_tInit.fontsize = v.toInt();
         else if (n == "spacing")
             m_tInit.spacing = v.toInt();
         else if (n == "titlebar_height")
@@ -385,7 +403,7 @@ int HDsContext::parse_layout_xml(const char* xml_file){
             m_tLayout.items[cnt_item].setRect(x, y, w, h);
 
             ++cnt_item;
-            if(cnt_item >= MAXNUM_LAYOUT)
+            if(cnt_item >= MAXNUM_WND)
                 break;
 
             elem_item = elem_item.nextSiblingElement("item");
@@ -544,11 +562,11 @@ int HDsContext::parse_comb_xml(const char* xml){
         }
 
         ++ci.itemCnt;
-        if(ci.itemCnt >= MAXNUM_COMB_SCREEN)
+        if(ci.itemCnt >= MAXNUM_COMB_ITEM)
             break;
     }
 
-    for (int i = 0; i < MAXNUM_COMB_SCREEN; ++i){
+    for (int i = 0; i < MAXNUM_COMB_ITEM; ++i){
         m_preselect[i] = ci.items[i].srvid;
     }
 
@@ -631,7 +649,7 @@ int HDsContext::parse_audio_xml(const char* xml){
                 m_tComb.items[i].a = a;
             }
         }
-        HCombItem* pScreen = getScreenItem(src);
+        HCombItem* pScreen = getCombItem(src);
         if (pScreen){
             pScreen->a = a;
         }
@@ -641,6 +659,8 @@ int HDsContext::parse_audio_xml(const char* xml){
             pItem->bVoice = a;
         }
     }
+
+    emit voiceChanged();
 
     return 0;
 }
@@ -668,7 +688,7 @@ int HDsContext::parse_audio_xml(const char* xml){
     </rsp>
  */
 int HDsContext::parse_taskinfo_xml(int srvid, const char* xml){
-    //qDebug(xml);
+    qDebug(xml);
 
     DsSrvItem* pItem = g_dsCtx->getSrvItem(srvid);
     if (!pItem)
@@ -893,14 +913,14 @@ int HDsContext::parse_taskinfo_xml(int srvid, const char* xml){
             s_cont += cont;
         }
 
-        pItem->taskinfo = s_cont;
+        pItem->taskinfo = s_cont.c_str();
     }else{
         QString str(m_tInit.taskinfo_format);
         str.replace("%title", pItem->title.c_str());
         str.replace("%avcodec", inputchar.c_str());
         QString rate = QString::asprintf("码率:%dkps", inputpkgs[0]);
         str.replace("%rate", rate);
-        pItem->taskinfo = str.toLocal8Bit().data();
+        pItem->taskinfo = str;
     }
 
     QMap<QString, QString>::iterator iter = m_mapTTID2Src.find(ttid.c_str());
@@ -914,7 +934,7 @@ int HDsContext::parse_taskinfo_xml(int srvid, const char* xml){
 
 #include "hffmpeg.h"
 int HDsContext::push_video(int srvid, const av_picture* pic){
-    //qDebug("srvid=%d, framerate=%d, stamp=%d", srvid, pic->framerate, pic->stamp);
+    qDebug("srvid=%d, framerate=%d, stamp=%d", srvid, pic->framerate, pic->stamp);
 
     if (action < 1)
         return -1;
@@ -925,10 +945,14 @@ int HDsContext::push_video(int srvid, const av_picture* pic){
 
     int w = pic->width;
     int h = pic->height;
-    if (pic->fourcc != OOK_FOURCC('I', '4', '2', '0') && pic->fourcc != OOK_FOURCC('Y', 'V', '1', '2'))
-        return -4;
+    if (pic->fourcc != OOK_FOURCC('I', '4', '2', '0') && pic->fourcc != OOK_FOURCC('Y', 'V', '1', '2')){
+        char c[5] = {0};
+        memcpy(c, &pic->fourcc, 4);
+        qWarning("Not provide video format:%s", c);
+        return -3;
+    }
 
-    item->mutex.lock();
+    item->video_mutex.lock();
     bool bFirst = false;
     if (w != item->pic_w || h != item->pic_h || !item->video_buffer){
         item->pic_w = w;
@@ -941,7 +965,7 @@ int HDsContext::push_video(int srvid, const av_picture* pic){
             delete item->video_buffer;
             item->video_buffer = NULL;
         }
-        item->video_buffer = new HRingBuffer(w*h*3/2, 10);
+        item->video_buffer = new HRingBuffer(w*h*3/2, m_tInit.video_bufnum > 0 ? m_tInit.video_bufnum : 10);
         bFirst = true;
 
 #if LAYOUT_TYPE_ONLY_OUTPUT
@@ -988,7 +1012,7 @@ int HDsContext::push_video(int srvid, const av_picture* pic){
             s_v += pic->stride[2];
         }
     }
-    item->mutex.unlock();
+    item->video_mutex.unlock();
 
     emit videoPushed(srvid, bFirst);
 }
@@ -996,7 +1020,7 @@ int HDsContext::push_video(int srvid, const av_picture* pic){
 void HDsContext::onWndSizeChanged(int srvid, QRect rc){
     DsSrvItem* pItem = getSrvItem(srvid);
     if (pItem){
-        pItem->mutex.lock();
+        pItem->video_mutex.lock();
         pItem->wnd_w = rc.width();
         pItem->wnd_h = rc.height();
 
@@ -1008,7 +1032,7 @@ void HDsContext::onWndSizeChanged(int srvid, QRect rc){
             pItem->show_w = pItem->wnd_w;
             pItem->show_h = pItem->wnd_h;
         }
-        pItem->mutex.unlock();
+        pItem->video_mutex.unlock();
 
         //g_mainWdg->getGLWdgBysrvid(srvid)->setVertices(ratio);
         QRect vertices(rc.x() + (pItem->wnd_w - pItem->show_w) / 2, rc.y() + (pItem->wnd_h - pItem->show_h) / 2, pItem->show_w, pItem->show_h);
@@ -1048,7 +1072,7 @@ int HDsContext::pop_video(int srvid){
 
         item->bNeedReallocTexture = false;
 
-        qDebug("wnd=%d*%d, pic=%d*%d, show=%d*%d, tex=%d*%d",
+        qInfo("wnd=%d*%d, pic=%d*%d, show=%d*%d, tex=%d*%d",
                item->wnd_w, item->wnd_h,
                item->pic_w, item->pic_h,
                item->show_w, item->show_h,
@@ -1056,10 +1080,10 @@ int HDsContext::pop_video(int srvid){
     }
 
     int retcode = -7;
-    item->mutex.lock();
+    item->video_mutex.lock();
     char* ptr = item->video_buffer->read();
     if (!ptr){
-        //qDebug("[srvid=%d]read to fast", srvid);
+        qDebug("[srvid=%d]read to fast", srvid);
         if (++item->pop_video_failed_cnt > 3*m_tInit.fps)
             stop(srvid);
     }else{
@@ -1088,12 +1112,14 @@ int HDsContext::pop_video(int srvid){
 
         retcode = 0;
     }
-    item->mutex.unlock();
+    item->video_mutex.unlock();
 
     return retcode;
 }
 
 int HDsContext::push_audio(int srvid, const av_pcmbuff* pcm){
+    qDebug("srvid=%d, samplerate=%d, stamp=%d, channels=%d, len=%d", srvid, pcm->samplerate, pcm->stamp, pcm->channels, pcm->pcmlen);
+
     if (action < 1 || m_tInit.audio < 1)
         return -1;
 
@@ -1101,12 +1127,30 @@ int HDsContext::push_audio(int srvid, const av_pcmbuff* pcm){
     if (!item)
         return -2;
 
-    if (!item->canShow()){
-        return -3;
+    if (!m_audioPlay){
+        m_audioPlay = new HAudioPlay(m_tInit.audio_bufnum > 0 ? m_tInit.audio_bufnum : 10);
     }
 
-    if (srvid == m_playaudio_srvid){
-        m_audioPlay->pushAudio((av_pcmbuff*)pcm);
+    static int delay = 0;
+    if (srvid == playaudio_srvid){
+        if (m_audioPlay->pushAudio((av_pcmbuff*)pcm) == 1){
+            if (g_dsCtx->m_tInit.fps < 25){
+                if (delay == 0)
+                    delay = 10;
+            }else{
+                m_audioPlay->startPlay();
+            }
+        }
+
+        if (delay > 0){
+            if (--delay == 0){
+                m_audioPlay->startPlay();
+            }
+        }
+    }
+
+    if (!item->canShow()){
+        return 1;
     }
 
     if (item->bUpdateAverage){
@@ -1140,7 +1184,7 @@ int HDsContext::push_audio(int srvid, const av_pcmbuff* pcm){
     return 0;
 }
 
-HCombItem* HDsContext::getScreenItem(int srvid){
+HCombItem* HDsContext::getCombItem(int srvid){
     HCombItem* item = NULL;
     for (int i = 0; i < m_tComb.itemCnt; ++i){
         if (INNER_SRVID(m_tComb.items[i].srvid) == srvid){
@@ -1152,7 +1196,7 @@ HCombItem* HDsContext::getScreenItem(int srvid){
     return item;
 }
 
-HCombItem* HDsContext::getScreenItem(QString src){
+HCombItem* HDsContext::getCombItem(QString src){
     HCombItem* item = NULL;
     for (int i = 0; i < m_tComb.itemCnt; ++i){
         if (m_tComb.items[i].src == src){
@@ -1165,25 +1209,38 @@ HCombItem* HDsContext::getScreenItem(QString src){
 }
 
 void HDsContext::pause(int srvid, bool bPause){
+    qInfo("srvid=%d pause=%d", srvid, bPause);
     DsSrvItem* item = getSrvItem(srvid);
     if (item && item->ifcb){
-        qInfo("srvid=%d ifservice_callback::e_service_cb_pause", srvid);
-#if LAYOUT_TYPE_ONLY_OUTPUT
-        item->ifcb->onservice_callback(ifservice_callback::e_service_cb_pause, libchar(), 0, 0, bPause, NULL);
-#else
         if (isOutputSrvid(srvid)){
+#if LAYOUT_TYPE_ONLY_OUTPUT
+            qInfo("ifservice_callback::e_service_cb_pause");
+            item->ifcb->onservice_callback(ifservice_callback::e_service_cb_pause, libchar(), 0, 0, bPause, NULL);
+#else
+            qInfo("ifservice_callback::e_service_cb_chr");
             item->ifcb->onservice_callback(ifservice_callback::e_service_cb_chr, libchar(), OOK_FOURCC('P', 'A', 'U', 'S'), 0, 0, NULL);
+#endif
+            item->spacer_activate = bPause;
         }else{
+            qInfo("ifservice_callback::e_service_cb_pause");
             item->ifcb->onservice_callback(ifservice_callback::e_service_cb_pause, libchar(), OOK_FOURCC('P', 'A', 'U', 'S'), 0, bPause, NULL);
             item->bPause = bPause;
         }
-#endif
+    }
+}
+
+void HDsContext::setPlayProgress(int srvid, int progress){
+    DsSrvItem* item = getSrvItem(srvid);
+    if (item && item->ifcb){
+        qInfo("srvid=%d progress=%d ifservice_callback::e_service_cb_playratio", srvid, progress);
+        item->ifcb->onservice_callback(ifservice_callback::e_service_cb_playratio, libchar(), 0, 0, progress, NULL);
     }
 }
 
 void HDsContext::setPlayaudioSrvid(int id){
-    if (m_playaudio_srvid != id){
-        m_audioPlay->stopPlay();
-        m_playaudio_srvid = id;
+    if (playaudio_srvid != id){
+        if (m_audioPlay)
+            m_audioPlay->stopPlay();
+        playaudio_srvid = id;
     }
 }

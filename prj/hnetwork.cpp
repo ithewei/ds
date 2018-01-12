@@ -60,7 +60,7 @@ void HNetwork::modifyItem(HAbstractItem* item){
     if (item->type == HAbstractItem::SCREEN){
         DsCombInfo si = g_dsCtx->m_tComb;
         si.items[item->id].rc = item->rc;
-        HNetwork::instance()->postCombInfo(si);
+        dsnetwork->postCombInfo(si);
     }else if (item->type == HAbstractItem::PICTURE){
         modifyPicture(*(HPictureItem*)item);
     }else if (item->type == HAbstractItem::TEXT){
@@ -92,7 +92,7 @@ void HNetwork::postCombInfo(DsCombInfo& si){
     QByteArray bytes = doc.toJson();
 
     QNetworkRequest req;
-    req.setUrl(QUrl(HDsConf::instance()->value("URL/combinfo")));
+    req.setUrl(QUrl(dsconf->value("URL/combinfo")));
     req.setHeader(QNetworkRequest::ContentTypeHeader, "text/plain;charset=UTF-8");
     m_nam_post_screeninfo->post(req, bytes);
 
@@ -102,7 +102,7 @@ void HNetwork::postCombInfo(DsCombInfo& si){
 
 void HNetwork::queryOverlayInfo(){
     qDebug("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
-    m_nam_query_overlay->get(QNetworkRequest(QUrl(HDsConf::instance()->value("URL/query_overlay"))));
+    m_nam_query_overlay->get(QNetworkRequest(QUrl(dsconf->value("URL/query_overlay"))));
 }
 
 void HNetwork::onQueryOverlayReply(QNetworkReply* reply){
@@ -137,7 +137,7 @@ void HNetwork::onQueryOverlayReply(QNetworkReply* reply){
 
             if (obj_picture.contains("path")){
                 QString src;
-                src = HDsConf::instance()->value("PATH/pic_local");
+                src = dsconf->value("PATH/pic_local");
                 src += obj_picture.value("path").toString();
                 strncpy(item->src, src.toLocal8Bit().constData(), MAXLEN_STR);
             }
@@ -221,7 +221,7 @@ void HNetwork::addPicture(HPictureItem &item){
     QJsonObject obj;
     QString src;
     if (item.pic_type == HPictureItem::IMAGE){
-        src = item.src + HDsConf::instance()->value("PATH/pic_local").size();
+        src = item.src + dsconf->value("PATH/pic_local").size();
     }else if (item.pic_type == HPictureItem::MOSAIC){
         src = "Upload/mosaic.png";
         //src = "__%%MOSAIC%%__";
@@ -247,7 +247,7 @@ void HNetwork::addPicture(HPictureItem &item){
     QByteArray bytes = dom.toJson();
 
     QNetworkRequest req;
-    req.setUrl(QUrl(HDsConf::instance()->value("URL/add_overlay")));
+    req.setUrl(QUrl(dsconf->value("URL/add_overlay")));
     req.setHeader(QNetworkRequest::ContentTypeHeader, "text/plain;charset=UTF-8");
     m_nam_add_overlay->post(req, bytes);
 
@@ -273,7 +273,7 @@ void HNetwork::addText(HTextItem& item){
     QByteArray bytes = dom.toJson();
 
     QNetworkRequest req;
-    req.setUrl(QUrl(HDsConf::instance()->value("URL/add_overlay")));
+    req.setUrl(QUrl(dsconf->value("URL/add_overlay")));
     req.setHeader(QNetworkRequest::ContentTypeHeader, "text/plain;charset=UTF-8");
     m_nam_add_overlay->post(req, bytes);
 
@@ -297,7 +297,7 @@ void HNetwork::modifyPicture(HPictureItem& item){
     QByteArray bytes = dom.toJson();
 
     QNetworkRequest req;
-    req.setUrl(QUrl(HDsConf::instance()->value("URL/modify_overlay")));
+    req.setUrl(QUrl(dsconf->value("URL/modify_overlay")));
     req.setHeader(QNetworkRequest::ContentTypeHeader, "text/plain;charset=UTF-8");
     m_nam_modify_overlay->post(req, bytes);
 
@@ -323,7 +323,7 @@ void HNetwork::modifyText(HTextItem& item){
     QByteArray bytes = dom.toJson();
 
     QNetworkRequest req;
-    req.setUrl(QUrl(HDsConf::instance()->value("URL/modify_overlay")));
+    req.setUrl(QUrl(dsconf->value("URL/modify_overlay")));
     req.setHeader(QNetworkRequest::ContentTypeHeader, "text/plain;charset=UTF-8");
     m_nam_modify_overlay->post(req, bytes);
 
@@ -342,7 +342,7 @@ void HNetwork::removePicture(HPictureItem& item){
     QByteArray bytes = dom.toJson();
 
     QNetworkRequest req;
-    req.setUrl(QUrl(HDsConf::instance()->value("URL/remove_overlay")));
+    req.setUrl(QUrl(dsconf->value("URL/remove_overlay")));
     req.setHeader(QNetworkRequest::ContentTypeHeader, "text/plain;charset=UTF-8");
     m_nam_remove_overlay->post(req, bytes);
 
@@ -361,7 +361,7 @@ void HNetwork::removeText(HTextItem& item){
     QByteArray bytes = dom.toJson();
 
     QNetworkRequest req;
-    req.setUrl(QUrl(HDsConf::instance()->value("URL/remove_overlay")));
+    req.setUrl(QUrl(dsconf->value("URL/remove_overlay")));
     req.setHeader(QNetworkRequest::ContentTypeHeader, "text/plain;charset=UTF-8");
     m_nam_remove_overlay->post(req, bytes);
 
@@ -373,7 +373,7 @@ void HNetwork::setMicphone(int srvid){
     QString json = QString::asprintf("{\"id\":%d}", srvid);
 
     QNetworkRequest req;
-    req.setUrl(QUrl(HDsConf::instance()->value("URL/micphone")));
+    req.setUrl(QUrl(dsconf->value("URL/micphone")));
     req.setHeader(QNetworkRequest::ContentTypeHeader, "text/plain;charset=UTF-8");
     m_nam_micphone->post(req, json.toUtf8());
 
@@ -382,7 +382,7 @@ void HNetwork::setMicphone(int srvid){
 }
 
 void HNetwork::queryVoice(){
-    m_nam_query_voice->get(QNetworkRequest(QUrl(HDsConf::instance()->value("URL/voiceinfo"))));
+    m_nam_query_voice->get(QNetworkRequest(QUrl(dsconf->value("URL/voiceinfo"))));
 }
 
 void HNetwork::onQueryVoiceReply(QNetworkReply *reply){
@@ -409,6 +409,8 @@ void HNetwork::onQueryVoiceReply(QNetworkReply *reply){
         }
     }
 
+    emit g_dsCtx->voiceChanged();
+
     reply->deleteLater();
 }
 
@@ -416,7 +418,7 @@ void HNetwork::setVoice(int srvid, int a){
     QString json = QString::asprintf("{\"id\":%d,\"a\":%d}", srvid, a);
 
     QNetworkRequest req;
-    req.setUrl(QUrl(HDsConf::instance()->value("URL/voiceinfo")));
+    req.setUrl(QUrl(dsconf->value("URL/voiceinfo")));
     req.setHeader(QNetworkRequest::ContentTypeHeader, "text/plain;charset=UTF-8");
     m_nam_voice->post(req, json.toUtf8());
 
@@ -433,7 +435,7 @@ void HNetwork::notifyFullscreen(bool bFullscreen){
     }
 
     QNetworkRequest req;
-    req.setUrl(QUrl(HDsConf::instance()->value("URL/notify_fullscreen")));
+    req.setUrl(QUrl(dsconf->value("URL/notify_fullscreen")));
     req.setHeader(QNetworkRequest::ContentTypeHeader, "text/plain;charset=UTF-8");
     m_nam_post_notify->post(req, json.toUtf8());
 

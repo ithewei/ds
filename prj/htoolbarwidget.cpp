@@ -17,11 +17,11 @@ void HToolbarWidget::initUI(){
 
     QSize sz(g_dsCtx->m_tInit.toolbar_height, g_dsCtx->m_tInit.toolbar_height);
 
-    m_btnStart = genPushButton(sz, HRcLoader::instance()->get(RC_START));
+    m_btnStart = genPushButton(sz, rcloader->get(RC_START));
     m_btnStart->hide();
     hbox->addWidget(m_btnStart);
 
-    m_btnPause = genPushButton(sz, HRcLoader::instance()->get(RC_PAUSE));
+    m_btnPause = genPushButton(sz, rcloader->get(RC_PAUSE));
     m_btnPause->show();
     hbox->addWidget(m_btnPause);
 
@@ -136,44 +136,46 @@ void HCombToolbarWidget::initUI(){
 
     QSize sz(g_dsCtx->m_tInit.output_toolbar_height, g_dsCtx->m_tInit.output_toolbar_height);
 
-    m_btnStart = genPushButton(sz, HRcLoader::instance()->get(RC_START));
+    m_btnStart = genPushButton(sz, rcloader->get(RC_START));
     m_btnStart->hide();
     hbox->addWidget(m_btnStart);
 
-    m_btnPause = genPushButton(sz, HRcLoader::instance()->get(RC_PAUSE));
+    m_btnPause = genPushButton(sz, rcloader->get(RC_PAUSE));
     m_btnPause->show();
     hbox->addWidget(m_btnPause);
 
+    hbox->addSpacing(100);
+
+    m_btnUndo = genPushButton(sz, rcloader->get(RC_UNDO));
+    hbox->addWidget(m_btnUndo);
+
+    m_btnOK = genPushButton(sz, rcloader->get(RC_OK));
+    hbox->addWidget(m_btnOK);
+
+    m_btnTrash = genPushButton(sz, rcloader->get(RC_TRASH));
+    hbox->addWidget(m_btnTrash);
+
     hbox->addStretch();
 
-    m_btnText = genPushButton(sz, HRcLoader::instance()->get(RC_TEXT));
+    m_btnText = genPushButton(sz, rcloader->get(RC_TEXT));
     hbox->addWidget(m_btnText);
 
-    m_btnExpre = genPushButton(sz, HRcLoader::instance()->get(RC_EXPRE));
+    m_btnExpre = genPushButton(sz, rcloader->get(RC_EXPRE));
     hbox->addWidget(m_btnExpre);
 
-    m_btnEffect = genPushButton(sz, HRcLoader::instance()->get(RC_EFFECT));
+    m_btnEffect = genPushButton(sz, rcloader->get(RC_EFFECT));
     m_btnEffect->hide();
     hbox->addWidget(m_btnEffect);
 
-    m_btnZoomOut = genPushButton(sz, HRcLoader::instance()->get(RC_ZOOMOUT));
+    m_btnZoomOut = genPushButton(sz, rcloader->get(RC_ZOOMOUT));
     hbox->addWidget(m_btnZoomOut);
 
-    m_btnZoomIn = genPushButton(sz, HRcLoader::instance()->get(RC_ZOOMIN));
+    m_btnZoomIn = genPushButton(sz, rcloader->get(RC_ZOOMIN));
     hbox->addWidget(m_btnZoomIn);
 
-    m_btnSetting = genPushButton(sz, HRcLoader::instance()->get(RC_SETTING));
+    m_btnSetting = genPushButton(sz, rcloader->get(RC_SETTING));
     m_btnSetting->hide();
     hbox->addWidget(m_btnSetting);
-
-    m_btnOK = genPushButton(sz, HRcLoader::instance()->get(RC_OK));
-    hbox->addWidget(m_btnOK);
-
-    m_btnTrash = genPushButton(sz, HRcLoader::instance()->get(RC_TRASH));
-    hbox->addWidget(m_btnTrash);
-
-    m_btnUndo = genPushButton(sz, HRcLoader::instance()->get(RC_UNDO));
-    hbox->addWidget(m_btnUndo);
 
     setLayout(hbox);
 }

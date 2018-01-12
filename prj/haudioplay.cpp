@@ -11,21 +11,28 @@ int HAudioPlay::playCallback(
     if (!pObj)
         return -1;
 
-    int bytes = frameCount*2*pObj->m_pcmInfo.channels;
-    if (pObj->m_pcmBuf->length() >= bytes){
-        pObj->m_mutex.lock();
-        pObj->m_pcmBuf->pop((unsigned char*)output, bytes);
-        pObj->m_mutex.unlock();
-    }else{
-        //qDebug("sound delay");
+    qDebug("frameCount = %d, pcmlen=%d", frameCount, pObj->pcmlen);
+    pObj->audio_mutex.lock();
+    if (pObj->audio_buffer && frameCount*2*pObj->channels == pObj->pcmlen){
+        char* ptr = pObj->audio_buffer->read();
+        if (ptr){
+            memcpy(output, ptr, pObj->pcmlen);
+        }else{
+            qDebug("sound delay");
+        }
     }
+    pObj->audio_mutex.unlock();
 
     return 0;
 }
 
-HAudioPlay::HAudioPlay(){
+HAudioPlay::HAudioPlay(int buf_size){
+    this->buf_size = buf_size;
     m_pStream = NULL;
-    m_pcmBuf = NULL;
+    audio_buffer = NULL;
+    pcmlen = 0;
+    channels = 0;
+    samplerate = 0;
 }
 
 HAudioPlay::~HAudioPlay(){
@@ -33,18 +40,14 @@ HAudioPlay::~HAudioPlay(){
 }
 
 int HAudioPlay::startPlay(){
+    qInfo("");
     PaError err = Pa_Initialize();
     if (err != paNoError){
         qCritical("Pa_Initialize error:%s", Pa_GetErrorText(err));
         goto ERROR;
     }
 
-    if (!m_pcmBuf){
-        m_pcmBuf = new cyc_buf<unsigned char, 0>;
-        m_pcmBuf->size(m_pcmInfo.pcmlen << 3);  // set buf size = pcmlen*8
-    }
-
-    err = Pa_OpenDefaultStream(&m_pStream, 0, m_pcmInfo.channels, paInt16, m_pcmInfo.samplerate, 1024, playCallback, this);
+    err = Pa_OpenDefaultStream(&m_pStream, 0, channels, paInt16, samplerate, pcmlen/channels/2, playCallback, this);
     if (err != paNoError){
         qCritical("Pa_OpenDefaultStream error:%s", Pa_GetErrorText(err));
         goto ERROR;
@@ -62,7 +65,8 @@ ERROR:
     return err;
 }
 
-int HAudioPlay::stopPlay(){
+void HAudioPlay::stopPlay(){
+    qInfo("");
     if (m_pStream){
         Pa_StopStream(m_pStream);
         Pa_CloseStream(m_pStream);
@@ -70,13 +74,21 @@ int HAudioPlay::stopPlay(){
         m_pStream = NULL;
     }
 
-    if (m_pcmBuf){
-        delete m_pcmBuf;
-        m_pcmBuf = NULL;
+    if (audio_buffer){
+        delete audio_buffer;
+        audio_buffer = NULL;
     }
+
+    pcmlen = 0;
+    channels = 0;
+    samplerate = 0;
 }
 
-int HAudioPlay::pausePlay(bool bPause){
+void HAudioPlay::pausePlay(bool bPause){
+    qInfo("");
+    if (!m_pStream)
+        return;
+
     if (bPause){
         Pa_StopStream(m_pStream);
     }else{
@@ -85,18 +97,29 @@ int HAudioPlay::pausePlay(bool bPause){
 }
 
 int HAudioPlay::pushAudio(av_pcmbuff* pcm){
-    if (!m_pStream || m_pcmInfo.channels != pcm->channels ||
-            m_pcmInfo.samplerate != pcm->samplerate){
-        m_pcmInfo.channels = pcm->channels;
-        m_pcmInfo.samplerate = pcm->samplerate;
-        m_pcmInfo.pcmlen = pcm->pcmlen;
+    if (pcm->pcmlen != pcmlen || pcm->channels != channels || pcm->samplerate != pcm->samplerate){
         stopPlay();
-        startPlay();
+        pcmlen = pcm->pcmlen;
+        channels = pcm->channels;
+        samplerate = pcm->samplerate;
+        //startPlay();
     }
 
-    m_mutex.lock();
-    m_pcmBuf->push(pcm->pcmbuf, pcm->pcmlen);
-    m_mutex.unlock();
+    audio_mutex.lock();
+    if (!audio_buffer || pcm->pcmlen != audio_buffer->size()){
+        audio_buffer = new HRingBuffer(pcmlen, buf_size);
+    }
 
-    return pcm->pcmlen;
+    if (audio_buffer){
+        char* ptr = audio_buffer->write();
+        if (ptr){
+            memcpy(ptr, pcm->pcmbuf, pcmlen);
+        }
+    }
+    audio_mutex.unlock();
+
+    if (!m_pStream)
+        return 1; // need startPlay
+
+    return 0;
 }

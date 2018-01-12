@@ -54,12 +54,12 @@ QStringList HExportWidget::selectedFiles(){
 
     QList<QListWidgetItem*> items = m_listLocal->selectedItems();
     for (int i = 0; i < items.size(); ++i){
-        ret.push_back(HDsConf::instance()->value("PATH/pic_upload") + items[i]->text());
+        ret.push_back(dsconf->value("PATH/pic_upload") + items[i]->text());
     }
 
     items = m_listUsb->selectedItems();
     for (int i = 0; i < items.size(); ++i){
-        ret.push_back(HDsConf::instance()->value("PATH/pic_usb") + items[i]->text());
+        ret.push_back(dsconf->value("PATH/pic_usb") + items[i]->text());
     }
 
     return ret;
@@ -74,14 +74,14 @@ void HExportWidget::initUI(){
     vbox_local->addWidget(new QLabel("本地："));
     m_listLocal = new QListWidget;
     vbox_local->addWidget(m_listLocal);
-    initList(m_listLocal, HDsConf::instance()->value("PATH/pic_upload"));
+    initList(m_listLocal, dsconf->value("PATH/pic_upload"));
     hbox->addLayout(vbox_local);
 
     QVBoxLayout* vbox_usb = new QVBoxLayout;
     vbox_usb->addWidget(new QLabel("U盘："));
     m_listUsb = new QListWidget;
     vbox_usb->addWidget(m_listUsb);
-    initList(m_listUsb, HDsConf::instance()->value("PATH/pic_usb"));
+    initList(m_listUsb, dsconf->value("PATH/pic_usb"));
     hbox->addLayout(vbox_usb);
 
     vbox->addLayout(hbox);
@@ -89,12 +89,12 @@ void HExportWidget::initUI(){
     QHBoxLayout* hbox_okcancel = new QHBoxLayout;
     //QPushButton* btnAccept = new QPushButton("确认");
     QSize sz(64,64);
-    QPushButton* btnAccept = genPushButton(sz, HRcLoader::instance()->get(RC_OK));
+    QPushButton* btnAccept = genPushButton(sz, rcloader->get(RC_OK));
     QObject::connect( btnAccept, SIGNAL(clicked(bool)), this, SLOT(accept()) );
     hbox_okcancel->addWidget(btnAccept);
 
     //QPushButton* btnReject = new QPushButton("取消");
-    QPushButton* btnReject = genPushButton(sz, HRcLoader::instance()->get(RC_CLOSE));
+    QPushButton* btnReject = genPushButton(sz, rcloader->get(RC_CLOSE));
     QObject::connect( btnReject, SIGNAL(clicked(bool)), this, SLOT(reject()) );
     hbox_okcancel->addWidget(btnReject);
     vbox->addLayout(hbox_okcancel);
@@ -159,7 +159,7 @@ void HExpreWidget::initList(QListWidget* list, QString filepath){
     list->setSpacing(5);
     list->setFixedWidth(EXPRE_WIDTH-2);
 
-    QListWidgetItem* item = genListWidgetItem(HRcLoader::instance()->get(RC_ADD));
+    QListWidgetItem* item = genListWidgetItem(rcloader->get(RC_ADD));
     item->setData(ACTION, ADD_MODE);
     list->addItem(item);
 
@@ -173,7 +173,7 @@ void HExpreWidget::initList(QListWidget* list, QString filepath){
     }
 
     if (bHave){
-        QListWidgetItem* item = genListWidgetItem(HRcLoader::instance()->get(RC_SUB));
+        QListWidgetItem* item = genListWidgetItem(rcloader->get(RC_SUB));
         item->setData(ACTION, REMOVE_MODE);
         list->addItem(item);
     }
@@ -232,7 +232,7 @@ void HExpreWidget::initList(QListWidget* list, QString filepath){
 #include <QJsonArray>
 #include <QJsonObject>
 void HExpreWidget::readConf(){
-    QString strFile = HDsConf::instance()->value("PATH/pic_upload");
+    QString strFile = dsconf->value("PATH/pic_upload");
     strFile += "conf.json";
 
     FILE* fp = fopen(strFile.toLocal8Bit().constData(), "r");
@@ -316,7 +316,7 @@ void HExpreWidget::writeConf(){
 
     QByteArray bytes = dom.toJson();
 
-    QString strFile = HDsConf::instance()->value("PATH/pic_upload");
+    QString strFile = dsconf->value("PATH/pic_upload");
     strFile += "conf.json";
 
     FILE* fp = fopen(strFile.toLocal8Bit().constData(), "w");
@@ -344,7 +344,7 @@ void HExpreWidget::genUI(){
         item->setTextAlignment(Qt::AlignCenter);
         item->setText(record.label);
         item->setData(CATEGORY_INDEX, i);
-        item->setData(FILEPATH, HDsConf::instance()->value("PATH/pic_upload")+record.dir);
+        item->setData(FILEPATH, dsconf->value("PATH/pic_upload")+record.dir);
         m_listCategory->addItem(item);
 
         QListWidget* list = new QListWidget;
@@ -384,11 +384,11 @@ void HExpreWidget::initUI(){
     hbox->addStretch();
 
     QSize sz(CATEGORY_HEIGHT,CATEGORY_HEIGHT);
-    m_btnMkdir = genPushButton(sz, HRcLoader::instance()->get(RC_MKDIR));
+    m_btnMkdir = genPushButton(sz, rcloader->get(RC_MKDIR));
     m_btnMkdir->hide();
     hbox->addWidget(m_btnMkdir);
 
-    m_btnRmdir = genPushButton(sz, HRcLoader::instance()->get(RC_RMDIR));
+    m_btnRmdir = genPushButton(sz, rcloader->get(RC_RMDIR));
     m_btnRmdir->hide();
     hbox->addWidget(m_btnRmdir);
 
@@ -525,7 +525,7 @@ void HExpreWidget::onMkdir(){
     char dir[16];
     snprintf(dir, 16, "%02d", allocid);
 
-    QDir(HDsConf::instance()->value("PATH/pic_upload")).mkdir(dir);
+    QDir(dsconf->value("PATH/pic_upload")).mkdir(dir);
 
     ExpreRecord record;
     record.id = allocid;
@@ -551,7 +551,7 @@ void HExpreWidget::onRmdir(){
         for (int i = 0; iter != m_conf.records.end(); ++i, ++iter){
             ExpreRecord record = *iter;
             if (label == record.label){
-                QString dir = HDsConf::instance()->value("PATH/pic_upload");
+                QString dir = dsconf->value("PATH/pic_upload");
                 dir += record.dir;
                 delDir(dir);
                 m_conf.records.erase(iter);

@@ -6,6 +6,7 @@
 #include "hglwidget.h"
 #include "hdsctx.h"
 #include "hlayout.h"
+#include "hsaveinfo.h"
 
 #define DRAG_WIDTH      192
 #define DRAG_HEIGHT     108
@@ -43,14 +44,21 @@ protected:
     void updateGLWdgsByLayout();
     void mergeGLWdg(int lt, int rb);
 
+    void updateAllToolWidgets();
+
 public slots:
     void onTimerRepaint();
+    void onTimerSave();
     void onActionChanged(int action);
     void onRequestShow(int srvid);
     void onvideoPushed(int srvid, bool bFirstFrame);
     void onAudioPushed(int srvid);
     void onStop(int srvid);
     void onProgressNty(int srvid, int progress);
+    void onCombChanged();
+    void onVoiceChanged();
+    void onFileChanged(QString file);
+    void onDirChanged(QString dir);
 
     void onFullScreen(bool);
     void onGLWdgClicked();
@@ -74,7 +82,8 @@ private:
 #if LAYOUT_TYPE_OUTPUT_AND_MV
     QPushButton* m_btnLeftExpand;
     QPushButton* m_btnRightFold;
-    HMainToolbar* m_toolbar;
+    HWebToolbar* m_toolbar;
+    //HModelToolbar* m_toolbar;
 #endif
 
 #if LAYOUT_TYPE_ONLY_MV
@@ -90,6 +99,7 @@ private:
     HGLWidget* m_dragSrcWdg;
 
     QTimer timer_repaint;
+    QTimer timer_save;
 
     QRect m_rcSavedGeometry;
 };

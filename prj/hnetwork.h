@@ -67,4 +67,6 @@ private:
     QNetworkAccessManager* m_nam_post_notify;
 };
 
+#define dsnetwork HNetwork::instance()
+
 #endif // HNETWORK_H

@@ -13,10 +13,10 @@ void HNumSelectWidget::initUI(){
 
     QSize sz(64,64);
     for (int i = 0; i < MAX_NUM_ICON; ++i){
-        m_numSelects[i] = genPushButton(sz, HRcLoader::instance()->get(RCID(RC_NUM_B1 + i)));
+        m_numSelects[i] = genPushButton(sz, rcloader->get(RCID(RC_NUM_B1 + i)));
         hbox->addWidget(m_numSelects[i]);
 
-        m_numCancels[i] = genPushButton(sz, HRcLoader::instance()->get(RCID(RC_NUM_R1 + i)));
+        m_numCancels[i] = genPushButton(sz, rcloader->get(RCID(RC_NUM_R1 + i)));
         m_numCancels[i]->hide();
         hbox->addWidget(m_numCancels[i]);
     }
