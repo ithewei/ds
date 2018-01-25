@@ -88,11 +88,11 @@ public:
         qInfo("action=%d this->action=%d", action, this->action);
         if (this->action != action){
             this->action = action;
-            if (m_audioPlay){
+            if (audio_player){
                 if (action > 0){
-                    m_audioPlay->pausePlay(false);
-                }else{
-                    m_audioPlay->pausePlay(true);
+                    audio_player->pausePlay(false);
+                }else if(!ext_screen){
+                    audio_player->pausePlay(true);
                 }
             }
         }
@@ -160,6 +160,10 @@ public:
     int init;
     QMutex m_mutex;
     int action; // window show or hide
+    bool ext_screen;
+    bool isDeal(int srvid){
+        return action > 0 || (ext_screen && srvid == OUTPUT_SRVID);
+    }
 
     QMap<QString, QString> m_mapTTID2Src;
 
@@ -177,7 +181,7 @@ public:
     std::string ds_path;
     std::string layout_file;
 
-    HAudioPlay* m_audioPlay;
+    HAudioPlay* audio_player;
 
     DsSrvItem m_srvs[DIRECTOR_MAX_SERVS];
     QMap<int ,int> m_mapLmic2Srvid;
@@ -190,8 +194,6 @@ public:
 extern HDsContext* g_dsCtx;
 class HMainWidget;
 extern HMainWidget* g_mainWdg;
-
-#define OUTPUT_SRVID    1
 
 inline bool isOutputSrvid(int srvid){
     return srvid == OUTPUT_SRVID;

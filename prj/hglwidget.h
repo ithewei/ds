@@ -44,6 +44,7 @@ public:
         UNKOWN = 0,
         GENERAL = 1,
         COMB    = 2,
+        EXTEND  = 3,
     };
 
     HGLWidget(QWidget* parent = Q_NULLPTR);

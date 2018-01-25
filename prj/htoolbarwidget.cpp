@@ -10,7 +10,7 @@ HToolbarWidget::HToolbarWidget(QWidget *parent) : HWidget(parent){
 }
 
 void HToolbarWidget::initUI(){
-    setBgFg(this, QColor(105,105,105,204), QColor(255,255,255));
+    setBgFg(this, MASK_BG);
 
     QHBoxLayout* hbox = genHBoxLayout();
     hbox->setSpacing(g_dsCtx->m_tInit.spacing);
@@ -129,7 +129,7 @@ HCombToolbarWidget::HCombToolbarWidget(QWidget *parent) : HWidget(parent){
 }
 
 void HCombToolbarWidget::initUI(){
-    setBgFg(this, QColor(105,105,105,204), QColor(255,255,255));
+    setBgFg(this, MASK_BG);
 
     QHBoxLayout* hbox = genHBoxLayout();
     hbox->setSpacing(g_dsCtx->m_tInit.spacing);

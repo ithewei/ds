@@ -12,7 +12,7 @@ HMainWidget::HMainWidget(QWidget *parent) : HWidget(parent){
 }
 
 void HMainWidget::initUI(){
-    setWindowFlags(Qt::Window | Qt::FramelessWindowHint);
+    setWindowFlags(Qt::Window | Qt::FramelessWindowHint | Qt::X11BypassWindowManagerHint);
     setWindowTitle("Anystreaming Director");
     setFocus();
 
@@ -21,12 +21,19 @@ void HMainWidget::initUI(){
 
     setBgFg(this, Qt::black, Qt::white);
 
+    QDesktopWidget* desktop = QApplication::desktop();
+    qInfo("num = %d, w = %d, h = %d", desktop->screenCount(), desktop->width(), desktop->height());
+    //setGeometry(0,0,g_dsCtx->m_tLayout.width, g_dsCtx->m_tLayout.height);
+    // show in last screen
+    setGeometry(desktop->screenGeometry(0));
+    qInfo("x=%d y=%d screen_w=%d,screen_h=%d", x(), y(), width(), height());
     if (g_dsCtx->m_tInit.autolayout){
-        g_dsCtx->m_tLayout.width  = QApplication::desktop()->width();
-        g_dsCtx->m_tLayout.height = QApplication::desktop()->height();
+        g_dsCtx->m_tLayout.width  = width();
+        g_dsCtx->m_tLayout.height = height();
     }
-    setGeometry(0,0,g_dsCtx->m_tLayout.width, g_dsCtx->m_tLayout.height);
-    qInfo("screen_w=%d,screen_h=%d", width(), height());
+
+    m_extGLWdg = NULL;
+    setExtScreen(desktop->screenCount());
 
     HSaveInfo::instance()->read();
     if (HSaveInfo::instance()->wnd_num != 0){
@@ -127,6 +134,8 @@ void HMainWidget::initConnect(){
     QObject::connect( g_dsCtx, SIGNAL(sigProgressNty(int,int)), this, SLOT(onProgressNty(int,int)) );
     QObject::connect( g_dsCtx, SIGNAL(combChanged()), this, SLOT(onCombChanged()) );
     QObject::connect( g_dsCtx, SIGNAL(voiceChanged()), this, SLOT(onVoiceChanged()) );
+    QObject::connect( QApplication::desktop(), SIGNAL(screenCountChanged(int)), this, SLOT(onScreenCountChanged(int)) );
+    QObject::connect( QApplication::desktop(), SIGNAL(resized(int)), this, SLOT(onScreenResized(int)) );
 
     for (int i = 0; i < m_vecGLWdg.size(); ++i){
         HGLWidget* wdg = m_vecGLWdg[i];
@@ -350,14 +359,28 @@ void HMainWidget::mouseReleaseEvent(QMouseEvent *event){
 }
 
 void HMainWidget::onTimerRepaint(){
+    bool isExtPopVideo = false;
     for (int i = 0; i < m_vecGLWdg.size(); ++i){
         HGLWidget* wdg = m_vecGLWdg[i];
         if (m_fullscreenGLWdg && wdg != m_fullscreenGLWdg)
             continue;
+
         if (!wdg->isResetStatus() && wdg->isVisible()){
             if (g_dsCtx->pop_video(wdg->srvid) == 0)
                 wdg->repaint();
+
+            if (wdg->srvid == OUTPUT_SRVID)
+                isExtPopVideo = true;
         }
+    }
+
+    if (m_extGLWdg){
+        int ret = 0;
+        if (!isExtPopVideo)
+            ret = g_dsCtx->pop_video(OUTPUT_SRVID);
+
+        if (ret == 0)
+            m_extGLWdg->repaint();
     }
 }
 
@@ -389,6 +412,8 @@ void HMainWidget::onActionChanged(int action){
 #if LAYOUT_TYPE_ONLY_OUTPUT
     dsnetwork->notifyFullscreen(action);
 #endif
+
+    g_dsCtx->action = action; // sync action
 }
 
 void HMainWidget::onRequestShow(int srvid){
@@ -658,4 +683,43 @@ void HMainWidget::onFileChanged(QString file){
 
 void HMainWidget::onDirChanged(QString file){
     g_dsCtx->parse_layout_xml(g_dsCtx->layout_file.c_str());
+}
+
+void HMainWidget::setExtScreen(int cnt){
+    qInfo("cnt=%d", cnt);
+    if (cnt > 1){
+        g_dsCtx->ext_screen = true;
+        if (!m_extGLWdg){
+            m_extGLWdg = new HGLWidget(this);
+            m_extGLWdg->type = HGLWidget::EXTEND;
+            m_extGLWdg->m_bDrawInfo = false;
+            m_extGLWdg->setWindowFlags(Qt::Window | Qt::FramelessWindowHint | Qt::X11BypassWindowManagerHint);
+            m_extGLWdg->wndid = 0;
+            m_extGLWdg->srvid = OUTPUT_SRVID;
+            m_extGLWdg->setGeometry(QApplication::desktop()->screenGeometry(1));
+            m_extGLWdg->setStatus(PLAYING | PLAY_VIDEO);
+            qInfo("m_extGLWdg: x=%d y=%d screen_w=%d,screen_h=%d", m_extGLWdg->x(), m_extGLWdg->y(), m_extGLWdg->width(), m_extGLWdg->height());
+        }
+        m_extGLWdg->showFullScreen();
+    }else{
+        g_dsCtx->ext_screen = false;
+        if (m_extGLWdg){
+            m_extGLWdg->hide();
+        }
+    }
+}
+
+void HMainWidget::onScreenCountChanged(int cnt){
+    qInfo("cnt=%d", cnt);
+    setExtScreen(cnt);
+
+    if (g_dsCtx->audio_player){
+        g_dsCtx->audio_player->stopPlay();
+    }
+}
+
+void HMainWidget::onScreenResized(int screen){
+    if (screen == 1 && m_extGLWdg){
+        m_extGLWdg->setGeometry(QApplication::desktop()->screenGeometry(1));
+    }
 }

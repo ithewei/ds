@@ -131,8 +131,9 @@ DSSHARED_EXPORT int liboper(int media_type, int data_type, int opt, void* param,
                 {
                     g_dsCtx->init = 1;
                     g_dsCtx->start_gui_thread();
+                }else{
+                    g_dsCtx->setAction(*(int*)param);
                 }
-                g_dsCtx->setAction(*(int*)param);
                 break;
             case SERVICE_OPT_TASKSRCINFO:
             {
@@ -161,26 +162,28 @@ DSSHARED_EXPORT int liboper(int media_type, int data_type, int opt, void* param,
                 }
                 break;
             case SERVICE_OPT_TASKSTATUSREQ:
-                if (param){
+            {
 #if LAYOUT_TYPE_ONLY_OUTPUT
-                    int srvid = OUTPUT_SRVID;
+                int srvid = OUTPUT_SRVID;
 #else
-                    int srvid = *(int*)param;
+                if (!param)
+                    break;
+                int srvid = *(int*)param;
 #endif
-                    if (srvid < 1 || srvid > DIRECTOR_MAX_SERVS)
-                        return -2;
+                if (srvid < 1 || srvid > DIRECTOR_MAX_SERVS)
+                    return -2;
 
-                    int span = 10000;
-                    if (isOutputSrvid(srvid))
-                        span = 1000;
-                    unsigned long tick = (unsigned long)chsc_gettick();
-                    if (tick > g_dsCtx->getSrvItem(srvid)->tick + span){
-                        g_dsCtx->req_srvid = srvid;
-                        g_dsCtx->getSrvItem(srvid)->tick = tick;
-                        qDebug("SERVICE_OPT_TASKSTATUSREQ=%d", srvid);
-                        return 1;
-                    }
+                int span = 10000;
+                if (isOutputSrvid(srvid))
+                    span = 1000;
+                unsigned long tick = (unsigned long)chsc_gettick();
+                if (tick > g_dsCtx->getSrvItem(srvid)->tick + span){
+                    g_dsCtx->req_srvid = srvid;
+                    g_dsCtx->getSrvItem(srvid)->tick = tick;
+                    qDebug("SERVICE_OPT_TASKSTATUSREQ=%d", srvid);
+                    return 1;
                 }
+            }
                 break;
             case SERVICE_OPT_SESSION:
             {
@@ -194,17 +197,19 @@ DSSHARED_EXPORT int liboper(int media_type, int data_type, int opt, void* param,
             }
                 break;
             case SERVICE_OPT_PREVSTOP:
-                if(param)
-                {
+            {
 #if LAYOUT_TYPE_ONLY_OUTPUT
-                    int srvid = OUTPUT_SRVID;
+                int srvid = OUTPUT_SRVID;
 #else
-                    int srvid = *(int*)param;
+                if (!param)
+                    break;
+
+                int srvid = *(int*)param;
 #endif
-                    if (srvid < 1 || srvid > DIRECTOR_MAX_SERVS)
-                        return -2;
-                    g_dsCtx->stop(srvid);
-                }
+                if (srvid < 1 || srvid > DIRECTOR_MAX_SERVS)
+                    return -2;
+                g_dsCtx->stop(srvid);
+            }
                 break;
             case SERVICE_OPT_SPACERTYPE:
             {

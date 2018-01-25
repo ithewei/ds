@@ -61,7 +61,8 @@ inline QHBoxLayout* genHBoxLayout(){
     return hbox;
 }
 
-inline void setBgFg(QWidget* wdg, QColor bg, QColor fg = Qt::black){
+#define MASK_BG QColor(128, 128, 128, 50)
+inline void setBgFg(QWidget* wdg, QColor bg, QColor fg = Qt::white){
     wdg->setAutoFillBackground(true);
     QPalette pal = wdg->palette();
     pal.setColor(QPalette::Background, bg);
@@ -80,8 +81,8 @@ inline void connectButtons(QPushButton* btn1, QPushButton* btn2){
 inline void centerWidget(QWidget* wdg){
     int w = wdg->width();
     int h = wdg->height();
-    int sw = QApplication::desktop()->width();
-    int sh = QApplication::desktop()->height();
+    int sw = QApplication::desktop()->screenGeometry(0).width();
+    int sh = QApplication::desktop()->screenGeometry(0).height();
     if (w < sw && h < sh){
         wdg->setGeometry((sw-w)/2, (sh-h)/2, w, h);
     }

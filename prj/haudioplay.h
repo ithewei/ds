@@ -6,6 +6,15 @@
 #include "hringbuffer.h"
 #include <QMutex>
 
+enum ASOUND_DEVICE{
+    HDMI0 = 0,
+    HDMI1 = 1,
+    HDMI2 = 2,
+
+    PCH_ANALOG = 3,
+    PCH_DIGITAL = 4
+};
+
 class HAudioPlay
 {
 public:
@@ -13,7 +22,7 @@ public:
     ~HAudioPlay();
 
 public:
-    int startPlay();
+    int startPlay(ASOUND_DEVICE dev = PCH_ANALOG);
     void stopPlay();
     void pausePlay(bool bPause);
     int pushAudio(av_pcmbuff* pcm);
@@ -25,15 +34,18 @@ public:
             PaStreamCallbackFlags statusFlags,
             void *userData );
 
+public:
+    int buf_size;
 private:
     PaStream* m_pStream;
 
     HRingBuffer* audio_buffer;
-    int buf_size;
     QMutex audio_mutex;
     int pcmlen;
     int samplerate;
     int channels;
+
+    int dev;
 };
 
 #endif // HAUDIOPLAY_H
