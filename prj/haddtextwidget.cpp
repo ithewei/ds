@@ -98,11 +98,14 @@ void HAddTextWidget::initUI(){
     ++row;
     hbox = new QHBoxLayout;
     QSize sz(64,64);
-    QPushButton* btnAccept = genPushButton(sz, rcloader->get(RC_OK));
+    //QPushButton* btnAccept = genPushButton(sz, rcloader->get(RC_OK));
+    QPushButton* btnAccept = new QPushButton("确认");
+    btnAccept->setDefault(true);
     QObject::connect( btnAccept, SIGNAL(clicked(bool)), this, SLOT(accept()) );
     hbox->addWidget(btnAccept);
 
-    QPushButton* btnReject = genPushButton(sz, rcloader->get(RC_CLOSE));
+    //QPushButton* btnReject = genPushButton(sz, rcloader->get(RC_CLOSE));
+    QPushButton* btnReject = new QPushButton("取消");
     QObject::connect( btnReject, SIGNAL(clicked(bool)), this, SLOT(reject()) );
     hbox->addWidget(btnReject);
     grid->addLayout(hbox, row, 1);

@@ -20,6 +20,8 @@ class HNetwork : public QObject
 private:
     HNetwork();
 
+    void networkErrHandler(int errCode);
+
 public:
     void addItem(HAbstractItem* item);
     void removeItem(HAbstractItem* item);

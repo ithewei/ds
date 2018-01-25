@@ -45,6 +45,7 @@ protected:
     void mergeGLWdg(int lt, int rb);
 
     void updateAllToolWidgets();
+    void setExtScreen(int cnt);
 
 public slots:
     void onTimerRepaint();
@@ -63,6 +64,9 @@ public slots:
     void onFullScreen(bool);
     void onGLWdgClicked();
 
+    void onScreenCountChanged(int cnt);
+    void onScreenResized(int screen);
+
 #if LAYOUT_TYPE_OUTPUT_AND_MV
     void expand();
     void fold();
@@ -75,6 +79,7 @@ private:
     HLayout m_layout;
 
 private:
+    HGLWidget* m_extGLWdg;
     std::vector<HGLWidget*> m_vecGLWdg;
     HGLWidget* m_focusGLWdg;
     HGLWidget* m_fullscreenGLWdg;

@@ -7,6 +7,7 @@
 
 #define FOR_EACH_ICON(F) \
     F(RC_OK, "ok.png") \
+    F(RC_SUBMIT, "submit.png") \
     F(RC_CLOSE, "close.png") \
     \
     F(RC_LEFT, "left_expand.png") \

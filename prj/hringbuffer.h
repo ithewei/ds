@@ -6,10 +6,11 @@
 #include <stdio.h>
 #include <string.h>
 
-#define CAN_WRITE   0
-#define CAN_READ    1
+#define UNUSED      0
+#define USED        1
 
-#define DISCARD_WHEN_NO_CAN_WRITE   0
+#define POLICY_DISCARD  1
+#define POLICY_COVER    2
 
 /**
  * @note: use in multi thread, please lock for read and write.
@@ -24,12 +25,14 @@ public:
         _size = size;
         _num = num;
 
-        long long total = (1+size)*num; // 1 for flag : CAN_WRITE or CAN_READ
+        size_t total = (1+size)*num;
         _ptr = (char*)malloc(total);
-        memset(_ptr, 0, total); // init CAN_WRITE
+        memset(_ptr, 0, total);
 
         read_index = 0;
         write_index = 0;
+
+        policy = POLICY_DISCARD;
     }
 
     ~HRingBuffer(){
@@ -44,9 +47,9 @@ public:
     char* read(){
         char* ret = get(read_index);
 
-        if (*ret == CAN_READ){
+        if (*ret == USED){
             read_index = (read_index + 1)%_num;
-            *ret = CAN_WRITE;
+            *ret = UNUSED;
             return ret+1;
         }
 
@@ -55,8 +58,8 @@ public:
 
     char* write(){
         char* ret = get(write_index);
-        if (*ret == CAN_READ){
-            if (DISCARD_WHEN_NO_CAN_WRITE){
+        if (*ret == USED){
+            if (policy == POLICY_DISCARD){
                 return NULL;
             }
             // edge out read_index
@@ -65,7 +68,7 @@ public:
         }
 
         write_index = (write_index+1)%_num;
-        *ret = CAN_READ;
+        *ret = USED;
 
         return ret+1;
     }
@@ -84,6 +87,8 @@ private:
 
     int read_index;
     int write_index;
+
+    int policy;
 };
 
 #endif // HRINGBUFFER_H

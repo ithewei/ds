@@ -121,7 +121,7 @@ void HGLWidget::mouseDoubleClickEvent(QMouseEvent* e){
 }
 
 void HGLWidget::resizeEvent(QResizeEvent* e){    
-    if (!isResetStatus()){
+    if (!isResetStatus() && type != EXTEND){
         g_dsCtx->onWndSizeChanged(srvid, videoArea());
     }
 
@@ -129,13 +129,13 @@ void HGLWidget::resizeEvent(QResizeEvent* e){
 }
 
 void HGLWidget::showEvent(QShowEvent* e){
-    if (!isResetStatus()){
+    if (!isResetStatus() && type != EXTEND){
         g_dsCtx->onWndVisibleChanged(srvid, true);
     }
 }
 
 void HGLWidget::hideEvent(QHideEvent* e){    
-    if (!isResetStatus()){
+    if (!isResetStatus() && type != EXTEND){
         g_dsCtx->onWndVisibleChanged(srvid, false);
     }
 }
@@ -1114,6 +1114,9 @@ void HCombGLWidget::showExpre(){
 
 #define EXPRE_MAX_WIDTH     128
 #define EXPRE_MAX_HEIGHT    128
+
+#define EXPRE_POLICY_ORIGIN_SIZE    1
+
 void HCombGLWidget::onExpreSelected(QString& filepath){
     HPictureItem* pItem = new HPictureItem;
     strncpy(pItem->src, filepath.toLocal8Bit().constData(), MAXLEN_STR);
@@ -1124,11 +1127,17 @@ void HCombGLWidget::onExpreSelected(QString& filepath){
     pixmap.load(filepath);
     int w = pixmap.width();
     int h = pixmap.height();
-    if (w > EXPRE_MAX_WIDTH || h > EXPRE_MAX_HEIGHT){
-        w = EXPRE_MAX_WIDTH;
-        h = EXPRE_MAX_HEIGHT;
+    if (g_dsCtx->m_tInit.expre_policy == EXPRE_POLICY_ORIGIN_SIZE){
+        QRect rc = scaleToDraw(QRect(0,0,w,h));
+        w = rc.width();
+        h = rc.height();
+    }else{
+        if (w > EXPRE_MAX_WIDTH && h > EXPRE_MAX_HEIGHT){
+            w = EXPRE_MAX_WIDTH;
+            h = EXPRE_MAX_HEIGHT;
+        }
     }
-    m_target.pWdg->setGeometry(QRect((width()-w)/2, (height()-h)/2, w, h));
+    m_target.pWdg->setGeometry(adjustPos(QRect((width()-w)/2, (height()-h)/2, w, h)));
     m_target.pWdg->setPixmap(pixmap);
     m_target.pWdg->show();
 

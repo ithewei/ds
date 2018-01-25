@@ -89,7 +89,7 @@ void HExportWidget::initUI(){
     QHBoxLayout* hbox_okcancel = new QHBoxLayout;
     //QPushButton* btnAccept = new QPushButton("确认");
     QSize sz(64,64);
-    QPushButton* btnAccept = genPushButton(sz, rcloader->get(RC_OK));
+    QPushButton* btnAccept = genPushButton(sz, rcloader->get(RC_SUBMIT));
     QObject::connect( btnAccept, SIGNAL(clicked(bool)), this, SLOT(accept()) );
     hbox_okcancel->addWidget(btnAccept);
 

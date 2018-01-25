@@ -11,6 +11,7 @@
 #define MAXNUM_TEXT_ITEM       64
 
 #define DIRECTOR_MAX_SERVS		   64
+#define OUTPUT_SRVID               1
 #define DIRECTOR_SRVID_BEGIN       1
 #define DIRECTOR_SRVID_END         32
 #define DIRECTOR_LMICID_BEGIN      33
@@ -69,6 +70,8 @@ struct DsInitInfo{
     QString title_format;
     QString taskinfo_format;
 
+    int expre_policy;
+
     DsInitInfo(){
         infcolor = 0x00FF00FF;
         titcolor = 0xFF5A1EFF;
@@ -119,6 +122,8 @@ struct DsInitInfo{
 
         title_format = "%title";
         taskinfo_format = "%rate";
+
+        expre_policy = 0;
     }
 };
 
@@ -268,6 +273,7 @@ struct DsSrvItem{
         spacer = false;
         spacer_activate = false;
 
+        tick = 0;
         pop_video_failed_cnt = 0;
     }
 

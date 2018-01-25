@@ -8,7 +8,7 @@ HTitlebarWidget::HTitlebarWidget(QWidget *parent) : HWidget(parent){
 }
 
 void HTitlebarWidget::initUI(){
-    setBgFg(this, QColor(105,105,105,204),  QColor(255,255,255));
+    setBgFg(this, MASK_BG);
 
     QHBoxLayout* hbox = genHBoxLayout();
     hbox->setDirection(QBoxLayout::RightToLeft);
@@ -92,7 +92,7 @@ HCombTitlebarWidget::HCombTitlebarWidget(QWidget *parent) : HWidget(parent){
 }
 
 void HCombTitlebarWidget::initUI(){
-    setBgFg(this, QColor(105,105,105,204),  QColor(255,255,255));
+    setBgFg(this, MASK_BG);
 
     QHBoxLayout* hbox = genHBoxLayout();
     hbox->setSpacing(g_dsCtx->m_tInit.spacing);
