@@ -5,28 +5,23 @@
 #include <string.h>
 #define MAXLEN_STR  256
 
+#define CLONE_FUNC(classname) \
+void clone(HAbstractItem* rhs){ \
+    memcpy(this, rhs, sizeof(classname)); \
+}
+
 class HAbstractItem
 {
 public:
     HAbstractItem();
     virtual ~HAbstractItem();
 
-    virtual void clone(HAbstractItem* rhs){
-        memcpy(this, rhs, sizeof(HAbstractItem));
-    }
+    virtual void clone(HAbstractItem* rhs) = 0;
 
-    virtual void add();
-    virtual void remove();
-    virtual void modify();
-    virtual void undo();
-    virtual void savePreStatus();
-
-    void addOrMod(){
-        if (id == -1)
-            add();
-        else
-            modify();
-    }
+    virtual void add() {}
+    virtual void remove() {}
+    virtual void modify() {}
+    virtual bool undo() {return false;}
 
     enum TYPE{
         NONE = 0,
@@ -41,14 +36,6 @@ public:
         ALL = 0xFF,
     };
 
-    enum OPERATE{
-        OPERATE_NONE = 0,
-
-        OPERATE_ADD,
-        OPERATE_REMOVE,
-        OPERATE_MODIFY,
-    };
-
     inline bool isOverlay(){
         return type > OVERLAY && type < OVERLAY_END;
     }
@@ -57,10 +44,14 @@ public:
     TYPE type;
     int id;
     QRect rc;
+};
 
-    static OPERATE  s_operate;
-    static HAbstractItem* s_itemUndo;
-    static void onUndo();
+enum OPERATE{
+    OPERATE_NONE = 0,
+
+    OPERATE_ADD,
+    OPERATE_REMOVE,
+    OPERATE_MODIFY,
 };
 
 class HCombItem : public HAbstractItem
@@ -68,14 +59,12 @@ class HCombItem : public HAbstractItem
 public:
     HCombItem();
 
-    void clone(HAbstractItem* rhs){
-        memcpy(this, rhs, sizeof(HCombItem));
-    }
+    CLONE_FUNC(HCombItem)
 
+    virtual void add();
     virtual void remove();
     virtual void modify();
-    virtual void undo();
-    virtual void savePreStatus();
+    virtual bool undo();
 
 public:
     int srvid;
@@ -91,13 +80,12 @@ class HPictureItem : public HAbstractItem
 public:
     HPictureItem();
 
-    void clone(HAbstractItem* rhs){
-        memcpy(this, rhs, sizeof(HPictureItem));
-    }
+    CLONE_FUNC(HPictureItem)
 
     virtual void add();
     virtual void remove();
     virtual void modify();
+    virtual bool undo();
 
 public:
     enum PICTURE_TYPE{
@@ -119,13 +107,12 @@ class HTextItem : public HAbstractItem
 public:
     HTextItem();
 
-    void clone(HAbstractItem* rhs){
-        memcpy(this, rhs, sizeof(HTextItem));
-    }
+    CLONE_FUNC(HTextItem)
 
     virtual void add();
     virtual void remove();
     virtual void modify();
+    virtual bool undo();
 
 public:
     enum TEXT_TYPE{
@@ -145,6 +132,65 @@ class HItemFactory
 {
 public:
 static HAbstractItem* createItem(HAbstractItem::TYPE type);
+};
+
+#include <QList>
+#include "singleton.h"
+
+#define MAX_UNDO_COUNT  10
+
+class HItemUndo{
+    DECLARE_SINGLETON(HItemUndo)
+private:
+    HItemUndo(){
+        undo_list.clear();
+    }
+
+    ~HItemUndo(){
+        for (int i = 0; i < undo_list.size(); ++i){
+            if (undo_list[i]){
+                delete undo_list[i];
+                undo_list[i] = NULL;
+            }
+        }
+        undo_list.clear();
+    }
+
+public:
+    void clear(){
+        undo_list.clear();
+    }
+
+    void save(HAbstractItem* item){
+        qInfo("undo_list=%d", undo_list.size());
+        if (undo_list.size() > MAX_UNDO_COUNT){
+            HAbstractItem* item = undo_list.front();
+            if (item){
+                delete item;
+                item = NULL;
+            }
+            undo_list.pop_front();
+        }
+        undo_list.push_back(item);
+    }
+
+    int undo(){
+        if (undo_list.empty())
+            return -1;
+
+        HAbstractItem* item = undo_list.back();
+        undo_list.pop_back();
+        if (item){
+            item->undo();
+            delete item;
+            item = NULL;
+        }
+
+        qInfo("undo_list=%d", undo_list.size());
+        return undo_list.size();
+    }
+
+    QList<HAbstractItem*> undo_list;
 };
 
 #endif // HABSTRACTITEM_H

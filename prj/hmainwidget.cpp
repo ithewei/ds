@@ -325,10 +325,16 @@ void HMainWidget::mouseReleaseEvent(QMouseEvent *event){
                 if (wdg->type == HGLWidget::COMB){
                     // changeCombItem
                     HOperateObject obj = ((HCombGLWidget*)wdg)->getObejctByPos(QPoint(event->x()-wdg->x(), event->y()-wdg->y()), HAbstractItem::SCREEN);
-                    if (obj.isNull())
-                        addCombItem(m_dragSrcWdg->srvid);
-                    else
-                        changeCombItem(obj.pItem->id, m_dragSrcWdg->srvid);
+                    if (obj.isNull()){
+                        HCombItem item;
+                        item.srvid = m_dragSrcWdg->srvid;
+                        item.add();
+                    }
+                    else{
+                        HCombItem* item = (HCombItem*)obj.pItem;
+                        item->srvid = m_dragSrcWdg->srvid;
+                        item->modify();
+                    }
                 }else{
                     // exchange wndid for order
                     std::swap(m_dragSrcWdg->wndid, wdg->wndid);
@@ -401,12 +407,17 @@ void HMainWidget::onActionChanged(int action){
             }
             dsnetwork->queryVoice();
 #endif
+            HItemUndo::instance()->clear();
         }
 
         // when hide,status change but not repaint
         for (int i = 0; i < m_vecGLWdg.size(); ++i){
             m_vecGLWdg[i]->update();
         }
+#if LAYOUT_TYPE_OUTPUT_AND_MV
+        if (m_toolbar->isVisible())
+            m_toolbar->show();
+#endif
     }
 
 #if LAYOUT_TYPE_ONLY_OUTPUT
@@ -539,31 +550,6 @@ void HMainWidget::onGLWdgClicked(){
         if (pSender->showToolWidgets(true))
             m_focusGLWdg = pSender;
     }
-}
-
-void HMainWidget::changeCombItem(int index, int srvid){
-    DsCombInfo si = g_dsCtx->m_tComb;
-    if (si.items[index].srvid != srvid){
-        si.items[index].srvid = srvid;
-        if (srvid == 0){
-            si.items[index].a = false;
-        }
-        dsnetwork->postCombInfo(si);
-    }
-}
-
-void HMainWidget::addCombItem(int srvid){
-    DsCombInfo old = g_dsCtx->m_tComb;
-    DsCombInfo si;
-    si.items[0].srvid = srvid;
-    si.items[0].v = true;
-    si.items[0].a = true;
-    si.items[0].rc.setRect(0,0,old.width,old.height);
-    for (int i = 0; i < old.itemCnt; ++i){
-        si.items[i+1] = old.items[i];
-    }
-    si.itemCnt = old.itemCnt + 1;
-    dsnetwork->postCombInfo(si);
 }
 
 void HMainWidget::onMerge(){

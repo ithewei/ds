@@ -33,7 +33,10 @@ void HWebContext::getSelectInfo(int id){
       }
       ret += "}";
       emit sendSelectInfo(ret, id);
-      qDebug(ret.toLocal8Bit().constData());
+      qInfo(ret.toLocal8Bit().constData());
+
+      // when change model, undo status confused, so clear.
+      HItemUndo::instance()->clear();
 }
 
 #include <QWebEngineCookieStore>
@@ -92,6 +95,8 @@ QWebEngineView* HWebView::createWindow(QWebEnginePage::WebWindowType type){
 }
 
 HWebToolbar::HWebToolbar(QWidget *parent) : HWidget(parent){
+    need_reload = 0;
+
     initUI();
     initConnect();
 
@@ -125,7 +130,28 @@ void HWebToolbar::initConnect(){
 
 #include "hdsconf.h"
 void HWebToolbar::show(){
-    m_webview->reload();
+    need_reload = 1;
+    QString str = dsconf->value("PATH/pic_local");
+    str += "comstate.txt";
+    FILE* fp = fopen(str.toLocal8Bit().data(), "r+");
+    if (fp){
+        char buf[32] = {0};
+        size_t bytes = fread(buf, 1, 32, fp);
+        qInfo("bytes=%d buf=%s", bytes, buf);
+        if (bytes != 0 && strncmp(buf, "new", 3) == 0){
+            need_reload = 1;
+        }else{
+            need_reload = 0;
+        }
+        fseek(fp, 0, SEEK_SET);
+        strcpy(buf, "***");
+        fwrite(buf, 1, 3, fp);
+        fclose(fp);
+    }
+
+    if (need_reload){
+        m_webview->reload();
+    }
     QWidget::show();
 }
 
