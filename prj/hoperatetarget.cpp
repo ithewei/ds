@@ -60,9 +60,6 @@ bool HOperateObject::isNull(){
 }
 
 bool HOperateObject::isExist(){
-    if (isNull())
-        return false;
-
     if (pItem && pItem->id >= 0)
         return true;
     return false;
@@ -92,8 +89,9 @@ void HOperateObject::detachItem(){
 
     if (!isExist()){
         delete pItem;
-        pItem = NULL;
     }
+
+    pItem = NULL;
 }
 //==========================================================================
 
@@ -107,5 +105,5 @@ bool HOperateTarget::isOperating(){
 
 void HOperateTarget::cancel(){
     pWdg->hide();
-    obj.pItem = NULL;
+    obj.detachItem();
 }

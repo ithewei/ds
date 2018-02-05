@@ -38,9 +38,6 @@ protected:
     virtual void mouseMoveEvent(QMouseEvent *e);
     virtual void mouseReleaseEvent(QMouseEvent *e);
 
-    void changeCombItem(int index, int srvid);
-    void addCombItem(int srvid);
-
     void updateGLWdgsByLayout();
     void mergeGLWdg(int lt, int rb);
 

@@ -3,8 +3,7 @@
 #include "hdsctx.h"
 
 //<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-HAbstractItem::OPERATE  HAbstractItem::s_operate = HAbstractItem::OPERATE_NONE;
-HAbstractItem* HAbstractItem::s_itemUndo = NULL;
+IMPL_SINGLETON(HItemUndo)
 
 HAbstractItem::HAbstractItem()
 {
@@ -15,43 +14,6 @@ HAbstractItem::HAbstractItem()
 HAbstractItem::~HAbstractItem()
 {
 
-}
-
-void HAbstractItem::add(){
-    s_operate = OPERATE_ADD;
-}
-
-void HAbstractItem::remove(){
-    s_operate = OPERATE_REMOVE;
-}
-
-void HAbstractItem::modify(){
-    s_operate = OPERATE_MODIFY;
-}
-
-void HAbstractItem::savePreStatus(){
-    if (s_itemUndo){
-        delete s_itemUndo;
-    }
-    s_itemUndo = HItemFactory::createItem(type);
-    s_itemUndo->clone(this);
-}
-
-void HAbstractItem::undo(){
-    if (s_itemUndo){
-        if (s_operate == OPERATE_ADD){
-            //s_itemUndo->remove();
-        }
-        else if (s_operate == OPERATE_REMOVE)
-            s_itemUndo->add();
-        else if (s_operate == OPERATE_MODIFY)
-            s_itemUndo->modify();
-    }
-}
-
-void HAbstractItem::onUndo(){
-    if (s_itemUndo)
-        s_itemUndo->undo();
 }
 
 //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
@@ -67,6 +29,18 @@ HCombItem::HCombItem()
     a = false;
 
     bMainScreen = false;
+}
+
+void HCombItem::add(){
+    HAbstractItem::add();
+
+    DsCombInfo si;
+    si.items[0] = *this;
+    for (int i = 0; i < g_dsCtx->m_tComb.itemCnt; ++i){
+        si.items[i+1] = g_dsCtx->m_tComb.items[i];
+    }
+    si.itemCnt = g_dsCtx->m_tComb.itemCnt + 1;
+    dsnetwork->postCombInfo(si);
 }
 
 void HCombItem::remove(){
@@ -85,17 +59,12 @@ void HCombItem::modify(){
 
     DsCombInfo si = g_dsCtx->m_tComb;
     si.items[id] = *this;
-    dsnetwork->postCombInfo(g_dsCtx->m_tComb);
+    dsnetwork->postCombInfo(si);
 }
 
-void HCombItem::savePreStatus(){
-    HAbstractItem::savePreStatus();
-
-    g_dsCtx->m_tCombUndo = g_dsCtx->m_tComb;
-}
-
-void HCombItem::undo(){
-    dsnetwork->postCombInfo(g_dsCtx->m_tCombUndo);
+bool HCombItem::undo(){
+    modify();
+    return true;
 }
 
 //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
@@ -124,10 +93,47 @@ void HPictureItem::modify(){
 
     dsnetwork->modifyPicture(*this);
 }
+
+bool HPictureItem::undo(){
+    OPERATE opr = OPERATE_NONE;
+    if (id == -1){
+        opr = OPERATE_REMOVE;
+        for (int i = 0; i < g_dsCtx->m_pics.itemCnt; ++i){
+            if (g_dsCtx->m_pics.items[i].rc == rc &&  strstr(g_dsCtx->m_pics.items[i].src, src)){
+                id = g_dsCtx->m_pics.items[i].id;
+                break;
+            }
+        }
+    }else{
+        for (int i = 0; i < g_dsCtx->m_pics.itemCnt; ++i){
+            if (g_dsCtx->m_pics.items[i].id == id){
+                if (memcmp(&g_dsCtx->m_pics.items[i], this, sizeof(HPictureItem)) != 0)
+                    opr = OPERATE_MODIFY;
+                break;
+            }
+        }
+
+        if (opr != OPERATE_MODIFY)
+            opr = OPERATE_ADD;
+    }
+
+    if (opr == OPERATE_ADD)
+        add();
+    else if (opr == OPERATE_REMOVE && id != -1)
+        remove();
+    else if (opr == OPERATE_MODIFY)
+        modify();
+    else
+        return false;
+
+    return true;
+}
+
 //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
 //<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 HTextItem::HTextItem()
+    : text{0}
 {
     type = TEXT;
 
@@ -152,6 +158,43 @@ void HTextItem::modify(){
     HAbstractItem::modify();
 
     dsnetwork->modifyText(*this);
+}
+
+bool HTextItem::undo(){
+    OPERATE opr = OPERATE_NONE;
+    if (id == -1){
+        opr = OPERATE_REMOVE;
+        for (int i = 0; i < g_dsCtx->m_texts.itemCnt; ++i){
+            if (g_dsCtx->m_texts.items[i].rc.x() == rc.x() &&
+                g_dsCtx->m_texts.items[i].text_type == text_type &&
+                strcmp(g_dsCtx->m_texts.items[i].text, text) == 0){
+                id = g_dsCtx->m_texts.items[i].id;
+                break;
+            }
+        }
+    }else{
+        for (int i = 0; i < g_dsCtx->m_texts.itemCnt; ++i){
+            if (g_dsCtx->m_texts.items[i].id == id){
+                if (memcmp(&g_dsCtx->m_texts.items[i], this, sizeof(HTextItem)) != 0)
+                    opr = OPERATE_MODIFY;
+                break;
+            }
+        }
+
+        if (opr != OPERATE_MODIFY)
+            opr = OPERATE_ADD;
+    }
+
+    if (opr == OPERATE_ADD)
+        add();
+    else if (opr == OPERATE_REMOVE && id != -1)
+        remove();
+    else if (opr == OPERATE_MODIFY)
+        modify();
+    else
+        return false;
+
+    return true;
 }
 //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 

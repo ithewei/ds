@@ -50,7 +50,7 @@ inline QPushButton* genPushButton(QSize sz, QPixmap pixmap, QWidget* parent = NU
     btn->setFlat(true);
     btn->setFixedSize(sz);
     btn->setIconSize(sz);
-    btn->setIcon(pixmap.scaled(sz));
+    btn->setIcon(pixmap.scaled(sz, Qt::IgnoreAspectRatio, Qt::SmoothTransformation));
     return btn;
 }
 
@@ -61,7 +61,11 @@ inline QHBoxLayout* genHBoxLayout(){
     return hbox;
 }
 
-#define MASK_BG QColor(128, 128, 128, 50)
+#if LAYOUT_LAYOUT_TYPE_ONLY_OUTPUT
+#define MASK_BG QColor(0x80, 0x80, 0x80, 0x40)
+#else
+#define MASK_BG QColor(0x40, 0x40, 0x40, 0xC0)
+#endif
 inline void setBgFg(QWidget* wdg, QColor bg, QColor fg = Qt::white){
     wdg->setAutoFillBackground(true);
     QPalette pal = wdg->palette();

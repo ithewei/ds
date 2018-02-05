@@ -981,15 +981,14 @@ void HCombGLWidget::onCancel(){
 }
 
 void HCombGLWidget::onUndo(){
-    if (m_target.isNull())
-        return;
-
     if (m_target.isOperating()){
         m_target.cancel();
         return;
     }
 
-    HAbstractItem::onUndo();
+    if (HItemUndo::instance()->undo() <= 0){
+        //m_toolbar->m_btnUndo->setDisabled(true);
+    }
 }
 
 void HCombGLWidget::onTrash(){    
@@ -1001,17 +1000,30 @@ void HCombGLWidget::onTrash(){
         return;
     }
 
-    m_target.obj.pItem->savePreStatus();
-    m_target.obj.pItem->remove();
+    HAbstractItem* item = HItemFactory::createItem(m_target.obj.pItem->type);
+    item->clone(m_target.obj.pItem);
+    HItemUndo::instance()->save(item);
+    item->remove();
 }
 
 void HCombGLWidget::onOK(){
     if (m_target.isOperating() && m_target.obj.isModifiable()){
-        m_target.obj.pItem->savePreStatus();
-        m_target.obj.pItem->rc = scaleToOrigin(m_target.pWdg->geometry());
-        m_target.obj.pItem->addOrMod();
+        if (m_target.obj.isExist()){
+            HAbstractItem* item = HItemFactory::createItem(m_target.obj.pItem->type);
+            item->clone(m_target.obj.pItem);
+            HItemUndo::instance()->save(item);
 
-        m_target.cancel();
+            m_target.obj.pItem->rc = scaleToOrigin(m_target.pWdg->geometry());
+            m_target.obj.pItem->modify();
+        }else{
+            // add don't need to call clone, pItem is newed already
+            m_target.obj.pItem->rc = scaleToOrigin(m_target.pWdg->geometry());
+            HItemUndo::instance()->save(m_target.obj.pItem);
+            m_target.obj.pItem->add();
+        }
+
+        m_target.pWdg->hide();
+        m_target.obj.pItem = NULL; // we call HItemUndo::instance()->save, don't delete it.
     }
 }
 
@@ -1369,7 +1381,6 @@ void HCombGLWidget::mouseMoveEvent(QMouseEvent *e){
         m_bMouseMoving = true;
         // moveBegin
         showOperateTarget();
-        //showTargetWidget();
         if (!m_target.isNull()){
             m_location = getLocation(e->pos(), m_target.pWdg->geometry());
         }

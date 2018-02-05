@@ -91,19 +91,22 @@ int HAudioPlay::startPlay(ASOUND_DEVICE dev){
         }
     }
 
-    PaStreamParameters op;
-    memset(&op, 0, sizeof op);
-    op.device = (int)dev;
-    op.channelCount = channels;
+    PaError err;
     if (devinfo->maxOutputChannels < channels){
         // @bug: don't konw how to deal this problem
         qCritical("channel is preempted, maybe need to reboot to fix the problem!");
-        return -100;
+        this->dev = dout;
+        err = Pa_OpenDefaultStream(&m_pStream, 0, channels, paInt16, samplerate, pcmlen/channels/2, playCallback, this);
+    }else{
+        PaStreamParameters op;
+        memset(&op, 0, sizeof op);
+        op.device = (int)dev;
+        op.channelCount = channels;
+        op.sampleFormat = paInt16;
+        op.suggestedLatency = devinfo->defaultHighOutputLatency;
+        err = Pa_OpenStream(&m_pStream, NULL, &op, samplerate, pcmlen/channels/2, paDitherOff, playCallback, this);
     }
-    op.sampleFormat = paInt16;
-    op.suggestedLatency = devinfo->defaultHighOutputLatency;
-    PaError err = Pa_OpenStream(&m_pStream, NULL, &op, samplerate, pcmlen/channels/2, paDitherOff, playCallback, this);
-    //PaError err = Pa_OpenDefaultStream(&m_pStream, 0, channels, paInt16, samplerate, pcmlen/channels/2, playCallback, this);
+
     if (err != paNoError){
         qCritical("Pa_OpenDefaultStream error:%s", Pa_GetErrorText(err));
         qCritical("pcmlen=%d, channels=%d, samplerate=%d", pcmlen, channels, samplerate);

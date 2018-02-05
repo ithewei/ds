@@ -110,7 +110,8 @@ void HExportWidget::initList(QListWidget* list, QString dir){
     QDir qdir(dir);
     qdir.setFilter(QDir::Files);
     QStringList filters;
-          filters << "*.png" << "*.jpg" << "*.bmp";
+    //filters << "*.png" << "*.jpg" << "*.bmp";
+    filters << "*.png";
     qdir.setNameFilters(filters);
     QFileInfoList  files = qdir.entryInfoList();
     for (int i = 0; i < files.size(); ++i){

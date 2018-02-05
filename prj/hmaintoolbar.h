@@ -65,6 +65,8 @@ protected:
 public:
     HWebView* m_webview;
     HWebContext* m_webContext;
+
+    int need_reload;
 };
 
 #include <QVector>

@@ -170,7 +170,7 @@ public:
     DsInitInfo m_tInit;
     DsLayoutInfo m_tLayout;
     DsCombInfo m_tComb;
-    DsCombInfo m_tCombUndo;
+
     int m_preselect[MAXNUM_COMB_ITEM];
     DsPictureInfo m_pics;
     DsTextInfo m_texts;

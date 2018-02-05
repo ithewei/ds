@@ -85,7 +85,9 @@ HEADERS += \
     ds_version.h \
     hdsconf.h \
     hsaveinfo.h \
-    hdsdb.h
+    hdsdb.h \
+    list.h \
+    somedef.h
 
 unix {
     target.path = /usr/lib
