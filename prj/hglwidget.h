@@ -45,6 +45,7 @@ public:
         GENERAL = 1,
         COMB    = 2,
         EXTEND  = 3,
+        LMIC = 4,
     };
 
     HGLWidget(QWidget* parent = Q_NULLPTR);
@@ -86,7 +87,7 @@ public:
     virtual void updateToolWidgets() {}
 
     QRect videoArea(){
-#if LAYOUT_TYPE_ONLY_MV
+#if LAYOUT_TYPE_MULTI_INPUT
         return QRect(0,0,width()-(AUDIO_WIDTH*2+6),height()-TASKINFO_HEIGHT);
 #else
         return QRect(0,0,width(),height());
@@ -118,6 +119,8 @@ public slots:
     void onStart();
     void onPause();
     void onStop();
+
+    void showPtz();
 
 protected:
     virtual void drawVideo();
@@ -230,6 +233,35 @@ public:
 
     virtual bool showToolWidgets(bool bShow = true);
     virtual void updateToolWidgets();
+#if LAYOUT_TYPE_ONLY_OUTPUT
+#define LIMC_WNDID_BASE 100
+    HGLWidget* allocGLWdgForLimc(){
+        int cell_w = width()/3;
+        int cell_h = height()/2;
+        QRect rc[6];
+        int x = 0;
+        int y = 0;
+        for (int r = 0; r < 2; ++r){
+            x = 0;
+            for (int c = 0; c < 3; ++c){
+                rc[r*3+c].setRect(x, y, cell_w, cell_h);
+                x += cell_w;
+            }
+            y += cell_h;
+        }
+
+        int sort[6] = {5, 2, 3, 0, 4, 1};
+        for (int i = 0; i < m_vecGLWdgForLimc.size(); ++i){
+            if (m_vecGLWdgForLimc[i]->isResetStatus()){
+                m_vecGLWdgForLimc[i]->setGeometry(rc[sort[i]]);
+                m_vecGLWdgForLimc[i]->wndid = LIMC_WNDID_BASE + sort[i];
+                return m_vecGLWdgForLimc[i];
+            }
+        }
+
+        return NULL;
+    }
+#endif
 
 public slots:
     void onCombChanged();
@@ -282,6 +314,10 @@ private:
     HOperateTarget m_target;
 
 private:
+#if LAYOUT_TYPE_ONLY_OUTPUT
+    std::vector<HGLWidget*> m_vecGLWdgForLimc;
+#endif
+    QLabel* m_label;
     HOperateWidget* m_targetWdg;
     HCombTitlebarWidget* m_titlebar;
     HCombToolbarWidget*  m_toolbar;

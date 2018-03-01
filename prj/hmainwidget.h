@@ -64,7 +64,7 @@ public slots:
     void onScreenCountChanged(int cnt);
     void onScreenResized(int screen);
 
-#if LAYOUT_TYPE_OUTPUT_AND_MV
+#if LAYOUT_TYPE_OUTPUT_AND_INPUT
     void expand();
     void fold();
 #endif
@@ -81,14 +81,14 @@ private:
     HGLWidget* m_focusGLWdg;
     HGLWidget* m_fullscreenGLWdg;
 
-#if LAYOUT_TYPE_OUTPUT_AND_MV
+#if LAYOUT_TYPE_OUTPUT_AND_INPUT
     QPushButton* m_btnLeftExpand;
     QPushButton* m_btnRightFold;
     HWebToolbar* m_toolbar;
     //HModelToolbar* m_toolbar;
 #endif
 
-#if LAYOUT_TYPE_ONLY_MV
+#if LAYOUT_TYPE_MULTI_INPUT
     HStyleToolbar* m_toolbar;
 #endif
 

@@ -17,6 +17,8 @@ protected:
 public:
     QLabel* m_label;
 
+    QPushButton* m_btnPtz;
+
     QPushButton* m_btnNum;
 
     QPushButton* m_btnMicphoneOpened;
@@ -47,6 +49,8 @@ protected:
 
 public:
     QLabel* m_label;
+
+    QPushButton* m_btnPtz;
 
     QPushButton* m_btnFullScreen;
     QPushButton* m_btnExitFullScreen;

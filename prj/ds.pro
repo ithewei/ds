@@ -52,7 +52,8 @@ SOURCES += \
     hlayout.cpp \
     hdsconf.cpp \
     hsaveinfo.cpp \
-    hdsdb.cpp
+    hdsdb.cpp \
+    hptzwidget.cpp
 
 HEADERS += \
         ds.h \
@@ -87,7 +88,8 @@ HEADERS += \
     hsaveinfo.h \
     hdsdb.h \
     list.h \
-    somedef.h
+    somedef.h \
+    hptzwidget.h
 
 unix {
     target.path = /usr/lib

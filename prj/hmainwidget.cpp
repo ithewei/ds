@@ -11,6 +11,7 @@ HMainWidget::HMainWidget(QWidget *parent) : HWidget(parent){
     initConnect();
 }
 
+#include <QScreen>
 void HMainWidget::initUI(){
     setWindowFlags(Qt::Window | Qt::FramelessWindowHint | Qt::X11BypassWindowManagerHint);
     setWindowTitle("Anystreaming Director");
@@ -21,12 +22,17 @@ void HMainWidget::initUI(){
 
     setBgFg(this, Qt::black, Qt::white);
 
+    QScreen *screen = QApplication::primaryScreen();
+    qInfo("w=%fmm h=%fmm dpi=%f", screen->physicalSize().width(), screen->physicalSize().height(), screen->physicalDotsPerInch());
+    qInfo("resolution=%d*%d logicdpi=%f", screen->size().width(), screen->size().height(), screen->logicalDotsPerInch());
+    qInfo("dpix=%f dpiy=%f", screen->physicalDotsPerInchX(), screen->physicalDotsPerInchY());
+
     QDesktopWidget* desktop = QApplication::desktop();
-    qInfo("num = %d, w = %d, h = %d", desktop->screenCount(), desktop->width(), desktop->height());
+    qInfo("screenCount=%d, w=%d h=%d", desktop->screenCount(), desktop->width(), desktop->height());
     //setGeometry(0,0,g_dsCtx->m_tLayout.width, g_dsCtx->m_tLayout.height);
     // show in last screen
     setGeometry(desktop->screenGeometry(0));
-    qInfo("x=%d y=%d screen_w=%d,screen_h=%d", x(), y(), width(), height());
+    qInfo("x=%d y=%d screen_w=%d screen_h=%d", x(), y(), width(), height());
     if (g_dsCtx->m_tInit.autolayout){
         g_dsCtx->m_tLayout.width  = width();
         g_dsCtx->m_tLayout.height = height();
@@ -56,7 +62,6 @@ void HMainWidget::initUI(){
             HGLWidget* wdg;
             if (wndid == g_dsCtx->m_tInit.output){
                 wdg = new HCombGLWidget(this);
-                //wdg->srvid = OUTPUT_SRVID;
             }else{
                 wdg = new HGeneralGLWidget(this);
             }
@@ -80,7 +85,6 @@ void HMainWidget::initUI(){
             HGLWidget* wdg;
             if (wndid == g_dsCtx->m_tInit.output){
                 wdg = new HCombGLWidget(this);
-                //wdg->srvid = OUTPUT_SRVID;
             }else{
                 wdg = new HGeneralGLWidget(this);
             }
@@ -90,7 +94,7 @@ void HMainWidget::initUI(){
         }
     }
 
-#if LAYOUT_TYPE_ONLY_MV
+#if LAYOUT_TYPE_MULTI_INPUT
     m_toolbar = new HStyleToolbar(this);
     m_toolbar->setWindowFlags(Qt::Popup);
     m_toolbar->setAttribute(Qt::WA_TranslucentBackground, true);
@@ -98,7 +102,7 @@ void HMainWidget::initUI(){
     m_toolbar->hide();
 #endif
 
-#if LAYOUT_TYPE_OUTPUT_AND_MV
+#if LAYOUT_TYPE_OUTPUT_AND_INPUT
     QSize sz(ICON_WIDTH, ICON_HEIGHT);
     m_btnLeftExpand = genPushButton(sz, rcloader->get(RC_LEFT), this);
     m_btnLeftExpand->setGeometry(width()-ICON_WIDTH-1, height()-ICON_HEIGHT-1, ICON_WIDTH, ICON_HEIGHT);
@@ -143,12 +147,12 @@ void HMainWidget::initConnect(){
         QObject::connect( wdg, SIGNAL(clicked()), this, SLOT(onGLWdgClicked()) );
     }
 
-#if LAYOUT_TYPE_OUTPUT_AND_MV
+#if LAYOUT_TYPE_OUTPUT_AND_INPUT
     QObject::connect( m_btnLeftExpand, SIGNAL(clicked(bool)), this, SLOT(expand()) );
     QObject::connect( m_btnRightFold, SIGNAL(clicked(bool)), this, SLOT(fold()) );
 #endif
 
-#if LAYOUT_TYPE_ONLY_MV
+#if LAYOUT_TYPE_MULTI_INPUT
     QObject::connect( m_toolbar, SIGNAL(styleChanged(int,int)), this, SLOT(setLayout(int,int)) );
     QObject::connect( m_toolbar->m_btnMerge, SIGNAL(clicked(bool)), this, SLOT(onMerge()) );
 #endif
@@ -180,6 +184,7 @@ HGLWidget* HMainWidget::getGLWdgByWndid(int wndid){
 }
 
 HGLWidget* HMainWidget::allocGLWdgForsrvid(int srvid){
+    // getGLWdgBysrvid -- HSaveInfo -- m_vecGLWdg -- create
     HGLWidget* wdg = getGLWdgBysrvid(srvid);
     if (wdg)
         return wdg;
@@ -211,6 +216,48 @@ HGLWidget* HMainWidget::allocGLWdgForsrvid(int srvid){
         }
     }
 
+#if LAYOUT_TYPE_ONLY_OUTPUT
+    if (!wdg){
+        if (isLmic(srvid)){
+            DsSrvItem* item = g_dsCtx->getSrvItem(srvid);
+            if (item && item->pic_w > 0 && item->pic_h > 0){
+                qInfo("allocGLWdgForLimc srvid=%d", srvid);
+                HCombGLWidget* comb = (HCombGLWidget*)getGLWdgBysrvid(OUTPUT_SRVID);
+                if (comb){
+                    wdg = comb->allocGLWdgForLimc();
+                    if (wdg){
+                        wdg->srvid = srvid;
+                        QRect rc = wdg->geometry();
+                        double wnd_ratio = rc.width() / (double)rc.height();
+                        double pic_ratio = item->pic_w / (double)item->pic_h;
+                        double ratio = pic_ratio / wnd_ratio;
+                        int w = rc.width();
+                        int h = rc.height();
+                        if (ratio > 1.0){
+                            h /= ratio;
+                        }else{
+                            w *= ratio;
+                        }
+
+                        int x = rc.left();
+                        int y = rc.top();
+                        QPoint ptParent = comb->rect().center();
+                        QPoint pt = rc.center();
+                        if (pt.x() > ptParent.x())
+                            x = rc.right() - w;
+                        if (pt.y() > ptParent.y())
+                            y = rc.bottom() - h;
+                        wdg->setGeometry(x, y, w, h);
+                        qInfo("x=%d y=%d w=%d h=%d", x, y, w, h);
+                        m_vecGLWdg.push_back(wdg);
+                        wdg->setVisible(true);
+                    }
+                }
+            }
+        }
+    }
+#endif
+
     if (wdg){
         wdg->srvid = srvid;
         qInfo("srvid:%d ==> wndid:%d", wdg->srvid, wdg->wndid);
@@ -234,7 +281,7 @@ HGLWidget* HMainWidget::getGLWdgByPos(QPoint pt){
 }
 
 HGLWidget* HMainWidget::getGLWdgByPos(int x, int y){
-    for (int i = 0; i < m_vecGLWdg.size(); ++i){
+    for (int i = m_vecGLWdg.size() - 1; i >= 0; --i){
         QRect rc = m_vecGLWdg[i]->geometry();
         if (rc.contains(x,y)){
             return m_vecGLWdg[i];
@@ -278,6 +325,11 @@ void HMainWidget::mouseMoveEvent(QMouseEvent *event){
         if (!wdg)
             return;
 
+        if (wdg->type == HGLWidget::LMIC){
+            wdg->move(event->x()-wdg->width()/2, event->y()-wdg->height()/2);
+            return;
+        }
+
         if (!m_bMouseMoving){            
             m_bMouseMoving = true;
             // move begin
@@ -320,6 +372,7 @@ void HMainWidget::mouseReleaseEvent(QMouseEvent *event){
             if (!m_labelDrag->isVisible())
                 return;
             m_labelDrag->hide();
+
             HGLWidget* wdg = getGLWdgByPos(event->x(), event->y());
             if (wdg && m_dragSrcWdg != wdg){
                 if (wdg->type == HGLWidget::COMB){
@@ -328,6 +381,8 @@ void HMainWidget::mouseReleaseEvent(QMouseEvent *event){
                     if (obj.isNull()){
                         HCombItem item;
                         item.srvid = m_dragSrcWdg->srvid;
+                        item.rc.setWidth(g_dsCtx->m_tComb.width);
+                        item.rc.setHeight(g_dsCtx->m_tComb.height);
                         item.add();
                     }
                     else{
@@ -335,7 +390,7 @@ void HMainWidget::mouseReleaseEvent(QMouseEvent *event){
                         item->srvid = m_dragSrcWdg->srvid;
                         item->modify();
                     }
-                }else{
+                }else if (wdg->type == HGLWidget::GENERAL){
                     // exchange wndid for order
                     std::swap(m_dragSrcWdg->wndid, wdg->wndid);
                     // exchange pos
@@ -401,7 +456,7 @@ void HMainWidget::onActionChanged(int action){
         raise();
         if (g_dsCtx->m_tInit.output != 0){
             dsnetwork->queryOverlayInfo();
-#if LAYOUT_TYPE_OUTPUT_AND_MV
+#if LAYOUT_TYPE_OUTPUT_AND_INPUT
             if (g_dsCtx->m_tComb.itemCnt != 0){
                 dsnetwork->postCombInfo(g_dsCtx->m_tComb);// for refresh combinfo
             }
@@ -414,7 +469,7 @@ void HMainWidget::onActionChanged(int action){
         for (int i = 0; i < m_vecGLWdg.size(); ++i){
             m_vecGLWdg[i]->update();
         }
-#if LAYOUT_TYPE_OUTPUT_AND_MV
+#if LAYOUT_TYPE_OUTPUT_AND_INPUT
         if (m_toolbar->isVisible())
             m_toolbar->show();
 #endif
@@ -468,6 +523,21 @@ void HMainWidget::onStop(int srvid){
         return;
 
     wdg->onStop();
+
+
+#if LAYOUT_TYPE_ONLY_OUTPUT
+    if (isLmic(srvid)){
+        wdg->hide();
+        std::vector<HGLWidget*>::iterator iter = m_vecGLWdg.begin();
+        while (iter != m_vecGLWdg.end()){
+            if (*iter == wdg){
+                m_vecGLWdg.erase(iter);
+                break;
+            }
+            iter++;
+        }
+    }
+#endif
 }
 
 void HMainWidget::onProgressNty(int srvid, int progress){
@@ -480,7 +550,7 @@ void HMainWidget::onProgressNty(int srvid, int progress){
     }
 }
 
-#if LAYOUT_TYPE_OUTPUT_AND_MV
+#if LAYOUT_TYPE_OUTPUT_AND_INPUT
 void HMainWidget::expand(){
     m_btnLeftExpand->hide();
     m_btnRightFold->show();
@@ -508,7 +578,7 @@ void HMainWidget::onFullScreen(bool  bFullScreen){
         pSender->setWindowFlags(Qt::Window | Qt::FramelessWindowHint | Qt::X11BypassWindowManagerHint);
         pSender->setGeometry(rect());
         pSender->showFullScreen();
-#if LAYOUT_TYPE_ONLY_MV
+#if LAYOUT_TYPE_MULTI_INPUT
 #else
         hide();
 #endif

@@ -46,6 +46,20 @@ void HGLWidget::onStop(){
     resetStatus();
 }
 
+#include "hptzwidget.h"
+void HGLWidget::showPtz(){
+    HPtzWidget* ptz = new HPtzWidget;
+    ptz->srvid = srvid;
+    ptz->setWindowFlags(Qt::Popup | Qt::X11BypassWindowManagerHint);
+    ptz->setAttribute(Qt::WA_DeleteOnClose, true);
+    ptz->setWindowOpacity(0.8);
+//    int x = geometry().x() + (width() - ptz->width())/2;
+//    int y = geometry().y() + g_dsCtx->m_tInit.output_titlebar_height + 2;
+//    ptz->move(x, y);
+    centerWidget(ptz);
+    ptz->show();
+}
+
 #include "hffmpeg.h"
 #include <QDir>
 #include <QDateTime>
@@ -477,7 +491,8 @@ void HGeneralGLWidget::initConnect(){
     QObject::connect( m_titlebar->m_btnSnapshot, SIGNAL(clicked(bool)), this, SLOT(snapshot()) );
     //QObject::connect( m_titlebar->m_btnStartRecord, SIGNAL(clicked(bool)), this, SLOT(startRecord()) );
     //QObject::connect( m_titlebar->m_btnStopRecord, SIGNAL(clicked(bool)), this, SLOT(stopRecord()) );
-#if LAYOUT_TYPE_OUTPUT_AND_MV
+    QObject::connect( m_titlebar->m_btnPtz, SIGNAL(clicked(bool)), this, SLOT(showPtz()) );
+#if LAYOUT_TYPE_OUTPUT_AND_INPUT
     QObject::connect( m_titlebar->m_btnNum, SIGNAL(clicked(bool)), this, SLOT(showNumSelector()) );
     QObject::connect( m_titlebar->m_btnMicphoneOpened, SIGNAL(clicked(bool)), this, SLOT(closeMicphone()) );
     QObject::connect( m_titlebar->m_btnMicphoneClosed, SIGNAL(clicked(bool)), this, SLOT(openMicphone()) );
@@ -506,7 +521,7 @@ void HGeneralGLWidget::updateToolWidgets(){
     str.replace("%src", item->src_addr);
     m_titlebar->m_label->setText(str);
 
-#if LAYOUT_TYPE_OUTPUT_AND_MV
+#if LAYOUT_TYPE_OUTPUT_AND_INPUT
     if (m_status | PLAY_AUDIO){
         if (item->bVoice){
             m_titlebar->m_btnMute->hide();
@@ -539,7 +554,7 @@ void HGeneralGLWidget::updateToolWidgets(){
     }
 #endif
 
-#if LAYOUT_TYPE_ONLY_MV
+#if LAYOUT_TYPE_MULTI_INPUT
     if (m_status | PLAY_AUDIO){
         if (g_dsCtx->playaudio_srvid == srvid){
             m_titlebar->m_btnMute->hide();
@@ -560,7 +575,7 @@ void HGeneralGLWidget::updateToolWidgets(){
         m_titlebar->m_btnMicphoneOpened->hide();
     }
 
-#if LAYOUT_TYPE_ONLY_MV
+#if LAYOUT_TYPE_MULTI_INPUT
 #else
     m_titlebar->m_btnExitFullScreen->setVisible(m_bFullScreen);
     m_titlebar->m_btnFullScreen->setVisible(!m_bFullScreen);
@@ -579,6 +594,12 @@ void HGeneralGLWidget::updateToolWidgets(){
         m_toolbar->m_slider->show();
     }else{
         m_toolbar->m_slider->hide();
+    }
+
+    if (item->ptz_enabled){
+        m_titlebar->m_btnPtz->show();
+    }else{
+        m_titlebar->m_btnPtz->hide();
     }
 }
 
@@ -639,21 +660,21 @@ void HGeneralGLWidget::closeMicphone(){
 }
 
 void HGeneralGLWidget::onVoice(){
-#if LAYOUT_TYPE_OUTPUT_AND_MV
+#if LAYOUT_TYPE_OUTPUT_AND_INPUT
         dsnetwork->setVoice(srvid, 0);
 #endif
 
-#if LAYOUT_TYPE_ONLY_MV
+#if LAYOUT_TYPE_MULTI_INPUT
         g_dsCtx->setPlayaudioSrvid(0);
 #endif
 }
 
 void HGeneralGLWidget::onMute(){   
-#if LAYOUT_TYPE_OUTPUT_AND_MV
+#if LAYOUT_TYPE_OUTPUT_AND_INPUT
     dsnetwork->setVoice(srvid, 1);
 #endif
 
-#if LAYOUT_TYPE_ONLY_MV
+#if LAYOUT_TYPE_MULTI_INPUT
         g_dsCtx->setPlayaudioSrvid(srvid);
 #endif
 }
@@ -701,7 +722,7 @@ void HGeneralGLWidget::paintGL(){
     HGLWidget::paintGL();
 
     if (!isResetStatus()){
-#if LAYOUT_TYPE_OUTPUT_AND_MV
+#if LAYOUT_TYPE_OUTPUT_AND_INPUT
         HCombItem* item = g_dsCtx->getCombItem(srvid);
         if (item && item->a){
             drawSound();
@@ -710,7 +731,7 @@ void HGeneralGLWidget::paintGL(){
             drawSelectNum();
 #endif
 
-#if LAYOUT_TYPE_ONLY_MV
+#if LAYOUT_TYPE_MULTI_INPUT
         if (g_dsCtx->playaudio_srvid == srvid)
             drawSound();
 #endif
@@ -737,7 +758,21 @@ HCombGLWidget::~HCombGLWidget(){
 
 }
 
+#define MAXNUM_GLWDG_FOR_LMIC  6
 void HCombGLWidget::initUI(){
+#if LAYOUT_TYPE_ONLY_OUTPUT
+    for (int i = 0; i < MAXNUM_GLWDG_FOR_LMIC; i++){
+        HGLWidget* wdg = new HGLWidget(this);
+        wdg->setVisible(false);
+        wdg->type = HGLWidget::LMIC;
+        wdg->m_bDrawInfo = false;
+        m_vecGLWdgForLimc.push_back(wdg);
+    }
+#endif
+    m_label = new QLabel(this);
+    m_label->setAlignment(Qt::AlignLeft | Qt::AlignTop);
+    setBgFg(m_label, Qt::transparent, Qt::green);
+
     m_targetWdg = new HOperateWidget(this);
     m_targetWdg->hide();
     m_target.pWdg = m_targetWdg;
@@ -749,8 +784,6 @@ void HCombGLWidget::initUI(){
     m_titlebar = new HCombTitlebarWidget;
     m_titlebar->hide();
     vbox->addWidget(m_titlebar);
-
-    vbox->addStretch();
 
     m_wdgText = new HAddTextWidget;
     m_wdgText->hide();
@@ -791,6 +824,7 @@ void HCombGLWidget::initConnect(){
     QObject::connect( m_titlebar->m_btnSnapshot, SIGNAL(clicked(bool)), this, SLOT(snapshot()) );
     //QObject::connect( m_titlebar->m_btnStartRecord, SIGNAL(clicked(bool)), this, SLOT(startRecord()) );
     //QObject::connect( m_titlebar->m_btnStopRecord, SIGNAL(clicked(bool)), this, SLOT(stopRecord()) );
+    QObject::connect( m_titlebar->m_btnPtz, SIGNAL(clicked(bool)), this, SLOT(showPtz()) );
 
     QObject::connect( m_toolbar->m_btnStart, SIGNAL(clicked(bool)), this, SLOT(onStart()) );
     QObject::connect( m_toolbar->m_btnPause, SIGNAL(clicked(bool)), this, SLOT(onPause()) );
@@ -811,19 +845,26 @@ void HCombGLWidget::initConnect(){
 
 void HCombGLWidget::updateToolWidgets(){
     DsSrvItem* item = g_dsCtx->getSrvItem(srvid);
-    if (item){
-        m_titlebar->m_label->setText(item->title.c_str());
+    if (!item)
+        return;
 
-        if (!item->spacer){
-            m_toolbar->m_btnStart->hide();
-            m_toolbar->m_btnPause->hide();
-        }else if (item->spacer_activate){
-            m_toolbar->m_btnStart->show();
-            m_toolbar->m_btnPause->hide();
-        }else{
-            m_toolbar->m_btnStart->hide();
-            m_toolbar->m_btnPause->show();
-        }
+    m_titlebar->m_label->setText(item->title.c_str());
+
+    if (!item->spacer){
+        m_toolbar->m_btnStart->hide();
+        m_toolbar->m_btnPause->hide();
+    }else if (item->spacer_activate){
+        m_toolbar->m_btnStart->show();
+        m_toolbar->m_btnPause->hide();
+    }else{
+        m_toolbar->m_btnStart->hide();
+        m_toolbar->m_btnPause->show();
+    }
+
+    if (item->ptz_enabled){
+        m_titlebar->m_btnPtz->show();
+    }else{
+        m_titlebar->m_btnPtz->hide();
     }
 }
 
@@ -1124,8 +1165,11 @@ void HCombGLWidget::showExpre(){
     m_wdgExpre->show();
 }
 
-#define EXPRE_MAX_WIDTH     128
-#define EXPRE_MAX_HEIGHT    128
+#if LAYOUT_TYPE_OUTPUT_AND_INPUT
+#define EXPRE_DEFAULT_SIZE          128
+#else
+#define EXPRE_DEFAULT_SIZE          256
+#endif
 
 #define EXPRE_POLICY_ORIGIN_SIZE    1
 
@@ -1144,9 +1188,14 @@ void HCombGLWidget::onExpreSelected(QString& filepath){
         w = rc.width();
         h = rc.height();
     }else{
-        if (w > EXPRE_MAX_WIDTH && h > EXPRE_MAX_HEIGHT){
-            w = EXPRE_MAX_WIDTH;
-            h = EXPRE_MAX_HEIGHT;
+        if (w > EXPRE_DEFAULT_SIZE || h > EXPRE_DEFAULT_SIZE){
+            if (w > h){
+                h = h * EXPRE_DEFAULT_SIZE / w;
+                w = EXPRE_DEFAULT_SIZE;
+            }else{
+                w = w * EXPRE_DEFAULT_SIZE / h;
+                h = EXPRE_DEFAULT_SIZE;
+            }
         }
     }
     m_target.pWdg->setGeometry(adjustPos(QRect((width()-w)/2, (height()-h)/2, w, h)));
@@ -1166,8 +1215,8 @@ void HCombGLWidget::onEffectSelected(HPictureItem item){
         m_target.pWdg->setPixmap(rcloader->get(RC_BLUR));
     }
 
-    int w = EXPRE_MAX_WIDTH;
-    int h = EXPRE_MAX_HEIGHT;
+    int w = EXPRE_DEFAULT_SIZE;
+    int h = EXPRE_DEFAULT_SIZE;
     m_target.pWdg->setGeometry(QRect((width()-w)/2, (height()-h)/2, w, h));
     m_target.pWdg->show();
 
@@ -1187,7 +1236,8 @@ bool HCombGLWidget::updateOperateTarget(){
         HTextItem* pItem = (HTextItem*)m_target.obj.pItem;
         m_target.pWdg->setPixmap(QPixmap());
         QFont font = m_targetWdg->font();
-        font.setPixelSize(pItem->font_size * width() / g_dsCtx->m_tComb.width);
+        if (g_dsCtx->m_tComb.height > 0)
+            font.setPixelSize(pItem->font_size * height() / g_dsCtx->m_tComb.height);
         font.setLetterSpacing(QFont::AbsoluteSpacing,0);
         QString str;
         if (pItem->text_type == HTextItem::LABEL){
@@ -1249,6 +1299,14 @@ void HCombGLWidget::drawOutline(){
 
 void HCombGLWidget::drawTaskInfo(){
     DsSrvItem* item = g_dsCtx->getSrvItem(srvid);
+    if (item){
+        m_label->setGeometry(10,10, width()/2, height()/2);
+        m_label->setText(item->taskinfo);
+        if (!m_label->isVisible())
+            m_label->setVisible(true);
+        return;
+    }
+
     if (item && QGLWidgetImpl::m_pFont){
         DrawInfo di;
         int oldSize = QGLWidgetImpl::m_pFont->FaceSize();
@@ -1257,9 +1315,17 @@ void HCombGLWidget::drawTaskInfo(){
         di.left = 10;
         di.color = g_dsCtx->m_tInit.infcolor;
         if (sept.size() < 8){
+#if LAYOUT_TYPE_ONLY_OUTPUT
+            QGLWidgetImpl::m_pFont->FaceSize(64);
+#else
             QGLWidgetImpl::m_pFont->FaceSize(32);
+#endif
         }else{
+#if LAYOUT_TYPE_ONLY_OUTPUT
+            QGLWidgetImpl::m_pFont->FaceSize(48);
+#else
             QGLWidgetImpl::m_pFont->FaceSize(28);
+#endif
         }
         for (int i = 0; i < sept.size(); ++i){
             drawStr(sept[i].toLocal8Bit().data(), &di);
@@ -1322,13 +1388,15 @@ void HCombGLWidget::drawTextInfo(){
 void HCombGLWidget::paintGL(){
     HGLWidget::paintGL();
 
-    if (g_dsCtx->m_tInit.drawinfo){
+    bool b = g_dsCtx->m_tInit.drawinfo;
 #if LAYOUT_TYPE_ONLY_OUTPUT
-        if (m_bDrawInfo)
-            drawTaskInfo();
-#else
-        drawTaskInfo();
+    b = b && m_bDrawInfo;
 #endif
+    if (b){
+        drawTaskInfo();
+    }else{
+        if (m_label->isVisible())
+            m_label->setVisible(false);
     }
 
     if (m_bDrawInfo){

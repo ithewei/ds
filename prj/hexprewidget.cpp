@@ -66,9 +66,12 @@ QStringList HExportWidget::selectedFiles(){
 }
 
 void HExportWidget::initUI(){
+#if LAYOUT_TYPE_ONLY_OUTPUT
+    setFixedSize(QApplication::primaryScreen()->size().width()/2, QApplication::primaryScreen()->size().height()/2);
+#endif
     QVBoxLayout* vbox = new QVBoxLayout;
 
-    QHBoxLayout* hbox = new QHBoxLayout;
+    QHBoxLayout* hbox = genHBoxLayout();
 
     QVBoxLayout* vbox_local = new QVBoxLayout;
     vbox_local->addWidget(new QLabel("本地："));
@@ -86,15 +89,16 @@ void HExportWidget::initUI(){
 
     vbox->addLayout(hbox);
 
-    QHBoxLayout* hbox_okcancel = new QHBoxLayout;
-    //QPushButton* btnAccept = new QPushButton("确认");
-    QSize sz(64,64);
-    QPushButton* btnAccept = genPushButton(sz, rcloader->get(RC_SUBMIT));
+    QHBoxLayout* hbox_okcancel = genHBoxLayout();
+    hbox_okcancel->addSpacing(width()/2);
+    QPushButton* btnAccept = new QPushButton("确认");
+    //QSize sz(g_fontsize*2,g_fontsize*2);
+    //QPushButton* btnAccept = genPushButton(sz, rcloader->get(RC_SUBMIT));
     QObject::connect( btnAccept, SIGNAL(clicked(bool)), this, SLOT(accept()) );
     hbox_okcancel->addWidget(btnAccept);
 
-    //QPushButton* btnReject = new QPushButton("取消");
-    QPushButton* btnReject = genPushButton(sz, rcloader->get(RC_CLOSE));
+    QPushButton* btnReject = new QPushButton("取消");
+    //QPushButton* btnReject = genPushButton(sz, rcloader->get(RC_CLOSE));
     QObject::connect( btnReject, SIGNAL(clicked(bool)), this, SLOT(reject()) );
     hbox_okcancel->addWidget(btnReject);
     vbox->addLayout(hbox_okcancel);
@@ -123,16 +127,17 @@ void HExportWidget::initList(QListWidget* list, QString dir){
 IMPL_SINGLETON(HExpreWidget)
 
 HExpreWidget::HExpreWidget(QWidget *parent) : HWidget(parent){
+    icon_w = icon_h = g_fontsize * 5;
     initUI();
     initConnect();
 }
 
 QListWidgetItem* HExpreWidget::genListWidgetItem(QPixmap pixmap){
     QListWidgetItem* item = new QListWidgetItem;
+    item->setSizeHint(QSize(icon_w, icon_h));
+    pixmap.scaled(icon_w, icon_h, Qt::KeepAspectRatio);
     item->setIcon(pixmap);
-    item->setSizeHint(QSize(EXPRE_ICON_WIDTH, EXPRE_ICON_HEIGHT));
     item->setBackgroundColor(QColor(255,255,0,128));
-
     return item;
 }
 
@@ -140,7 +145,6 @@ QListWidgetItem* HExpreWidget::genListWidgetItem(QString img_file){
     QPixmap pixmap;
     pixmap.load(img_file);
     if (!pixmap.isNull()){
-        pixmap.scaled(EXPRE_ICON_WIDTH,EXPRE_ICON_HEIGHT);
         QListWidgetItem* item =  genListWidgetItem(pixmap);
         item->setData(FILEPATH, img_file);
         item->setData(ACTION, SELECT);
@@ -154,11 +158,10 @@ QListWidgetItem* HExpreWidget::genListWidgetItem(QString img_file){
 void HExpreWidget::initList(QListWidget* list, QString filepath){
     list->setMovement(QListView::Static);
     list->setViewMode(QListView::IconMode);
-    list->setIconSize(QSize(EXPRE_ICON_WIDTH,EXPRE_ICON_HEIGHT));
-    list->setMinimumSize(EXPRE_ICON_WIDTH,EXPRE_ICON_HEIGHT);
+    list->setIconSize(QSize(icon_w,icon_h));
     list->setFlow(QListView::LeftToRight);
     list->setSpacing(5);
-    list->setFixedWidth(EXPRE_WIDTH-2);
+    list->setFixedWidth(width()-2);
 
     QListWidgetItem* item = genListWidgetItem(rcloader->get(RC_ADD));
     item->setData(ACTION, ADD_MODE);
@@ -181,44 +184,44 @@ void HExpreWidget::initList(QListWidget* list, QString filepath){
 
     list->verticalScrollBar()->setStyleSheet("QScrollBar:vertical"
                                            "{"
-                                           "width:28px;"
+                                           "width:48px;"
                                            "background:rgba(0,0,0,0%);"
                                            "margin:0px,0px,0px,0px;"
-                                           "padding-top:28px;"
-                                           "padding-bottom:28px;"
+                                           "padding-top:48px;"
+                                           "padding-bottom:48px;"
                                            "}"
                                            "QScrollBar::handle:vertical"
                                            "{"
-                                           "width:28px;"
+                                           "width:48px;"
                                            "background:rgba(0,0,0,25%);"
                                            " border-radius:4px;"
                                            "min-height:20;"
                                            "}"
                                            "QScrollBar::handle:vertical:hover"
                                            "{"
-                                           "width:28px;"
+                                           "width:48px;"
                                            "background:rgba(0,0,0,50%);"
                                            " border-radius:4px;"
                                            "min-height:20;"
                                            "}"
                                            "QScrollBar::add-line:vertical"
                                            "{"
-                                           "height:28px;width:28px;"
+                                           "height:48px;width:48px;"
                                            "subcontrol-position:bottom;"
                                            "}"
                                            "QScrollBar::sub-line:vertical"
                                            "{"
-                                           "height:28px;width:28px;"
+                                           "height:48px;width:48px;"
                                            "subcontrol-position:top;"
                                            "}"
                                            "QScrollBar::add-line:vertical:hover"
                                            "{"
-                                           "height:28px;width:28px;"
+                                           "height:48px;width:48px;"
                                            "subcontrol-position:bottom;"
                                            "}"
                                            "QScrollBar::sub-line:vertical:hover"
                                            "{"
-                                           "height:28px;width:28px;"
+                                           "height:48px;width:48px;"
                                            "subcontrol-position:top;"
                                            "}"
                                            "QScrollBar::add-page:vertical,QScrollBar::sub-page:vertical"
@@ -339,7 +342,7 @@ void HExpreWidget::genUI(){
         ExpreRecord record = *iter;
 
         QListWidgetItem* item = new QListWidgetItem;
-        item->setSizeHint(QSize(CATEGORY_WIDTH, CATEGORY_HEIGHT));
+        item->setSizeHint(QSize(g_fontsize * 5, m_listCategory->height()));
         item->setBackgroundColor(QColor(128,128,128));
         item->setTextColor(QColor(255,255,255));
         item->setTextAlignment(Qt::AlignCenter);
@@ -359,7 +362,11 @@ void HExpreWidget::genUI(){
 }
 
 void HExpreWidget::initUI(){
-    setFixedSize(QSize(EXPRE_WIDTH, EXPRE_HEIGHT));
+#if LAYOUT_TYPE_OUTPUT_AND_INPUT
+    setFixedSize((icon_w + 5)*4 + 60, icon_h * 2 + 60);
+#else
+    setFixedSize((icon_w + 5)*4 + 60, icon_h * 3 + 60);
+#endif
     setStyleSheet("background-color: white");
 
     QVBoxLayout* vbox = new QVBoxLayout;
@@ -375,8 +382,10 @@ void HExpreWidget::initUI(){
     m_listCategory = new QListWidget;
     m_listCategory->setStyleSheet("background-color: white; border: 0px");
     m_listCategory->setMovement(QListView::Static);
-    m_listCategory->setMinimumSize(QSize(CATEGORY_WIDTH,CATEGORY_HEIGHT));
-    m_listCategory->setFixedSize(CATEGORY_WIDTH*4, CATEGORY_HEIGHT);
+    int category_w = g_fontsize * 5;
+    int category_h = g_fontsize * 1.5;
+    m_listCategory->setMinimumSize(QSize(category_w,category_h));
+    m_listCategory->setFixedSize(category_w*4, category_h);
     m_listCategory->setFlow(QListView::LeftToRight);
 
     hbox->addWidget(m_listCategory);
@@ -384,7 +393,7 @@ void HExpreWidget::initUI(){
 
     hbox->addStretch();
 
-    QSize sz(CATEGORY_HEIGHT,CATEGORY_HEIGHT);
+    QSize sz(category_h,category_h);
     m_btnMkdir = genPushButton(sz, rcloader->get(RC_MKDIR));
     m_btnMkdir->hide();
     hbox->addWidget(m_btnMkdir);
@@ -457,7 +466,9 @@ void HExpreWidget::onSelectExpre(QListWidgetItem* item){
             list->clear();
             initList(list, filepath);
         }
+#if LAYOUT_TYPE_OUTPUT_AND_INPUT
         show();
+#endif
     }
         break;
     case REMOVE_MODE:
@@ -481,6 +492,8 @@ void HExpreWidget::onSelectExpre(QListWidgetItem* item){
         }
         item->setData(ACTION, REMOVE_MODE);
     }
+        break;
+    default:
         break;
     }
 }

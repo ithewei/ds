@@ -9,6 +9,7 @@
 #include <QApplication>
 
 #include <QWidget>
+#include <QScreen>
 #include <QDesktopWidget>
 #include <QMainWindow>
 #include <QLabel>
@@ -57,7 +58,7 @@ inline QPushButton* genPushButton(QSize sz, QPixmap pixmap, QWidget* parent = NU
 inline QHBoxLayout* genHBoxLayout(){
     QHBoxLayout* hbox = new QHBoxLayout;
     hbox->setContentsMargins(5,1,5,1);
-    hbox->setSpacing(20);
+    hbox->setSpacing(QApplication::primaryScreen()->size().width()/80);
     return hbox;
 }
 

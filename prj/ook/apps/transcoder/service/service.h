@@ -36,10 +36,12 @@ public:
 		
 		e_service_cb_filestate,
 		
-		e_service_cb_pic = 0x80,
+		e_service_cb_pic  = 0x80,
 		e_service_cb_pcm,
 		
-		e_service_cb_chr = 0x100,
+		e_service_cb_ctrl = 0x90,
+				
+		e_service_cb_chr  = 0x100,
 		e_service_cb_mediachr
 	};
 	
@@ -91,6 +93,8 @@ typedef int	(SERVICE_STDCALL * __service_libstop)   (void * ctx);
 #define SERVICE_OPT_ENCSTARTING			0x10
 #define SERVICE_OPT_ENCINPTOVER			0x11
 #define SERVICE_OPT_ENCCOMPLETED		0x12
+
+#define SERVICE_OPT_PTZCTRL				0x20
 
 #define SERVICE_OPT_CMDUPDATE	 		0x80
 

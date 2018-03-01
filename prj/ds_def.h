@@ -186,10 +186,33 @@ struct DsTextInfo{
     }
 };
 
+struct task_PTZ_ctrl_s
+{
+    int x[2];
+    int y[2];
+    int z[2];
+
+    int opt;
+    void * ptr;
+
+    task_PTZ_ctrl_s(){
+        x[0] = 0;
+        x[1] = 10;
+        y[0] = 0;
+        y[1] = 10;
+        z[0] = 0;
+        z[1] = 10;
+
+        opt  = 0;
+        ptr  = NULL;
+    }
+};
+
 #include <QMutex>
 #include "qglwidgetimpl.h"
 #include "hringbuffer.h"
 #include "hffmpeg.h"
+#include "haudioplay.h"
 struct DsSrvItem{
     bool bUsed;
     bool bPause;
@@ -198,6 +221,7 @@ struct DsSrvItem{
     int src_type;
     QString src_addr;
     std::string title;
+    bool ptz_enabled;
 
     int pic_w;
     int pic_h;
@@ -213,11 +237,10 @@ struct DsSrvItem{
     Texture tex_yuv;
     SwsContext* pSwsCtx; // for scale
 
-    int pcm_len;
-    int a_channels;
-    int samplerate;
+    HAudioPlay* audio_player;
     HRingBuffer* audio_buffer;
     QMutex audio_mutex;
+    int a_channels;
     unsigned short a_average[2];
     bool bUpdateAverage;
 
@@ -260,11 +283,15 @@ struct DsSrvItem{
 
         src_type = 0;
         src_addr.clear();
+        ptz_enabled = false;
 
         a_channels = 0;
         a_average[0] = 0;
         a_average[1] = 0;
         bUpdateAverage = false;
+
+        audio_player = NULL;
+        audio_buffer = NULL;
 
         a_input = 0;
         v_input = 0;
@@ -284,6 +311,11 @@ struct DsSrvItem{
         }
         tex_yuv.release();
         free_scale();
+
+        if (audio_player){
+            delete audio_player;
+            audio_buffer = NULL;
+        }
     }
 
     void free_scale(){

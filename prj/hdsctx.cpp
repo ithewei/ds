@@ -4,6 +4,7 @@
 
 HDsContext* g_dsCtx = NULL;
 HMainWidget* g_mainWdg = NULL;
+int g_fontsize = 24;
 
 #include <QDateTime>
 void myLogHandler(QtMsgType type, const QMessageLogContext & ctx, const QString & msg){
@@ -62,6 +63,7 @@ void myLogHandler(QtMsgType type, const QMessageLogContext & ctx, const QString 
 
 #include <QApplication>
 #include <QDesktopWidget>
+#include <QScreen>
 #include <QTranslator>
 #include <QLocale>
 #include <QLibraryInfo>
@@ -91,17 +93,20 @@ void* HDsContext::thread_gui(void* param){
         app.installTranslator(translator);
 #endif
 
+    g_fontsize = QApplication::primaryScreen()->size().height()/25;
     QFont font = QApplication::font();
-    font.setPixelSize(24);
+    font.setPixelSize(g_fontsize);
     QApplication::setFont(font);
 
     QSplashScreen* splash = new QSplashScreen;
-    splash->setWindowFlags(Qt::Window | Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint);
+    splash->setWindowFlags(Qt::Popup | Qt::WindowStaysOnTopHint);
     splash->setGeometry(QApplication::desktop()->screenGeometry(0));
     splash->setStyleSheet("background-color: black");
 
     QProgressBar* progress = new QProgressBar(splash);
-    progress->setGeometry(splash->width()/2 - 150, splash->height()/2 + 50, 300, 30);
+    int w = g_fontsize * 10;
+    int h = g_fontsize * 1.5;
+    progress->setGeometry(splash->width()/2 - w/2, splash->height()/2 + 50, w, h);
     progress->setStyleSheet("background-color: white; border:2px solid gray; border-radius: 5px");
     progress->setRange(0,100);
     progress->setValue(0);
@@ -112,7 +117,7 @@ void* HDsContext::thread_gui(void* param){
     progress->setValue(10);
     app.processEvents();
     QString str = g_dsCtx->cur_path.c_str();
-#if LAYOUT_TYPE_OUTPUT_AND_MV
+#if LAYOUT_TYPE_OUTPUT_AND_INPUT
     QFile file("/var/www/appname.txt");
     if (file.open(QIODevice::ReadOnly)){
         QString appname = file.readAll();
@@ -150,8 +155,8 @@ void* HDsContext::thread_gui(void* param){
     progress->setValue(90);
     app.processEvents();
 
-    splash->finish(g_mainWdg);
     g_mainWdg->onActionChanged(1);
+    splash->finish(g_mainWdg);
 
     qInfo("-----------------enter event loop----------------");
     app.exec();
@@ -176,7 +181,7 @@ HDsContext::HDsContext()
     playaudio_srvid = OUTPUT_SRVID;
     pre_micphone_srvid = 0;
 
-    audio_player = new HAudioPlay(m_tInit.audio_bufnum > 0 ? m_tInit.audio_bufnum : 10);
+    audio_player = NULL;
 }
 
 HDsContext::~HDsContext(){
@@ -328,9 +333,6 @@ int HDsContext::parse_layout_xml(const char* xml_file){
             m_tInit.scale_mode = v.toInt();
         }else if (n == "audio_bufnum"){
             m_tInit.audio_bufnum = v.toInt();
-            if (audio_player){
-                audio_player->buf_size = m_tInit.audio_bufnum;
-            }
         }
         else if (n == "video_bufnum")
             m_tInit.video_bufnum = v.toInt();
@@ -980,8 +982,14 @@ int HDsContext::push_video(int srvid, const av_picture* pic){
             delete item->video_buffer;
             item->video_buffer = NULL;
         }
-        item->video_buffer = new HRingBuffer(w*h*3/2, m_tInit.video_bufnum > 0 ? m_tInit.video_bufnum : 10);
-        qInfo("video_buf_size=%d", m_tInit.video_bufnum);
+        int bufnum = 10;
+        if (item->src_type == SRC_TYPE_LMIC){
+            bufnum = 3;
+        }else{
+            bufnum = m_tInit.video_bufnum > 0 ? m_tInit.video_bufnum : bufnum;
+        }
+        item->video_buffer = new HRingBuffer(w*h*3/2, bufnum);
+        qInfo("video_buf_size=%d", bufnum);
         bFirst = true;
 
 #if LAYOUT_TYPE_ONLY_OUTPUT
@@ -1148,20 +1156,37 @@ int HDsContext::push_audio(int srvid, const av_pcmbuff* pcm){
 
     static int delay = 0;
     if (srvid == playaudio_srvid){
+        if (!audio_player){
+            audio_player = new HAudioPlay(m_tInit.audio_bufnum > 0 ? m_tInit.audio_bufnum : 10);
+        }
+
         if (audio_player->pushAudio((av_pcmbuff*)pcm) == 1){
+            bool start_play = true;
             if (g_dsCtx->m_tInit.fps < 25){
+                start_play = false;
                 // delay for sound sync
                 if (delay == 0)
                     delay = 10;
-            }else{
-                audio_player->startPlay(ext_screen ? HDMI1 : PCH_ANALOG);
+
+                if (--delay == 0){
+                    start_play = true;
+                }
+            }
+
+            if (start_play){
+                audio_player->startPlay(ext_screen ? HDMI1 : Pa_GetDefaultOutputDevice());
             }
         }
+    }
 
-        if (delay > 0){
-            if (--delay == 0){
-                audio_player->startPlay(ext_screen ? HDMI1 : PCH_ANALOG);
-            }
+    // sound mixer palyer for limic
+    if (item->src_type == SRC_TYPE_LMIC){
+        if (!item->audio_player){
+            item->audio_player = new HAudioPlay(m_tInit.audio_bufnum > 0 ? m_tInit.audio_bufnum : 10);
+        }
+
+        if (item->audio_player->pushAudio((av_pcmbuff*)pcm) == 1){
+            item->audio_player->startPlay(ext_screen ? HDMI1 : Pa_GetDefaultOutputDevice());
         }
     }
 
@@ -1222,6 +1247,14 @@ HCombItem* HDsContext::getCombItem(QString src){
     }
 
     return item;
+}
+
+void HDsContext::ptzControl(int srvid, struct task_PTZ_ctrl_s *param){
+    DsSrvItem* item = getSrvItem(srvid);
+    if (item && item->ifcb){
+        qInfo("ifservice_callback::e_service_cb_ctrl");
+        item->ifcb->onservice_callback(ifservice_callback::e_service_cb_ctrl, libchar(), OOKFOURCC_PTZ, OOKFOURCC_ONVF, 0, (void *)param);
+    }
 }
 
 void HDsContext::pause(int srvid, bool bPause){

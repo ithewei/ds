@@ -1,5 +1,7 @@
 #include "haudioplay.h"
 
+bool HAudioPlay::s_bInit = false;
+
 int HAudioPlay::playCallback(
     const void *input, void *output,
     unsigned long frameCount,
@@ -35,19 +37,23 @@ HAudioPlay::HAudioPlay(int buf_size){
     samplerate = 0;
     dev = 0;
 
-    qInfo("Pa_Initialize start");
-    PaError err = Pa_Initialize();
-    if (err != paNoError){
-        qCritical("Pa_Initialize error:%s", Pa_GetErrorText(err));
+    if (!s_bInit){
+        qInfo("Pa_Initialize start");
+        PaError err = Pa_Initialize();
+        if (err == paNoError){
+            s_bInit = true;
+            qInfo("Pa_Initialize end");
+        }else{
+            qCritical("Pa_Initialize error:%s", Pa_GetErrorText(err));
+        }
     }
-    qInfo("Pa_Initialize end");
 }
 
 HAudioPlay::~HAudioPlay(){
     stopPlay();
 
-    qInfo("Pa_Terminate");
-    Pa_Terminate();
+    //qInfo("Pa_Terminate");
+    //Pa_Terminate();
 
     if (audio_buffer){
         delete audio_buffer;
@@ -55,7 +61,7 @@ HAudioPlay::~HAudioPlay(){
     }
 }
 
-int HAudioPlay::startPlay(ASOUND_DEVICE dev){
+int HAudioPlay::startPlay(int dev){
     qInfo("ASOUND_DEVICE = %d", dev);
 
     const PaDeviceInfo* devinfo = Pa_GetDeviceInfo(dev);
@@ -108,7 +114,7 @@ int HAudioPlay::startPlay(ASOUND_DEVICE dev){
     }
 
     if (err != paNoError){
-        qCritical("Pa_OpenDefaultStream error:%s", Pa_GetErrorText(err));
+        qCritical("Pa_OpenStream error:%s", Pa_GetErrorText(err));
         qCritical("pcmlen=%d, channels=%d, samplerate=%d", pcmlen, channels, samplerate);
         return err;
     }

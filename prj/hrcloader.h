@@ -74,6 +74,7 @@
     F(RC_SNAPSHOT, "snapshot.png") \
     F(RC_RECORD, "record.png") \
     F(RC_RECORDING, "recording.png") \
+    F(RC_PTZ, "ptz.svg") \
     F(RC_NUM, "123.svg") \
     F(RC_NUM_B1, "b1_64.png") \
     F(RC_NUM_B2, "b2_64.png") \

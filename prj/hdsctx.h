@@ -95,6 +95,16 @@ public:
                     audio_player->pausePlay(true);
                 }
             }
+
+            for (int i = 0; i < DIRECTOR_MAX_SERVS; ++i){
+                if (m_srvs[i].audio_player){
+                    if (action > 0){
+                        m_srvs[i].audio_player->pausePlay(false);
+                    }else if(!ext_screen){
+                        m_srvs[i].audio_player->pausePlay(true);
+                    }
+                }
+            }
         }
         emit actionChanged(action);
     }
@@ -114,6 +124,7 @@ public:
         }
     }
 
+    void ptzControl(int srvid, struct task_PTZ_ctrl_s *param);
     void pause(int srvid, bool bPause);
     void setPlayProgress(int srvid, int progress);
     void setPlayaudioSrvid(int id);
@@ -194,6 +205,7 @@ public:
 extern HDsContext* g_dsCtx;
 class HMainWidget;
 extern HMainWidget* g_mainWdg;
+extern int g_fontsize;
 
 inline bool isOutputSrvid(int srvid){
     return srvid == OUTPUT_SRVID;

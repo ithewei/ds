@@ -3,15 +3,6 @@
 
 #include "qtheaders.h"
 
-#define EXPRE_ICON_WIDTH    128
-#define EXPRE_ICON_HEIGHT   128
-
-#define CATEGORY_WIDTH      128
-#define CATEGORY_HEIGHT     48
-
-#define EXPRE_WIDTH         572
-#define EXPRE_HEIGHT        392
-
 #include <list>
 struct ExpreRecord{
     int id;
@@ -80,6 +71,8 @@ public:
 
 public:
     ExpreConf m_conf;
+    int icon_w;
+    int icon_h;
 };
 
 #endif // HEXPREWIDGET_H

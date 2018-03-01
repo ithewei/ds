@@ -17,12 +17,10 @@ void HTitlebarWidget::initUI(){
     QSize sz(g_dsCtx->m_tInit.titlebar_height,g_dsCtx->m_tInit.titlebar_height);
 
     m_btnFullScreen = genPushButton(sz, rcloader->get(RC_FULLSCREEN));
-#if LAYOUT_TYPE_ONLY_MV
-    m_btnFullScreen->hide();
-#else
-    m_btnFullScreen->show();
-#endif
     hbox->addWidget(m_btnFullScreen);
+#if LAYOUT_TYPE_MULTI_INPUT
+    m_btnFullScreen->hide();
+#endif
 
     m_btnExitFullScreen = genPushButton(sz, rcloader->get(RC_EXIT_FULLSCREEN));
     m_btnExitFullScreen->hide();
@@ -40,7 +38,7 @@ void HTitlebarWidget::initUI(){
     m_btnMute->hide();
     hbox->addWidget(m_btnMute);
 
-#if LAYOUT_TYPE_OUTPUT_AND_MV
+#if LAYOUT_TYPE_OUTPUT_AND_INPUT
     m_btnMicphoneOpened = genPushButton(sz, rcloader->get(RC_MICPHONE));
     m_btnMicphoneOpened->hide();
     hbox->addWidget(m_btnMicphoneOpened);
@@ -52,6 +50,10 @@ void HTitlebarWidget::initUI(){
     m_btnNum = genPushButton(sz, rcloader->get(RC_NUM));
     hbox->addWidget(m_btnNum);
 #endif
+
+    m_btnPtz = genPushButton(sz, rcloader->get(RC_PTZ));
+    m_btnPtz->hide();
+    hbox->addWidget(m_btnPtz);
 
     hbox->addStretch();
 
@@ -67,7 +69,7 @@ void HTitlebarWidget::initUI(){
 void HTitlebarWidget::initConnect(){
     connectButtons(m_btnFullScreen, m_btnExitFullScreen);
 
-#if LAYOUT_TYPE_ONLY_MV
+#if LAYOUT_TYPE_MULTI_INPUT
     connectButtons(m_btnVoice, m_btnMute);
 #endif
 }
@@ -104,6 +106,10 @@ void HCombTitlebarWidget::initUI(){
 
     QSize sz(g_dsCtx->m_tInit.output_titlebar_height,g_dsCtx->m_tInit.output_titlebar_height);
 
+    m_btnPtz = genPushButton(sz, rcloader->get(RC_PTZ));
+    m_btnPtz->hide();
+    hbox->addWidget(m_btnPtz);
+
     m_btnSnapshot = genPushButton(sz, rcloader->get(RC_SNAPSHOT));
     m_btnSnapshot->hide();
     hbox->addWidget(m_btnSnapshot);
@@ -116,7 +122,6 @@ void HCombTitlebarWidget::initUI(){
     hbox->addWidget(m_btnInfor);
 
     m_btnPinb = genPushButton(sz, rcloader->get(RC_PINB));
-    m_btnPinb->show();
     hbox->addWidget(m_btnPinb);
 
     m_btnPinr = genPushButton(sz, rcloader->get(RC_PINR));
@@ -124,19 +129,18 @@ void HCombTitlebarWidget::initUI(){
     hbox->addWidget(m_btnPinr);
 
     m_btnFullScreen = genPushButton(sz, rcloader->get(RC_FULLSCREEN));
-    m_btnFullScreen->show();
     hbox->addWidget(m_btnFullScreen);
 
     m_btnExitFullScreen = genPushButton(sz, rcloader->get(RC_EXIT_FULLSCREEN));
     m_btnExitFullScreen->hide();
     hbox->addWidget(m_btnExitFullScreen);
 
+    setLayout(hbox);
+
 #if LAYOUT_TYPE_ONLY_OUTPUT
     m_btnFullScreen->hide();
     m_btnExitFullScreen->show();
 #endif
-
-    setLayout(hbox);
 }
 
 void HCombTitlebarWidget::initConnect(){

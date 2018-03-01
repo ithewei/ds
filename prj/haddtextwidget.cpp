@@ -1,5 +1,6 @@
 #include "haddtextwidget.h"
 #include "hrcloader.h"
+#include "hdsctx.h"
 
 HAddTextWidget::HAddTextWidget(QWidget *parent) : HWidget(parent){
     initUI();
@@ -8,7 +9,6 @@ HAddTextWidget::HAddTextWidget(QWidget *parent) : HWidget(parent){
 
 #include <QIntValidator>
 void HAddTextWidget::initUI(){
-    setFixedSize(QSize(480,390));
     setAutoFillBackground(true);
     QPalette pal = palette();
     pal.setColor(QPalette::Background, QColor(255,255,255));
@@ -19,9 +19,7 @@ void HAddTextWidget::initUI(){
     QColor default_font_color = Qt::white;
 
     QGridLayout* grid = new QGridLayout;
-
-    grid->setHorizontalSpacing(20);
-    grid->setVerticalSpacing(20);
+    grid->setSpacing(g_fontsize/2);
 
     int row = 0;
     grid->addWidget(new QLabel("类别:"), row, 0);
@@ -52,11 +50,11 @@ void HAddTextWidget::initUI(){
     ++row;
     grid->addWidget(new QLabel("字体:"), row, 0);
 
-    hbox = new QHBoxLayout;
+    hbox = genHBoxLayout();
     hbox->addWidget(new QLabel("字号"));
 
     m_cmbFontSize = new QComboBox;
-    m_cmbFontSize->setFixedWidth(100);
+    m_cmbFontSize->setFixedWidth(g_fontsize*3);
 //    m_cmbFontSize->setEditable(true);
 //    QIntValidator* v = new QIntValidator(0, 100, this);
 //    m_cmbFontSize->lineEdit()->setValidator(v);
@@ -73,10 +71,10 @@ void HAddTextWidget::initUI(){
         ++i;
     }
     hbox->addWidget(m_cmbFontSize);
-    hbox->addStretch();
+    hbox->addSpacing(g_fontsize*2);
     hbox->addWidget(new QLabel("颜色"));
     m_btnColor = new QPushButton;
-    m_btnColor->setFixedWidth(100);
+    m_btnColor->setFixedWidth(g_fontsize*3);
     m_btnColor->setFlat(true);
     m_btnColor->setStyleSheet("background-color: #FFFFFF; border:2px solid gray;");
     hbox->addWidget(m_btnColor);
@@ -85,26 +83,24 @@ void HAddTextWidget::initUI(){
     ++row;
     grid->addWidget(new QLabel("预览:"), row, 0);
     m_labelPreview = new QLabel;
+    m_labelPreview->setFixedHeight(100);
     m_labelPreview->setStyleSheet("background-color: #696969");
     pal = m_labelPreview->palette();
     pal.setColor(QPalette::Foreground, default_font_color);
     m_labelPreview->setPalette(pal);
     QFont font = m_labelPreview->font();
-    font.setPointSize(default_font_size*0.8);
+    font.setPixelSize(default_font_size);
     m_labelPreview->setFont(font);
     m_labelPreview->setText("123中文ABC");
     grid->addWidget(m_labelPreview, row, 1);
 
     ++row;
-    hbox = new QHBoxLayout;
-    QSize sz(64,64);
-    //QPushButton* btnAccept = genPushButton(sz, rcloader->get(RC_OK));
+    hbox = genHBoxLayout();
     QPushButton* btnAccept = new QPushButton("确认");
     btnAccept->setDefault(true);
     QObject::connect( btnAccept, SIGNAL(clicked(bool)), this, SLOT(accept()) );
     hbox->addWidget(btnAccept);
 
-    //QPushButton* btnReject = genPushButton(sz, rcloader->get(RC_CLOSE));
     QPushButton* btnReject = new QPushButton("取消");
     QObject::connect( btnReject, SIGNAL(clicked(bool)), this, SLOT(reject()) );
     hbox->addWidget(btnReject);
@@ -141,7 +137,7 @@ void HAddTextWidget::onCategoryChanged(int index){
 
 void HAddTextWidget::selectColor(){
     QPoint ptBotoom = m_btnColor->mapToGlobal(QPoint(0,m_btnColor->height()));
-    m_colorSelector->move(ptBotoom.x(), ptBotoom.y());
+    m_colorSelector->move(ptBotoom.x()-g_fontsize*2, ptBotoom.y());
     m_colorSelector->show();
 }
 
@@ -159,7 +155,7 @@ void HAddTextWidget::onNewColor(QColor color){
 
 void HAddTextWidget::onFontSizeChanged(int index){
     QFont font = m_labelPreview->font();
-    font.setPointSize(m_cmbFontSize->currentText().toInt()*0.8);
+    font.setPixelSize(m_cmbFontSize->currentText().toInt());
     m_labelPreview->setFont(font);
 }
 

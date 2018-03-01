@@ -16,6 +16,7 @@
 
 #include <ook/trace>
 #include <ook/fourcc.h>
+#include <ook/fourccdef.h>
 
 #include <ook/apps/transcoder/service/service.h>
 #include <ook/apps/transcoder/service/director/director_service.h>
@@ -27,9 +28,6 @@
 #include <ook/tools/chkpath.h>
 #include <ook/tools/strtool>
 #include <ook/tools/strconv>
-
-#include <ook/sock/http_client.h>
-#include <ook/cycbuf2>
 #include <ook/sys/call>
 
 extern "C" {

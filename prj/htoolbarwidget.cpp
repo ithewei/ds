@@ -22,7 +22,6 @@ void HToolbarWidget::initUI(){
     hbox->addWidget(m_btnStart);
 
     m_btnPause = genPushButton(sz, rcloader->get(RC_PAUSE));
-    m_btnPause->show();
     hbox->addWidget(m_btnPause);
 
     m_slider = new QSlider;
@@ -141,7 +140,6 @@ void HCombToolbarWidget::initUI(){
     hbox->addWidget(m_btnStart);
 
     m_btnPause = genPushButton(sz, rcloader->get(RC_PAUSE));
-    m_btnPause->show();
     hbox->addWidget(m_btnPause);
 
     hbox->addSpacing(100);

@@ -22,7 +22,7 @@ public:
     ~HAudioPlay();
 
 public:
-    int startPlay(ASOUND_DEVICE dev = PCH_ANALOG);
+    int startPlay(int dev = PCH_ANALOG);
     void stopPlay();
     void pausePlay(bool bPause);
     int pushAudio(av_pcmbuff* pcm);
@@ -37,6 +37,8 @@ public:
 public:
     int buf_size;
 private:
+    static bool s_bInit;
+
     PaStream* m_pStream;
 
     HRingBuffer* audio_buffer;

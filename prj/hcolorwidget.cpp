@@ -1,7 +1,5 @@
 #include "hcolorwidget.h"
-
-static int pWidth = 190;
-static int pHeight = 160;
+#include "hdsctx.h"
 
 //<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 void QWellArray::paintEvent(QPaintEvent *e)
@@ -56,8 +54,8 @@ QWellArray::QWellArray(int rows, int cols, QWidget *parent)
         ,nrows(rows), ncols(cols)
 {
     setFocusPolicy(Qt::StrongFocus);
-    cellw = 28;
-    cellh = 24;
+    cellw = g_fontsize;
+    cellh = g_fontsize;
     curCol = 0;
     curRow = 0;
     selCol = -1;
@@ -283,11 +281,6 @@ void QColorPicker::setCrossVisible(bool visible)
     }
 }
 
-QSize QColorPicker::sizeHint() const
-{
-    return QSize(pWidth + 2*frameWidth(), pHeight + 2*frameWidth());
-}
-
 void QColorPicker::setCol(int h, int s)
 {
     int nhue = qMin(qMax(0,h), 359);
@@ -459,6 +452,9 @@ HColorWidget::HColorWidget(QWidget *parent) : QWidget(parent)
 }
 
 void HColorWidget::initUI(){
+    int w = g_fontsize * (COLOR_WELL_COL-2);
+    int h = w;
+
     QVBoxLayout* vbox = new QVBoxLayout;
     cw = new QColorWell(NULL, COLOR_WELL_ROW, COLOR_WELL_COL, (QRgb*)c_rgbs);
     vbox->addWidget(cw);
@@ -467,9 +463,9 @@ void HColorWidget::initUI(){
     cp = new QColorPicker;
     lp = new QColorLuminancePicker;
     hbox->addWidget(cp);
-    cp->setFixedSize(pWidth, pHeight);
+    cp->setFixedSize(w, h);
     hbox->addWidget(lp);
-    lp->setFixedSize(30, pHeight);
+    lp->setFixedSize(g_fontsize, h);
 
     vbox->addLayout(hbox);
     setLayout(vbox);

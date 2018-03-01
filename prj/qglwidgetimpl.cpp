@@ -147,6 +147,8 @@ void QGLWidgetImpl::setVertices(double ratio){
 void QGLWidgetImpl::setVertices(QRect rc){
     int wnd_w = width();
     int wnd_h = height();
+    if (wnd_w <= 0 || wnd_h <= 0)
+        return;
     GLfloat left = (GLfloat)rc.left() * 2 / wnd_w - 1;
     GLfloat right = (GLfloat)(rc.right()+1) * 2 / wnd_w - 1;
     GLfloat top = 1 - (GLfloat)rc.top() * 2 / wnd_h;

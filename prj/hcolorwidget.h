@@ -116,7 +116,6 @@ signals:
     void newCol(int h, int s);
 
 protected:
-    QSize sizeHint() const Q_DECL_OVERRIDE;
     void paintEvent(QPaintEvent*) Q_DECL_OVERRIDE;
     void mouseMoveEvent(QMouseEvent *) Q_DECL_OVERRIDE;
     void mousePressEvent(QMouseEvent *) Q_DECL_OVERRIDE;
