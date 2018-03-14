@@ -106,4 +106,6 @@ private:
     QRect m_rcSavedGeometry;
 };
 
+extern HMainWidget* g_mainWdg;
+
 #endif // HMAINWIDGET_H

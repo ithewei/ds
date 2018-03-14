@@ -3,7 +3,6 @@
 #include "hmainwidget.h"
 
 HDsContext* g_dsCtx = NULL;
-HMainWidget* g_mainWdg = NULL;
 int g_fontsize = 24;
 
 #include <QDateTime>
@@ -44,7 +43,7 @@ void myLogHandler(QtMsgType type, const QMessageLogContext & ctx, const QString 
                                        ctx.file,ctx.line,ctx.function);
 
     //QString strLogFilePath = QCoreApplication::applicationDirPath() + "/ds.log";
-    QString strLogFilePath = "/opt/anystreaming/transcoder/ds.log";
+    QString strLogFilePath = "/var/log/ds.log";
 
     FILE* fp = fopen(strLogFilePath.toLocal8Bit().data(), "a");
     if (fp){
@@ -117,20 +116,21 @@ void* HDsContext::thread_gui(void* param){
     progress->setValue(10);
     app.processEvents();
     QString str = g_dsCtx->cur_path.c_str();
-#if LAYOUT_TYPE_OUTPUT_AND_INPUT
-    QFile file("/var/www/appname.txt");
-    if (file.open(QIODevice::ReadOnly)){
-        QString appname = file.readAll();
-        if (appname == "transcoder_sohu")
-            str += "ds_sohu.conf";
-        else
-            str += "ds.conf";
-    }else{
-        str += "ds.conf";
-    }
-#else
-    str += "ds_out.conf";
-#endif
+//#if LAYOUT_TYPE_OUTPUT_AND_INPUT
+//    QFile file("/var/www/appname.txt");
+//    if (file.open(QIODevice::ReadOnly)){
+//        QString appname = file.readAll();
+//        if (appname == "transcoder_sohu")
+//            str += "ds_sohu.conf";
+//        else
+//            str += "ds.conf";
+//    }else{
+//        str += "ds.conf";
+//    }
+//#else
+//    str += "ds_out.conf";
+//#endif
+    str += "ds.conf";
     dsconf->load(str);
 
     pObj->m_mutex.unlock(); // unlock when conf load finished
@@ -180,15 +180,10 @@ HDsContext::HDsContext()
 
     playaudio_srvid = OUTPUT_SRVID;
     pre_micphone_srvid = 0;
-
-    audio_player = NULL;
 }
 
 HDsContext::~HDsContext(){
-    if (audio_player){
-        delete audio_player;
-        audio_player = NULL;
-    }
+
 }
 
 #include <QWaitCondition>
@@ -216,62 +211,6 @@ void HDsContext::start_gui_thread(){
     qInfo("start_gui_thread>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>");
 }
 
-/*
-<?xml version="1.0" encoding="UTF-8" ?>
-<director_service>
-    <layout>
-        <head>
-            <param n="width"  v="1280" />
-            <param n="height" v="800"  />
-            <param n="fps" v="15"   />
-        </head>
-        <body>
-            <item>
-                <param n="u"   v="1" />
-                <param n="w"   v="424" />
-                <param n="h"   v="264" />
-                <param n="x"   v="4"   />
-                <param n="y"   v="4"   />
-            </item>
-            <item>
-                <param n="u"   v="2"   />
-                <param n="w"   v="424" />
-                <param n="h"   v="264" />
-                <param n="x"   v="4"   />
-                <param n="y"   v="268" />
-            </item>
-            <item>
-                <param n="u"   v="3"   />
-                <param n="w"   v="424" />
-                <param n="h"   v="264" />
-                <param n="x"   v="4"   />
-                <param n="y"   v="532" />
-            </item>
-            <item>
-                <param n="u"   v="4"   />
-                <param n="w"   v="424" />
-                <param n="h"   v="264" />
-                <param n="x"   v="428" />
-                <param n="y"   v="532" />
-            </item>
-            <item>
-                <param n="u"   v="5"   />
-                <param n="w"   v="424" />
-                <param n="h"   v="264" />
-                <param n="x"   v="852" />
-                <param n="y"   v="532" />
-            </item>
-            <item>
-                <param n="u"   v="6"   />
-                <param n="w"   v="848" />
-                <param n="h"   v="528" />
-                <param n="x"   v="428" />
-                <param n="y"   v="4"   />
-            </item>
-        </body>
-    </layout>
-</director_service>
-*/
 #include <QtXml/QDomComment>
 int HDsContext::parse_layout_xml(const char* xml_file){
     qInfo(xml_file);
@@ -286,133 +225,60 @@ int HDsContext::parse_layout_xml(const char* xml_file){
     }
 
     QDomElement elem_root = dom.documentElement();
-    QDomElement elem_layout = elem_root.firstChildElement("layout");
-    if (elem_layout.isNull())
-        return -2;
-    QDomElement elem_head = elem_layout.firstChildElement("head");
-    if (elem_head.isNull())
-        return -3;
 
-    QDomElement elem_param = elem_head.firstChildElement("param");
-    while (!elem_param.isNull()) {
-        QString n = elem_param.attribute("n");
-        QString v = elem_param.attribute("v");
-        if (n == "debug")
-            m_tInit.debug = v.toInt();
-        else if (n == "drawDebugInfo")
-            m_tInit.drawDebugInfo = v.toInt();
-        else if (n == "save_span")
-            m_tInit.save_span = v.toInt();
-        else if (n == "mouse")
-            m_tInit.mouse = v.toInt();
-        else if (n == "autolayout")
-            m_tInit.autolayout = v.toInt();
-        else if (n == "row")
-            m_tInit.row = v.toInt();
-        else if (n == "col")
-            m_tInit.col = v.toInt();
-        else if (n == "maxnum_layout")
-            m_tInit.maxnum_layout = v.toInt();
-        else if (n == "output")
-            m_tInit.output = v.toInt();
-        else if (n == "merge"){
+    QDomElement elem_im = elem_root.firstChildElement("important");
+    if (elem_im.isNull())
+        return -2;
+    m_tInit.debug = elem_im.attribute("debug", "0").toInt();
+    m_tInit.save_span = elem_im.attribute("save_span", "0").toInt();
+    m_tInit.audio = elem_im.attribute("audio", "1").toInt();
+    m_tInit.display_mode = elem_im.attribute("display_mode", "1").toInt();
+    m_tInit.scale_mode = elem_im.attribute("scale_mode", "2").toInt();
+    m_tInit.fps = elem_im.attribute("fps", "25").toInt();
+    m_tInit.audio_bufnum = elem_im.attribute("audio_bufnum", "10").toInt();
+    m_tInit.video_bufnum = elem_im.attribute("video_bufnum", "10").toInt();
+
+    QDomElement elem_ui = elem_root.firstChildElement("UI");
+    if (elem_ui.isNull())
+        return -3;
+    QDomElement elem_layout = elem_ui.firstChildElement("layout");
+    if (elem_layout.isNull())
+        return -4;
+    m_tInit.autolayout = elem_layout.attribute("auto", "1").toInt();
+    if (m_tInit.autolayout){
+        m_tInit.maxnum_layout = elem_layout.attribute("maxnum", "9").toInt();
+        m_tInit.row = elem_layout.attribute("row", "3").toInt();
+        m_tInit.col = elem_layout.attribute("col", "3").toInt();
+        m_tInit.output = elem_layout.attribute("output", "0").toInt();
+        if (!elem_layout.attribute("merge").isEmpty()){
             QRegExp re("(\\d+)-(\\d+)");
-            if (re.indexIn(v) != -1){
+            if (re.indexIn(elem_layout.attribute("merge")) != -1){
                 m_tInit.merge[0] = re.cap(1).toInt();
                 m_tInit.merge[1] = re.cap(2).toInt();
                 qDebug("merge: %d-%d", m_tInit.merge[0], m_tInit.merge[1]);
             }
         }
-        else if (n == "audio"){
-            m_tInit.audio = v.toInt();
-        }else if(n == "fps"){
-            m_tInit.fps = v.toInt();
-        }else if (n == "display_mode"){
-            m_tInit.display_mode = v.toInt();
-        }else if (n == "scale_mode"){
-            m_tInit.scale_mode = v.toInt();
-        }else if (n == "audio_bufnum"){
-            m_tInit.audio_bufnum = v.toInt();
-        }
-        else if (n == "video_bufnum")
-            m_tInit.video_bufnum = v.toInt();
-        else if (n == "drawtitle"){
-            m_tInit.drawtitle = v.toInt();
-        }else if (n == "drawfps"){
-            m_tInit.drawfps = v.toInt();
-        }else if (n == "drawnum"){
-            m_tInit.drawnum = v.toInt();
-        }else if (n == "drawaudio"){
-            m_tInit.drawaudio = v.toInt();
-        }else if(n == "drawinfo")
-            m_tInit.drawinfo = v.toInt();
-        else if (n == "taskinfo_format")
-            m_tInit.taskinfo_format = v;
-        else if (n == "title_format")
-            m_tInit.title_format = v;
-        else if (n == "drawoutline")
-            m_tInit.drawoutline = v.toInt();
-        else if(n == "infcolor")
-            m_tInit.infcolor = v.toUInt(NULL, 16);
-        else if(n == "titcolor")
-            m_tInit.titcolor = v.toUInt(NULL, 16);
-        else if (n == "audiostyle")
-            m_tInit.audiostyle = v.toInt();
-        else if(n == "audiocolor_bg")
-            m_tInit.audiocolor_bg = v.toUInt(NULL, 16);
-        else if(n == "audiocolor_fg_low")
-            m_tInit.audiocolor_fg_low = v.toUInt(NULL, 16);
-        else if(n == "audiocolor_fg_high")
-            m_tInit.audiocolor_fg_high = v.toUInt(NULL, 16);
-        else if(n == "audiocolor_fg_top")
-            m_tInit.audiocolor_fg_top = v.toUInt(NULL, 16);
-        else if (n == "fontsize")
-            m_tInit.fontsize = v.toInt();
-        else if (n == "spacing")
-            m_tInit.spacing = v.toInt();
-        else if (n == "titlebar_height")
-            m_tInit.titlebar_height = v.toInt();
-        else if (n == "toolbar_height")
-            m_tInit.toolbar_height = v.toInt();
-        else if (n == "output_titlebar_height")
-            m_tInit.output_titlebar_height = v.toInt();
-        else if (n == "output_toolbar_height")
-            m_tInit.output_toolbar_height = v.toInt();
-        else if (n == "expre_policy")
-            m_tInit.expre_policy = v.toInt();
-        else
-            qWarning("Invalid key:%s", n.toLocal8Bit().data());
-
-        elem_param = elem_param.nextSiblingElement("param");
-    }
-
-    if (!m_tInit.autolayout){
-        QDomElement elem_body = elem_layout.firstChildElement("body");
-        if (elem_body.isNull())
-            return -4;
-        QDomElement elem_item = elem_body.firstChildElement("item");
-        m_tLayout.width = elem_body.attribute("width").toInt();
-        m_tLayout.height = elem_body.attribute("height").toInt();
+    }else{
+        QDomElement elem_mainwindow = elem_layout.firstChildElement("mainwindow");
+        if (elem_mainwindow.isNull())
+            return -41;
+        m_tLayout.width = elem_mainwindow.attribute("width", "0").toInt();
+        m_tLayout.height = elem_mainwindow.attribute("height", "0").toInt();
+        QDomElement elem_item = elem_mainwindow.firstChildElement("item");
         int cnt_item = 0;
         int x,y,w,h;
         while (!elem_item.isNull()){
-            QDomElement elem_param = elem_item.firstChildElement("param");
-            while (!elem_param.isNull()){
-                QString n = elem_param.attribute("n");
-                QString v = elem_param.attribute("v");
-                if(n == "w")
-                    w = v.toInt();
-                else if(n == "h")
-                    h = v.toInt();
-                else if(n == "x")
-                    x = v.toInt();
-                else if(n == "y")
-                    y = v.toInt();
-
-                elem_param = elem_param.nextSiblingElement("param");
+            QString str = elem_item.attribute("type", "input");
+            if (str == "output"){
+                m_tInit.output = cnt_item+1; // wndid of output
             }
-
-            m_tLayout.items[cnt_item].setRect(x, y, w, h);
+            QString pos = elem_item.attribute("pos", "0,0,0,0");
+            QStringList pos_split = pos.split(',');
+            x = pos_split[0].toInt();
+            y = pos_split[1].toInt();
+            w = pos_split[2].toInt();
+            h = pos_split[3].toInt();
+            m_tLayout.items[cnt_item].setRect(x,y,w,h);
 
             ++cnt_item;
             if(cnt_item >= MAXNUM_WND)
@@ -420,12 +286,216 @@ int HDsContext::parse_layout_xml(const char* xml_file){
 
             elem_item = elem_item.nextSiblingElement("item");
         }
-
         m_tLayout.itemCnt = cnt_item;
+    }
+
+    QDomElement elem_settings = elem_ui.firstChildElement("settings");
+    if (elem_settings.isNull())
+        return -5;
+    m_tInit.mouse = elem_settings.attribute("mouse", "0").toInt();
+    m_tInit.fontsize = elem_settings.attribute("fontsize", "24").toInt();
+
+    m_tInit.drawtitle = elem_settings.attribute("drawtitle", "0").toInt();
+    m_tInit.drawfps = elem_settings.attribute("drawfps", "0").toInt();
+    m_tInit.drawnum = elem_settings.attribute("drawnum", "0").toInt();
+    m_tInit.drawaudio = elem_settings.attribute("drawaudio", "0").toInt();
+    m_tInit.drawinfo = elem_settings.attribute("drawinfo", "0").toInt();
+    m_tInit.drawoutline = elem_settings.attribute("drawoutline", "0").toInt();
+    m_tInit.drawDebugInfo = elem_settings.attribute("drawdebuginfo", "0").toInt();
+
+    m_tInit.spacing = elem_settings.attribute("spacing", "0").toInt();
+    m_tInit.titlebar_height = elem_settings.attribute("titlebar_height", "0").toInt();
+    m_tInit.toolbar_height = elem_settings.attribute("toolbar_height", "0").toInt();
+    m_tInit.output_titlebar_height = elem_settings.attribute("output_titlebar_height", "0").toInt();
+    m_tInit.output_toolbar_height = elem_settings.attribute("output_toolbar_height", "0").toInt();
+
+    m_tInit.infcolor = elem_settings.attribute("infcolor", "0x00FF00FF").toUInt(NULL, 16);
+    m_tInit.titcolor = elem_settings.attribute("titcolor", "0xFF5A1EFF").toUInt(NULL, 16);
+    m_tInit.audiostyle = elem_settings.attribute("audiostyle", "1").toInt();
+    m_tInit.audiocolor_bg = elem_settings.attribute("audiocolor_bg", "0x0").toUInt(NULL, 16);
+    m_tInit.audiocolor_fg_low = elem_settings.attribute("audiocolor_fg_low", "0x0").toUInt(NULL, 16);
+    m_tInit.audiocolor_fg_high = elem_settings.attribute("audiocolor_fg_high", "0x0").toUInt(NULL, 16);
+    m_tInit.audiocolor_fg_top = elem_settings.attribute("audiocolor_fg_top", "0x0").toUInt(NULL, 16);
+
+    m_tInit.title_format = elem_settings.attribute("title_format", "%title");
+    m_tInit.taskinfo_format = elem_settings.attribute("taskinfo_format", "%rate");
+
+    QDomElement elem_ptz = elem_root.firstChildElement("ptz");
+    if (!elem_ptz.isNull()){
+        QString strNum = elem_ptz.attribute("numerator", "1,1,1,1,1,1");
+        QString strDen = elem_ptz.attribute("denominator", "20,20,20,20,10,10");
+        QStringList strListNum = strNum.split(',');
+        QStringList strDenNum = strDen.split(',');
+        for (int i = 0; i < 6; ++i){
+            m_tInit.ptz_num[i] = strListNum[i].toInt();
+            m_tInit.ptz_den[i] = strDenNum[i].toInt();
+        }
+    }
+
+    QDomElement elem_overlay = elem_root.firstChildElement("overlay");
+    if (!elem_overlay.isNull()){
+        m_tInit.maxnum_overlay = elem_overlay.attribute("maxnum", "3").toInt();
+        m_tInit.expre_policy = elem_overlay.attribute("expre_policy", "0").toInt();
     }
 
     return 0;
 }
+
+
+//#include <QtXml/QDomComment>
+//int HDsContext::parse_layout_xml(const char* xml_file){
+//    qInfo(xml_file);
+//    layout_file = xml_file;
+
+//    QDomDocument dom;
+//    QFile file(xml_file);
+//    QString err;
+//    if (!dom.setContent(&file, &err)){
+//        qWarning("parse_layout_xml failed:%d", err.toLocal8Bit().data());
+//        return -1;
+//    }
+
+//    QDomElement elem_root = dom.documentElement();
+//    QDomElement elem_layout = elem_root.firstChildElement("layout");
+//    if (elem_layout.isNull())
+//        return -2;
+//    QDomElement elem_head = elem_layout.firstChildElement("head");
+//    if (elem_head.isNull())
+//        return -3;
+
+//    QDomElement elem_param = elem_head.firstChildElement("param");
+//    while (!elem_param.isNull()) {
+//        QString n = elem_param.attribute("n");
+//        QString v = elem_param.attribute("v");
+//        if (n == "debug")
+//            m_tInit.debug = v.toInt();
+//        else if (n == "drawDebugInfo")
+//            m_tInit.drawDebugInfo = v.toInt();
+//        else if (n == "save_span")
+//            m_tInit.save_span = v.toInt();
+//        else if (n == "mouse")
+//            m_tInit.mouse = v.toInt();
+//        else if (n == "autolayout")
+//            m_tInit.autolayout = v.toInt();
+//        else if (n == "row")
+//            m_tInit.row = v.toInt();
+//        else if (n == "col")
+//            m_tInit.col = v.toInt();
+//        else if (n == "maxnum_layout")
+//            m_tInit.maxnum_layout = v.toInt();
+//        else if (n == "output")
+//            m_tInit.output = v.toInt();
+//        else if (n == "merge"){
+//            QRegExp re("(\\d+)-(\\d+)");
+//            if (re.indexIn(v) != -1){
+//                m_tInit.merge[0] = re.cap(1).toInt();
+//                m_tInit.merge[1] = re.cap(2).toInt();
+//                qDebug("merge: %d-%d", m_tInit.merge[0], m_tInit.merge[1]);
+//            }
+//        }
+//        else if (n == "audio"){
+//            m_tInit.audio = v.toInt();
+//        }else if(n == "fps"){
+//            m_tInit.fps = v.toInt();
+//        }else if (n == "display_mode"){
+//            m_tInit.display_mode = v.toInt();
+//        }else if (n == "scale_mode"){
+//            m_tInit.scale_mode = v.toInt();
+//        }else if (n == "audio_bufnum"){
+//            m_tInit.audio_bufnum = v.toInt();
+//        }
+//        else if (n == "video_bufnum")
+//            m_tInit.video_bufnum = v.toInt();
+//        else if (n == "drawtitle"){
+//            m_tInit.drawtitle = v.toInt();
+//        }else if (n == "drawfps"){
+//            m_tInit.drawfps = v.toInt();
+//        }else if (n == "drawnum"){
+//            m_tInit.drawnum = v.toInt();
+//        }else if (n == "drawaudio"){
+//            m_tInit.drawaudio = v.toInt();
+//        }else if(n == "drawinfo")
+//            m_tInit.drawinfo = v.toInt();
+//        else if (n == "taskinfo_format")
+//            m_tInit.taskinfo_format = v;
+//        else if (n == "title_format")
+//            m_tInit.title_format = v;
+//        else if (n == "drawoutline")
+//            m_tInit.drawoutline = v.toInt();
+//        else if(n == "infcolor")
+//            m_tInit.infcolor = v.toUInt(NULL, 16);
+//        else if(n == "titcolor")
+//            m_tInit.titcolor = v.toUInt(NULL, 16);
+//        else if (n == "audiostyle")
+//            m_tInit.audiostyle = v.toInt();
+//        else if(n == "audiocolor_bg")
+//            m_tInit.audiocolor_bg = v.toUInt(NULL, 16);
+//        else if(n == "audiocolor_fg_low")
+//            m_tInit.audiocolor_fg_low = v.toUInt(NULL, 16);
+//        else if(n == "audiocolor_fg_high")
+//            m_tInit.audiocolor_fg_high = v.toUInt(NULL, 16);
+//        else if(n == "audiocolor_fg_top")
+//            m_tInit.audiocolor_fg_top = v.toUInt(NULL, 16);
+//        else if (n == "fontsize")
+//            m_tInit.fontsize = v.toInt();
+//        else if (n == "spacing")
+//            m_tInit.spacing = v.toInt();
+//        else if (n == "titlebar_height")
+//            m_tInit.titlebar_height = v.toInt();
+//        else if (n == "toolbar_height")
+//            m_tInit.toolbar_height = v.toInt();
+//        else if (n == "output_titlebar_height")
+//            m_tInit.output_titlebar_height = v.toInt();
+//        else if (n == "output_toolbar_height")
+//            m_tInit.output_toolbar_height = v.toInt();
+//        else if (n == "expre_policy")
+//            m_tInit.expre_policy = v.toInt();
+//        else
+//            qWarning("Invalid key:%s", n.toLocal8Bit().data());
+
+//        elem_param = elem_param.nextSiblingElement("param");
+//    }
+
+//    if (!m_tInit.autolayout){
+//        QDomElement elem_body = elem_layout.firstChildElement("body");
+//        if (elem_body.isNull())
+//            return -4;
+//        QDomElement elem_item = elem_body.firstChildElement("item");
+//        m_tLayout.width = elem_body.attribute("width").toInt();
+//        m_tLayout.height = elem_body.attribute("height").toInt();
+//        int cnt_item = 0;
+//        int x,y,w,h;
+//        while (!elem_item.isNull()){
+//            QDomElement elem_param = elem_item.firstChildElement("param");
+//            while (!elem_param.isNull()){
+//                QString n = elem_param.attribute("n");
+//                QString v = elem_param.attribute("v");
+//                if(n == "w")
+//                    w = v.toInt();
+//                else if(n == "h")
+//                    h = v.toInt();
+//                else if(n == "x")
+//                    x = v.toInt();
+//                else if(n == "y")
+//                    y = v.toInt();
+
+//                elem_param = elem_param.nextSiblingElement("param");
+//            }
+
+//            m_tLayout.items[cnt_item].setRect(x, y, w, h);
+
+//            ++cnt_item;
+//            if(cnt_item >= MAXNUM_WND)
+//                break;
+
+//            elem_item = elem_item.nextSiblingElement("item");
+//        }
+
+//        m_tLayout.itemCnt = cnt_item;
+//    }
+
+//    return 0;
+//}
 
 /*
 <cocktail>
@@ -982,24 +1052,24 @@ int HDsContext::push_video(int srvid, const av_picture* pic){
             delete item->video_buffer;
             item->video_buffer = NULL;
         }
-        int bufnum = 10;
+        int bufnum = m_tInit.video_bufnum > 0 ? m_tInit.video_bufnum : DEFAULT_VIDEO_BUFNUM;
         if (item->src_type == SRC_TYPE_LMIC){
-            bufnum = 3;
-        }else{
-            bufnum = m_tInit.video_bufnum > 0 ? m_tInit.video_bufnum : bufnum;
+            bufnum = DEFAULT_LMIC_VIDEO_BUFNUM;
         }
         item->video_buffer = new HRingBuffer(w*h*3/2, bufnum);
-        qInfo("video_buf_size=%d", bufnum);
+        qInfo("video_bufnum=%d", bufnum);
         bFirst = true;
 
 #if LAYOUT_TYPE_ONLY_OUTPUT
-        m_tComb.width = w;
-        m_tComb.height = h;
-        m_tComb.itemCnt = 1;
-        m_tComb.items[0].srvid = OUTPUT_SRVID;
-        m_tComb.items[0].rc.setRect(0,0,w,h);
+        if (srvid == OUTPUT_SRVID){
+            m_tComb.width = w;
+            m_tComb.height = h;
+            m_tComb.itemCnt = 1;
+            m_tComb.items[0].srvid = OUTPUT_SRVID;
+            m_tComb.items[0].rc.setRect(0,0,w,h);
 
-        qInfo("m_tComb w=%d h=%d", w, h);
+            qInfo("m_tComb w=%d h=%d", w, h);
+        }
 #endif
     }
 
@@ -1036,6 +1106,8 @@ int HDsContext::push_video(int srvid, const av_picture* pic){
             s_v += pic->stride[2];
         }
     }
+
+    qDebug("srvid=%d video_cache=%d", srvid, item->video_buffer->readable());
     item->video_mutex.unlock();
 
     emit videoPushed(srvid, bFirst);
@@ -1154,47 +1226,96 @@ int HDsContext::push_audio(int srvid, const av_pcmbuff* pcm){
     if (!item)
         return -2;
 
-    static int delay = 0;
-    if (srvid == playaudio_srvid){
-        if (!audio_player){
-            audio_player = new HAudioPlay(m_tInit.audio_bufnum > 0 ? m_tInit.audio_bufnum : 10);
+    item->audio_mutex.lock();
+    if (item->pcmlen != pcm->pcmlen){
+        if (item->audio_buffer){
+            delete item->audio_buffer;
+            item->audio_buffer = NULL;
+        }
+        item->audio_buffer = new HRingBuffer(pcm->pcmlen, m_tInit.audio_bufnum > 0 ? m_tInit.audio_bufnum : DEFAULT_AUDIO_BUFNUM);
+        item->a_channels = pcm->channels;
+        item->pcmlen = pcm->pcmlen;
+        item->samplerate = pcm->samplerate;
+    }
+
+    if (item->audio_buffer){
+        char* ptr = item->audio_buffer->write();
+        if (ptr){
+            memcpy(ptr, pcm->pcmbuf, pcm->pcmlen);
         }
 
-        if (audio_player->pushAudio((av_pcmbuff*)pcm) == 1){
-            bool start_play = true;
-            if (g_dsCtx->m_tInit.fps < 25){
-                start_play = false;
-                // delay for sound sync
-                if (delay == 0)
-                    delay = 10;
+        int cache = item->audio_buffer->readable();
+        qDebug("srvid=%d audio_cache=%d", srvid, cache);
+        if (cache <= 1)
+            item->audio_empty++;
+        else if (cache >= 6)
+            item->audio_empty = 0;
 
-                if (--delay == 0){
-                    start_play = true;
+        if (cache >= item->audio_buffer->size())
+            item->audio_full++;
+        else
+            item->audio_full = 0;
+    }
+    item->audio_mutex.unlock();
+
+    if (srvid == playaudio_srvid || item->src_type == SRC_TYPE_LMIC){
+        if (!item->audio_player){
+            item->audio_player = new HAudioPlay;
+            item->audio_player->srvid = srvid;
+        }
+
+        if (item->audio_player){
+            if (item->audio_player->channels != pcm->channels ||
+                item->audio_player->pcmlen != pcm->pcmlen ||
+                item->audio_player->samplerate != pcm->samplerate){
+                item->audio_player->stopPlay();
+                item->audio_player->channels = pcm->channels;
+                item->audio_player->pcmlen = pcm->pcmlen;
+                item->audio_player->samplerate = pcm->samplerate;
+                item->audio_player->startPlay(ext_screen ? HDMI1 : Pa_GetDefaultOutputDevice());
+            }
+
+            if (item->audio_empty >= AUDIO_EXCEPTION_CNT){
+                if (!item->audio_player->pause){
+                    qInfo("audio_empty: pauseplay some time");
+                    item->audio_player->pausePlay(true);
+                }
+            }else{
+                if (item->audio_player->pause){
+                    qInfo("resumeplay");
+                    item->audio_player->pausePlay(false);
                 }
             }
 
-            if (start_play){
-                audio_player->startPlay(ext_screen ? HDMI1 : Pa_GetDefaultOutputDevice());
+            if (item->audio_full >= AUDIO_EXCEPTION_CNT){
+                if (item->audio_buffer){
+                    item->audio_mutex.lock();
+                    int audio_bufnum = item->audio_buffer->size();
+                    if (audio_bufnum*2 <= AUDIO_BUFFER_MAXNUM){
+                        qInfo("audio_full: extend audio_buffer=%d", audio_bufnum*2);
+                        HRingBuffer *new_buf = new HRingBuffer(item->pcmlen, audio_bufnum*2);
+                        for (int i = 0; i < audio_bufnum; ++i){
+                            char *r = item->audio_buffer->read();
+                            char *w = item->audio_buffer->write();
+                            if (r && w){
+                                memcpy(w, r, item->pcmlen);
+                            }
+                        }
+                        delete item->audio_buffer;
+                        item->audio_buffer = new_buf;
+                    }else{
+                        qInfo("audio_full: discard some frames");
+                        for (int i = 0; i < audio_bufnum/2; ++i){
+                            item->audio_buffer->read();
+                        }
+                    }
+                    item->audio_mutex.unlock();
+                }
             }
         }
     }
 
-    // sound mixer palyer for limic
-    if (item->src_type == SRC_TYPE_LMIC){
-        if (!item->audio_player){
-            item->audio_player = new HAudioPlay(m_tInit.audio_bufnum > 0 ? m_tInit.audio_bufnum : 10);
-        }
-
-        if (item->audio_player->pushAudio((av_pcmbuff*)pcm) == 1){
-            item->audio_player->startPlay(ext_screen ? HDMI1 : Pa_GetDefaultOutputDevice());
-        }
-    }
-
-    if (!item->canShow()){
-        return 1;
-    }
-
-    if (item->bUpdateAverage){
+    if (item->canShow() && item->bUpdateAverage){
         int channels = pcm->channels;
         unsigned short * src = (unsigned short *)pcm->pcmbuf;
         int samples = pcm->pcmlen / 2 / channels; // /2 beacause default bpp=16
@@ -1288,8 +1409,10 @@ void HDsContext::setPlayProgress(int srvid, int progress){
 
 void HDsContext::setPlayaudioSrvid(int id){
     if (playaudio_srvid != id){
-        if (audio_player)
-            audio_player->stopPlay();
+        DsSrvItem* item = getSrvItem(playaudio_srvid);
+        if (item && item->audio_player){
+            item->audio_player->stopPlay();
+        }
         playaudio_srvid = id;
     }
 }

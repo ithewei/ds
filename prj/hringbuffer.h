@@ -31,6 +31,7 @@ public:
 
         read_index = 0;
         write_index = 0;
+        readable_num = 0;
 
         policy = POLICY_DISCARD;
     }
@@ -42,14 +43,13 @@ public:
         }
     }
 
-    int size() {return _size;}
-
     char* read(){
         char* ret = get(read_index);
 
         if (*ret == USED){
             read_index = (read_index + 1)%_num;
             *ret = UNUSED;
+            readable_num--;
             return ret+1;
         }
 
@@ -69,10 +69,20 @@ public:
 
         write_index = (write_index+1)%_num;
         *ret = USED;
+        readable_num++;
 
         return ret+1;
     }
 
+    int readable(){
+        return readable_num;
+    }
+
+    int size(){
+        return _size;
+    }
+
+private:
     char* get(int index){
         if (index < 0 || index >= _num)
             return NULL;
@@ -87,6 +97,7 @@ private:
 
     int read_index;
     int write_index;
+    int readable_num;
 
     int policy;
 };

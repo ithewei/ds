@@ -18,14 +18,13 @@ enum ASOUND_DEVICE{
 class HAudioPlay
 {
 public:
-    explicit HAudioPlay(int buf_size = 10);
+    explicit HAudioPlay();
     ~HAudioPlay();
 
 public:
     int startPlay(int dev = PCH_ANALOG);
     void stopPlay();
     void pausePlay(bool bPause);
-    int pushAudio(av_pcmbuff* pcm);
 
     static int playCallback(
             const void *input, void *output,
@@ -35,18 +34,15 @@ public:
             void *userData );
 
 public:
-    int buf_size;
+    int srvid;
+    int pcmlen;
+    int samplerate;
+    int channels;
+    bool pause;
 private:
     static bool s_bInit;
 
     PaStream* m_pStream;
-
-    HRingBuffer* audio_buffer;
-    QMutex audio_mutex;
-    int pcmlen;
-    int samplerate;
-    int channels;
-
     int dev;
 };
 

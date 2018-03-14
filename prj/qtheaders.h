@@ -93,6 +93,20 @@ inline void centerWidget(QWidget* wdg){
     }
 }
 
+inline QRect adjustPos(QRect rc, QRect rcParent){
+    int x = qMax(rc.left(), rcParent.left());
+    int y = qMax(rc.top(), rcParent.top());
+    int w = qMin(rc.width(), rcParent.width());
+    int h = qMin(rc.height(), rcParent.height());
+
+    if (rc.right() >= rcParent.right())
+        x = rcParent.right() - w;
+    if (rc.bottom() >= rcParent.bottom())
+        y = rcParent.bottom() - h;
+
+    return QRect(x,y,w,h);
+}
+
 typedef QWidget HWidget;
 //============================================================================
 #endif // QTHEADERS_H

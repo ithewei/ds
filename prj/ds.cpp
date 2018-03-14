@@ -32,13 +32,7 @@ DSSHARED_EXPORT int libinit(const char* xml, void* task, void** ctx){
             strXmlPath += "ds";
             APPENDSEPARTOR(strXmlPath)
             g_dsCtx->ds_path = strXmlPath;
-    #if LAYOUT_TYPE_MULTI_INPUT
-            strXmlPath += "director_service_mv.xml";
-    #elif LAYOUT_TYPE_ONLY_OUTPUT
-            strXmlPath += "director_service_out.xml";
-    #elif LAYOUT_TYPE_OUTPUT_AND_INPUT
             strXmlPath += "director_service.xml";
-    #endif
             if(job_check_path(strXmlPath.c_str()) != 0)
             {
                 qWarning("not found director_service.xml");
@@ -250,9 +244,6 @@ DSSHARED_EXPORT int liboper(int media_type, int data_type, int opt, void* param,
                 break;
             }
         }else if (data_type == SERVICE_DATATYPE_CHR){
-            if (opt != libchar())
-                return -2;
-
             const director_service_cont * dsc = (const director_service_cont *)param;
 #if LAYOUT_TYPE_ONLY_OUTPUT
             int srvid = OUTPUT_SRVID;

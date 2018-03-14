@@ -64,8 +64,8 @@
     F(RC_SUBMIT, "submit.png") \
     F(RC_CLOSE, "close.png") \
     \
-    F(RC_LEFT, "left_expand.png") \
-    F(RC_RIGHT, "right_fold.png") \
+    F(RC_LEFT_EXPAND, "left_expand.png") \
+    F(RC_RIGHT_FOLD, "right_fold.png") \
     \
     F(RC_FULLSCREEN, "fullscreen.svg") \
     F(RC_EXIT_FULLSCREEN, "nofullscreen.svg") \
@@ -114,7 +114,12 @@
     \
     F(RC_SOUNDMIXER, "soundmixer.png")\
     F(RC_TASKINFO, "taskinfo.png")\
-    F(RC_HOME, "home.png")
+    F(RC_HOME, "home.png") \
+    \
+    F(RC_UP, "up.svg") \
+    F(RC_DOWN, "down.svg") \
+    F(RC_LEFT, "left.svg") \
+    F(RC_RIGHT, "right.svg")
 
 #define FOR_EACH_ICON_MV(F) \
     F(RC_STYLE1, "style1.png") \

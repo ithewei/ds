@@ -299,7 +299,6 @@ protected:
     virtual void mouseMoveEvent(QMouseEvent *e);
     virtual void mouseReleaseEvent(QMouseEvent *e);
 
-    QRect adjustPos(QRect rc);
     QRect scaleToOrigin(QRect rc);
     QRect scaleToDraw(QRect rc);
 

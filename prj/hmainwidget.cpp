@@ -1,6 +1,8 @@
 #include "hmainwidget.h"
 #include "hrcloader.h"
 
+HMainWidget* g_mainWdg = NULL;
+
 HMainWidget::HMainWidget(QWidget *parent) : HWidget(parent){
     m_focusGLWdg = NULL;
     m_fullscreenGLWdg = NULL;
@@ -104,10 +106,10 @@ void HMainWidget::initUI(){
 
 #if LAYOUT_TYPE_OUTPUT_AND_INPUT
     QSize sz(ICON_WIDTH, ICON_HEIGHT);
-    m_btnLeftExpand = genPushButton(sz, rcloader->get(RC_LEFT), this);
+    m_btnLeftExpand = genPushButton(sz, rcloader->get(RC_LEFT_EXPAND), this);
     m_btnLeftExpand->setGeometry(width()-ICON_WIDTH-1, height()-ICON_HEIGHT-1, ICON_WIDTH, ICON_HEIGHT);
 
-    m_btnRightFold = genPushButton(sz, rcloader->get(RC_RIGHT), this);
+    m_btnRightFold = genPushButton(sz, rcloader->get(RC_RIGHT_FOLD), this);
     m_btnRightFold->setGeometry(width()-ICON_WIDTH-1, height()-ICON_HEIGHT-1, ICON_WIDTH, ICON_HEIGHT);
     m_btnRightFold->hide();
 
@@ -326,7 +328,8 @@ void HMainWidget::mouseMoveEvent(QMouseEvent *event){
             return;
 
         if (wdg->type == HGLWidget::LMIC){
-            wdg->move(event->x()-wdg->width()/2, event->y()-wdg->height()/2);
+            QRect rc = adjustPos(QRect(event->x()-wdg->width()/2, event->y()-wdg->height()/2, wdg->width(), wdg->height()), rect());
+            wdg->setGeometry(rc);
             return;
         }
 
@@ -428,7 +431,8 @@ void HMainWidget::onTimerRepaint(){
 
         if (!wdg->isResetStatus() && wdg->isVisible()){
             if (g_dsCtx->pop_video(wdg->srvid) == 0)
-                wdg->repaint();
+                //wdg->repaint();
+                wdg->update();
 
             if (wdg->srvid == OUTPUT_SRVID)
                 isExtPopVideo = true;
@@ -452,7 +456,6 @@ void HMainWidget::onActionChanged(int action){
     }else if (action == 1){
         hide();
         showFullScreen();
-        activateWindow();
         raise();
         if (g_dsCtx->m_tInit.output != 0){
             dsnetwork->queryOverlayInfo();
@@ -468,6 +471,8 @@ void HMainWidget::onActionChanged(int action){
         // when hide,status change but not repaint
         for (int i = 0; i < m_vecGLWdg.size(); ++i){
             m_vecGLWdg[i]->update();
+            //m_vecGLWdg[i]->updateToolWidgets();
+            m_vecGLWdg[i]->showToolWidgets(false);
         }
 #if LAYOUT_TYPE_OUTPUT_AND_INPUT
         if (m_toolbar->isVisible())
@@ -769,8 +774,9 @@ void HMainWidget::onScreenCountChanged(int cnt){
     qInfo("cnt=%d", cnt);
     setExtScreen(cnt);
 
-    if (g_dsCtx->audio_player){
-        g_dsCtx->audio_player->stopPlay();
+    DsSrvItem *item = g_dsCtx->getSrvItem(OUTPUT_SRVID);
+    if (item && item->audio_player){
+        item->audio_player->stopPlay();
     }
 }
 

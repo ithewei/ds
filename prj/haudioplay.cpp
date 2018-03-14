@@ -1,4 +1,5 @@
 #include "haudioplay.h"
+#include "hdsctx.h"
 
 bool HAudioPlay::s_bInit = false;
 
@@ -14,36 +15,40 @@ int HAudioPlay::playCallback(
         return -1;
 
     qDebug("dev=%d frameCount=%ld, pcmlen=%d",pObj->dev, frameCount, pObj->pcmlen);
-    pObj->audio_mutex.lock();
-    if (pObj->audio_buffer && frameCount*2*pObj->channels == pObj->pcmlen){
-        char* ptr = pObj->audio_buffer->read();
-        if (ptr){
-            memcpy(output, ptr, pObj->pcmlen);
-        }else{
-            qDebug("sound delay");
+    DsSrvItem* item = g_dsCtx->getSrvItem(pObj->srvid);
+    if (item){
+        item->audio_mutex.lock();
+        if (item->audio_buffer && frameCount*2*pObj->channels == pObj->pcmlen){
+            char* ptr = item->audio_buffer->read();
+            if (ptr){
+                memcpy(output, ptr, pObj->pcmlen);
+            }else{
+                memset(output, 0, pObj->pcmlen);
+                qInfo("audio_buffer is empty, memzero");
+            }
         }
+        item->audio_mutex.unlock();
     }
-    pObj->audio_mutex.unlock();
 
     return 0;
 }
 
-HAudioPlay::HAudioPlay(int buf_size){
-    this->buf_size = buf_size;
+HAudioPlay::HAudioPlay(){
+    srvid = 0;
     m_pStream = NULL;
-    audio_buffer = NULL;
     pcmlen = 0;
     channels = 0;
     samplerate = 0;
     dev = 0;
+    pause = true;
 
     if (!s_bInit){
-        qInfo("Pa_Initialize start");
+        s_bInit = true;
         PaError err = Pa_Initialize();
         if (err == paNoError){
-            s_bInit = true;
-            qInfo("Pa_Initialize end");
+            qInfo("Pa_Initialize succeed!");
         }else{
+            s_bInit = false;
             qCritical("Pa_Initialize error:%s", Pa_GetErrorText(err));
         }
     }
@@ -54,11 +59,6 @@ HAudioPlay::~HAudioPlay(){
 
     //qInfo("Pa_Terminate");
     //Pa_Terminate();
-
-    if (audio_buffer){
-        delete audio_buffer;
-        audio_buffer = NULL;
-    }
 }
 
 int HAudioPlay::startPlay(int dev){
@@ -119,64 +119,41 @@ int HAudioPlay::startPlay(int dev){
         return err;
     }
 
-    err = Pa_StartStream(m_pStream);
-    if (err != paNoError){
-        qCritical("Pa_StartStream error:%s", Pa_GetErrorText(err));
-        return err;
-    }
+//    err = Pa_StartStream(m_pStream);
+//    if (err != paNoError){
+//        qCritical("Pa_StartStream error:%s", Pa_GetErrorText(err));
+//        return err;
+//    }
+//    pause = false;
+    pause = true;
 
     return paNoError;
 }
 
 void HAudioPlay::stopPlay(){
+    qInfo("");
     if (m_pStream){
         Pa_StopStream(m_pStream);
         Pa_CloseStream(m_pStream);
         m_pStream = NULL;
     }
+    pcmlen = 0;
+    channels = 0;
+    samplerate = 0;
 }
 
 void HAudioPlay::pausePlay(bool bPause){
-    qInfo("");
+    qInfo("pause=%d", bPause);
     if (!m_pStream)
         return;
 
     if (bPause){
-        Pa_StopStream(m_pStream);
+        if (!pause)
+            Pa_StopStream(m_pStream);
     }else{
-        Pa_StartStream(m_pStream);
-    }
-}
-
-int HAudioPlay::pushAudio(av_pcmbuff* pcm){
-    if (pcm->pcmlen != pcmlen || pcm->channels != channels || pcm->samplerate != pcm->samplerate){
-        stopPlay();
-        pcmlen = pcm->pcmlen;
-        channels = pcm->channels;
-        samplerate = pcm->samplerate;
-        qInfo("pcmlen=%d, channels=%d, samplerate=%d", pcmlen, channels, samplerate);
+        if (pause)
+            Pa_StartStream(m_pStream);
     }
 
-    audio_mutex.lock();
-    if (!audio_buffer || pcm->pcmlen != audio_buffer->size()){
-        if (audio_buffer){
-            delete audio_buffer;
-            audio_buffer = NULL;
-        }
-        audio_buffer = new HRingBuffer(pcmlen, buf_size);
-        qInfo("audio_buf_size=%d", buf_size);
-    }
-
-    if (audio_buffer){
-        char* ptr = audio_buffer->write();
-        if (ptr){
-            memcpy(ptr, pcm->pcmbuf, pcmlen);
-        }
-    }
-    audio_mutex.unlock();
-
-    if (!m_pStream)
-        return 1; // need startPlay
-
-    return 0;
+    pause = bPause;
 }

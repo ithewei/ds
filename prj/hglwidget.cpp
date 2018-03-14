@@ -1,6 +1,7 @@
 #include "hglwidget.h"
 #include "hdsctx.h"
 #include "hrcloader.h"
+#include "hmainwidget.h"
 
 HGLWidget::HGLWidget(QWidget *parent)
     : QGLWidgetImpl(parent)
@@ -44,6 +45,7 @@ void HGLWidget::onPause(){
 
 void HGLWidget::onStop(){
     resetStatus();
+    updateToolWidgets();
 }
 
 #include "hptzwidget.h"
@@ -421,7 +423,7 @@ void HGLWidget::paintGL(){
     case PLAYING:
         if (m_status & PLAY_VIDEO){
             drawVideo();
-            if (m_bDrawInfo && g_dsCtx->m_tInit.drawfps)
+            if (g_dsCtx->m_tInit.drawfps)
                 drawFps();
         }
 
@@ -872,7 +874,7 @@ bool HCombGLWidget::showToolWidgets(bool bShow){
     if (m_bLockToolbar)
         return true;
 
-    if(!bShow && m_targetWdg->isVisible())
+    if(!bShow && (!m_target.isNull() && m_target.obj.pItem->type != HAbstractItem::SCREEN))
         return true;
 
     HGLWidget::showToolWidgets(bShow);
@@ -946,23 +948,6 @@ HOperateObject HCombGLWidget::getObejctByPos(QPoint pt, HAbstractItem::TYPE type
     }
 
     return HOperateObject(NULL);
-}
-
-QRect HCombGLWidget::adjustPos(QRect rc){
-    int x = rc.x();
-    int y = rc.y();
-    int w = rc.width();
-    int h = rc.height();
-    if (rc.left() < 0)
-        x = 0;
-    if (rc.right() >= width())
-        x = width()-w;
-    if (rc.top() < 0)
-        y = 0;
-    if (rc.bottom() >= height())
-        y = height()-h;
-
-    return QRect(x,y,w,h);
 }
 
 QRect HCombGLWidget::scaleToOrigin(QRect rc){
@@ -1087,7 +1072,7 @@ void HCombGLWidget::onZoomIn(){
                 w = width();
             if (h > height())
                 h = height();
-            QRect rcDst = adjustPos(QRect(ptCenter.x() - w/2, ptCenter.y() - h/2, w, h ));
+            QRect rcDst = adjustPos(QRect(ptCenter.x() - w/2, ptCenter.y() - h/2, w, h ), rect());
             m_target.pWdg->setGeometry(rcDst);
         }
     }
@@ -1114,7 +1099,7 @@ void HCombGLWidget::onZoomOut(){
                 w = 32;
             if (h < 32)
                 h = 32;
-            QRect rcDst = adjustPos(QRect(ptCenter.x() - w/2, ptCenter.y() - h/2, w, h ));
+            QRect rcDst = adjustPos(QRect(ptCenter.x() - w/2, ptCenter.y() - h/2, w, h ), rect());
             m_target.pWdg->setGeometry(rcDst);
         }
     }
@@ -1146,6 +1131,12 @@ void HCombGLWidget::showEffect(){
 }
 
 void HCombGLWidget::onTextAccepted(HTextItem item){
+    if (m_vecTexts.size() + m_vecPictures.size() >= g_dsCtx->m_tInit.maxnum_overlay){
+        QMessageBox::information(this, "提示", "已超过最大叠加物数量，请删除后再添加！");
+        g_mainWdg->raise();
+        return;
+    }
+
     HTextItem* pItem = new HTextItem(item);
     m_target.obj.attachItem(pItem);
     showOperateTarget();
@@ -1174,6 +1165,12 @@ void HCombGLWidget::showExpre(){
 #define EXPRE_POLICY_ORIGIN_SIZE    1
 
 void HCombGLWidget::onExpreSelected(QString& filepath){
+    if (m_vecTexts.size() + m_vecPictures.size() >= g_dsCtx->m_tInit.maxnum_overlay){
+        QMessageBox::information(this, "提示", "已超过最大叠加物数量，请删除后再添加！");
+        g_mainWdg->raise();
+        return;
+    }
+
     HPictureItem* pItem = new HPictureItem;
     strncpy(pItem->src, filepath.toLocal8Bit().constData(), MAXLEN_STR);
 
@@ -1198,7 +1195,7 @@ void HCombGLWidget::onExpreSelected(QString& filepath){
             }
         }
     }
-    m_target.pWdg->setGeometry(adjustPos(QRect((width()-w)/2, (height()-h)/2, w, h)));
+    m_target.pWdg->setGeometry(adjustPos(QRect((width()-w)/2, (height()-h)/2, w, h), rect()));
     m_target.pWdg->setPixmap(pixmap);
     m_target.pWdg->show();
 
@@ -1300,7 +1297,7 @@ void HCombGLWidget::drawOutline(){
 void HCombGLWidget::drawTaskInfo(){
     DsSrvItem* item = g_dsCtx->getSrvItem(srvid);
     if (item){
-        m_label->setGeometry(10,10, width()/2, height()/2);
+        m_label->setGeometry(10,10, width()-10, height()-10);
         m_label->setText(item->taskinfo);
         if (!m_label->isVisible())
             m_label->setVisible(true);
@@ -1462,7 +1459,7 @@ void HCombGLWidget::mouseMoveEvent(QMouseEvent *e){
             int w = rc.width();
             int h = rc.height();
             rc.setRect(e->x()-w/2, e->y()-h/2, w, h);
-            rc = adjustPos(rc);
+            rc = adjustPos(rc, rect());
         }else{
             // resize
             if (m_location & Left){
@@ -1482,6 +1479,7 @@ void HCombGLWidget::mouseMoveEvent(QMouseEvent *e){
         }
 
         m_target.pWdg->setGeometry(rc);
+        e->accept();
     }
 
 //    if (m_wdgTrash->isVisible()){

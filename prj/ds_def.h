@@ -23,7 +23,30 @@
 #define DISABLE_SCALE                 0
 #define ENABLE_SCALE            1
 
+#define DEFAULT_AUDIO_BUFNUM    15
+#define DEFAULT_VIDEO_BUFNUM    10
+#define DEFAULT_LMIC_VIDEO_BUFNUM   3
+
+#define AUDIO_EXCEPTION_CNT 5
+#define AUDIO_BUFFER_MAXNUM 50
+
 struct DsInitInfo{
+    int debug;
+    int save_span;
+    int audio;
+    int display_mode;
+    int scale_mode;
+    int fps;
+    int audio_bufnum;
+    int video_bufnum;
+
+    int autolayout;
+    int maxnum_layout;
+    int row;
+    int col;
+    int merge[2];
+    int output;
+
     unsigned int infcolor;
     unsigned int titcolor;
     unsigned int outlinecolor;
@@ -35,23 +58,9 @@ struct DsInitInfo{
     unsigned int audiocolor_fg_high;
     unsigned int audiocolor_fg_top;
 
-    int debug;
-    int drawDebugInfo;
-    int save_span;
-    int mouse;
-    int autolayout;
-    int maxnum_layout;
-    int row;
-    int col;
-    int merge[2];
-    int output;
 
-    int audio;
-    int display_mode;
-    int scale_mode;
-    int fps;
-    int video_bufnum;
-    int audio_bufnum;
+    int mouse;
+    int fontsize;
 
     int drawinfo;
     int drawtitle;
@@ -59,8 +68,8 @@ struct DsInitInfo{
     int drawnum;
     int drawaudio;
     int drawoutline;
+    int drawDebugInfo;
 
-    int fontsize;
     int spacing;
     int titlebar_height;
     int toolbar_height;
@@ -70,6 +79,10 @@ struct DsInitInfo{
     QString title_format;
     QString taskinfo_format;
 
+    int ptz_num[6];
+    int ptz_den[6];
+
+    int maxnum_overlay;
     int expre_policy;
 
     DsInitInfo(){
@@ -77,7 +90,6 @@ struct DsInitInfo{
         titcolor = 0xFF5A1EFF;
         outlinecolor = 0xFFFFFFFF;
         focus_outlinecolor = 0xFF0000FF;
-
         audiostyle = 1;
         audiocolor_bg = 0x00FFFF80;
         audiocolor_fg_low = 0xFFFF0080;
@@ -93,18 +105,14 @@ struct DsInitInfo{
         col = 0;
         merge[0] = 0;
         merge[1] = 0;
-#if LAYOUT_TYPE_ONLY_OUTPUT
-        output = 1;
-#else
         output = 0;
-#endif
 
         audio = 1;
         display_mode = DISPLAY_MODE_TIMER;
         scale_mode = ENABLE_SCALE;
         fps = 25;
-        video_bufnum = 10;
-        audio_bufnum = 10;
+        video_bufnum = DEFAULT_VIDEO_BUFNUM;
+        audio_bufnum = DEFAULT_AUDIO_BUFNUM;
 
         drawinfo = 0;
         drawtitle = 1;
@@ -123,7 +131,13 @@ struct DsInitInfo{
         title_format = "%title";
         taskinfo_format = "%rate";
 
+        maxnum_overlay = 3;
         expre_policy = 0;
+
+        for (int i = 0; i < 6; ++i){
+            ptz_num[i] = 1;
+            ptz_den[i] = 10;
+        }
     }
 };
 
@@ -241,6 +255,10 @@ struct DsSrvItem{
     HRingBuffer* audio_buffer;
     QMutex audio_mutex;
     int a_channels;
+    int pcmlen;
+    int samplerate;
+    int audio_empty;
+    int audio_full;
     unsigned short a_average[2];
     bool bUpdateAverage;
 
@@ -285,7 +303,11 @@ struct DsSrvItem{
         src_addr.clear();
         ptz_enabled = false;
 
+        audio_empty = 0;
+        audio_full = 0;
         a_channels = 0;
+        pcmlen = 0;
+        samplerate = 0;
         a_average[0] = 0;
         a_average[1] = 0;
         bUpdateAverage = false;
@@ -305,16 +327,26 @@ struct DsSrvItem{
     }
 
     void release(){
+        video_mutex.lock();
         if (video_buffer){
             delete video_buffer;
             video_buffer = NULL;
         }
+        video_mutex.unlock();
+
         tex_yuv.release();
         free_scale();
 
+        audio_mutex.lock();
+        if (audio_buffer){
+            delete audio_buffer;
+            audio_buffer = NULL;
+        }
+        audio_mutex.unlock();
+
         if (audio_player){
             delete audio_player;
-            audio_buffer = NULL;
+            audio_player = NULL;
         }
     }
 

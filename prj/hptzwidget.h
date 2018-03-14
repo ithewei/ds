@@ -4,12 +4,6 @@
 #include "qtheaders.h"
 #include <QToolButton>
 
-#define PTZ_BTN_WIDTH   96
-#define PTZ_BTN_HEIGHT  96
-
-#define PTZ_NUMERATOR   1
-#define PTZ_DENOMINATOR 20
-
 class HPtzWidget : public HWidget
 {
     Q_OBJECT
@@ -34,10 +28,10 @@ protected:
 
 public:
     int srvid;
-    QToolButton* m_btnLeft;
-    QToolButton* m_btnRight;
-    QToolButton* m_btnTop;
-    QToolButton* m_btnBottom;
+    QPushButton* m_btnLeft;
+    QPushButton* m_btnRight;
+    QPushButton* m_btnTop;
+    QPushButton* m_btnBottom;
     QPushButton* m_btnNear;
     QPushButton* m_btnFar;
 };
