@@ -116,20 +116,6 @@ void* HDsContext::thread_gui(void* param){
     progress->setValue(10);
     app.processEvents();
     QString str = g_dsCtx->cur_path.c_str();
-//#if LAYOUT_TYPE_OUTPUT_AND_INPUT
-//    QFile file("/var/www/appname.txt");
-//    if (file.open(QIODevice::ReadOnly)){
-//        QString appname = file.readAll();
-//        if (appname == "transcoder_sohu")
-//            str += "ds_sohu.conf";
-//        else
-//            str += "ds.conf";
-//    }else{
-//        str += "ds.conf";
-//    }
-//#else
-//    str += "ds_out.conf";
-//#endif
     str += "ds.conf";
     dsconf->load(str);
 
@@ -235,8 +221,11 @@ int HDsContext::parse_layout_xml(const char* xml_file){
     m_tInit.display_mode = elem_im.attribute("display_mode", "1").toInt();
     m_tInit.scale_mode = elem_im.attribute("scale_mode", "2").toInt();
     m_tInit.fps = elem_im.attribute("fps", "25").toInt();
-    m_tInit.audio_bufnum = elem_im.attribute("audio_bufnum", "10").toInt();
+    m_tInit.audio_bufnum = elem_im.attribute("audio_bufnum", "25").toInt();
     m_tInit.video_bufnum = elem_im.attribute("video_bufnum", "10").toInt();
+    m_tInit.audio_bufnum_max = elem_im.attribute("audio_bufnum_max", "100").toInt();
+    m_tInit.video_bufnum_max = elem_im.attribute("video_bufnum_max", "50").toInt();
+    m_tInit.av_maxspan = elem_im.attribute("av_maxspan", "200").toInt();
 
     QDomElement elem_ui = elem_root.firstChildElement("UI");
     if (elem_ui.isNull())
@@ -878,10 +867,13 @@ int HDsContext::push_video(int srvid, const av_picture* pic){
 #endif
     }
 
-    char* ptr = item->video_buffer->write();
-    if (ptr){
+    frame_info fi = item->video_buffer->write();
+    if (fi.data){
+        // save ts
+        *(unsigned int*)(fi.data-4) = pic->stamp;
+
         int y_size = w*h;
-        char * y = ptr;
+        char * y = fi.data;
         char * u = y + y_size;
         char * v = u + (y_size >> 2);
         char * s_y = (char*)pic->data[0];
@@ -909,6 +901,24 @@ int HDsContext::push_video(int srvid, const av_picture* pic){
             v   += w;
             s_u += pic->stride[1];
             s_v += pic->stride[2];
+        }
+    }else{
+        if (srvid == playaudio_srvid){
+            // extend video_buffer for video and audio sync
+            int bufnum = item->video_buffer->num();
+            int new_bufnum = bufnum + 10;
+            if (new_bufnum <= g_dsCtx->m_tInit.video_bufnum_max){
+                HRingBuffer *newbuf = new HRingBuffer(item->video_buffer->size(), new_bufnum);
+                for (int i = 0; i < bufnum; ++i){
+                    frame_info r = item->video_buffer->read();
+                    frame_info w = newbuf->write();
+                    if (r.data && w.data){
+                        memcpy(w.data-4, r.data-4, item->video_buffer->size()+4);
+                    }
+                }
+                delete item->video_buffer;
+                item->video_buffer = newbuf;
+            }
         }
     }
 
@@ -982,18 +992,18 @@ int HDsContext::pop_video(int srvid){
 
     int retcode = -100;
     item->video_mutex.lock();
-    char* ptr = item->video_buffer->read();
-    if (!ptr){
+    frame_info fi = item->video_buffer->read();
+    if (!fi.data){
         qWarning("[srvid=%d]read to fast", srvid);
         if (++item->pop_video_failed_cnt > 3*m_tInit.fps)
             stop(srvid);
     }else{
         item->pop_video_failed_cnt = 0;
         if (item->pic_w == item->tex_yuv.width && item->pic_h == item->tex_yuv.height){
-            memcpy(item->tex_yuv.data, ptr, item->pic_w*item->pic_h*3/2);
+            memcpy(item->tex_yuv.data, fi.data, item->pic_w*item->pic_h*3/2);
         }else{
             uint8_t* src_date[3];
-            src_date[0] = (unsigned char*)ptr;
+            src_date[0] = (unsigned char*)fi.data;
             int src_ysize = item->pic_w * item->pic_h;
             src_date[1] = src_date[0] + src_ysize;
             src_date[2] = src_date[1] + (src_ysize >> 2);
@@ -1015,7 +1025,26 @@ int HDsContext::pop_video(int srvid){
     }
     item->video_mutex.unlock();
 
+    item->v_cur_ts = fi.ts;
+
     return retcode;
+}
+
+int HDsContext::discard_video(int srvid, int num){
+    DsSrvItem* item = getSrvItem(srvid);
+    if (!item)
+        return -1;
+
+    item->video_mutex.lock();
+    if (item->video_buffer){
+        if (item->video_buffer->readable() > num){
+            for (int i = 0; i < num; ++i)
+                item->video_buffer->read();
+        }
+    }
+    item->video_mutex.unlock();
+
+    return 0;
 }
 
 int HDsContext::push_audio(int srvid, const av_pcmbuff* pcm){
@@ -1044,9 +1073,33 @@ int HDsContext::push_audio(int srvid, const av_pcmbuff* pcm){
     }
 
     if (item->audio_buffer){
-        char* ptr = item->audio_buffer->write();
-        if (ptr){
-            memcpy(ptr, pcm->pcmbuf, pcm->pcmlen);
+        frame_info fi = item->audio_buffer->write();
+        if (fi.data){
+            *(unsigned int*)(fi.data-4) = pcm->stamp;
+            memcpy(fi.data, pcm->pcmbuf, pcm->pcmlen);
+        }else{
+            if (g_dsCtx->playaudio_srvid == srvid){
+                int bufnum = item->audio_buffer->num();
+                int new_bufnum = bufnum + 10;
+                if (new_bufnum <= g_dsCtx->m_tInit.audio_bufnum_max){
+                    // extend audio_buffer
+                    HRingBuffer *newbuf = new HRingBuffer(item->audio_buffer->size(), new_bufnum);
+                    for (int i = 0; i < bufnum; ++i){
+                        frame_info r = item->audio_buffer->read();
+                        frame_info w = newbuf->write();
+                        if (r.data && w.data){
+                            memcpy(w.data-4, r.data-4, item->audio_buffer->size()+4);
+                        }
+                    }
+                    delete item->audio_buffer;
+                    item->audio_buffer = newbuf;
+                }else{
+                    qInfo("audio_full: discard some frames");
+                    for (int i = 0; i < bufnum/2; ++i){
+                        item->audio_buffer->read();
+                    }
+                }
+            }
         }
 
         int cache = item->audio_buffer->readable();
@@ -1055,11 +1108,6 @@ int HDsContext::push_audio(int srvid, const av_pcmbuff* pcm){
             item->audio_empty++;
         else if (cache >= 6)
             item->audio_empty = 0;
-
-        if (cache >= item->audio_buffer->size())
-            item->audio_full++;
-        else
-            item->audio_full = 0;
     }
     item->audio_mutex.unlock();
 
@@ -1089,32 +1137,6 @@ int HDsContext::push_audio(int srvid, const av_pcmbuff* pcm){
                 if (item->audio_player->pause){
                     qInfo("resumeplay");
                     item->audio_player->pausePlay(false);
-                }
-            }
-
-            if (item->audio_full >= AUDIO_EXCEPTION_CNT){
-                if (item->audio_buffer){
-                    item->audio_mutex.lock();
-                    int audio_bufnum = item->audio_buffer->size();
-                    if (audio_bufnum*2 <= AUDIO_BUFFER_MAXNUM){
-                        qInfo("audio_full: extend audio_buffer=%d", audio_bufnum*2);
-                        HRingBuffer *new_buf = new HRingBuffer(item->pcmlen, audio_bufnum*2);
-                        for (int i = 0; i < audio_bufnum; ++i){
-                            char *r = item->audio_buffer->read();
-                            char *w = item->audio_buffer->write();
-                            if (r && w){
-                                memcpy(w, r, item->pcmlen);
-                            }
-                        }
-                        delete item->audio_buffer;
-                        item->audio_buffer = new_buf;
-                    }else{
-                        qInfo("audio_full: discard some frames");
-                        for (int i = 0; i < audio_bufnum/2; ++i){
-                            item->audio_buffer->read();
-                        }
-                    }
-                    item->audio_mutex.unlock();
                 }
             }
         }

@@ -23,12 +23,14 @@
 #define DISABLE_SCALE                 0
 #define ENABLE_SCALE            1
 
-#define DEFAULT_AUDIO_BUFNUM    15
+#define DEFAULT_AUDIO_BUFNUM    10
 #define DEFAULT_VIDEO_BUFNUM    10
 #define DEFAULT_LMIC_VIDEO_BUFNUM   3
+#define DEFAULT_AV_MAXSPAN      200
 
 #define AUDIO_EXCEPTION_CNT 5
 #define AUDIO_BUFFER_MAXNUM 50
+#define VIDEO_BUFFER_MAXNUM 50
 
 struct DsInitInfo{
     int debug;
@@ -38,7 +40,10 @@ struct DsInitInfo{
     int scale_mode;
     int fps;
     int audio_bufnum;
+    int audio_bufnum_max;
     int video_bufnum;
+    int video_bufnum_max;
+    int av_maxspan;
 
     int autolayout;
     int maxnum_layout;
@@ -112,7 +117,10 @@ struct DsInitInfo{
         scale_mode = ENABLE_SCALE;
         fps = 25;
         video_bufnum = DEFAULT_VIDEO_BUFNUM;
+        video_bufnum_max = VIDEO_BUFFER_MAXNUM;
         audio_bufnum = DEFAULT_AUDIO_BUFNUM;
+        audio_bufnum_max = AUDIO_BUFFER_MAXNUM;
+        av_maxspan = DEFAULT_AV_MAXSPAN;
 
         drawinfo = 0;
         drawtitle = 1;
@@ -264,6 +272,13 @@ struct DsSrvItem{
 
     unsigned int a_input;
     unsigned int v_input;
+
+    // ts for video and audio sync
+    unsigned int a_base_ts;
+    unsigned int v_base_ts;
+    unsigned int a_cur_ts;
+    unsigned int v_cur_ts;
+
     ifservice_callback * ifcb;
     bool spacer;
     bool spacer_activate;
@@ -317,6 +332,10 @@ struct DsSrvItem{
 
         a_input = 0;
         v_input = 0;
+        a_base_ts = 0;
+        v_base_ts = 0;
+        a_cur_ts = 0;
+        v_cur_ts = 0;
 
         ifcb = NULL;
         spacer = false;

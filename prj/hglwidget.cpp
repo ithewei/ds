@@ -55,9 +55,6 @@ void HGLWidget::showPtz(){
     ptz->setWindowFlags(Qt::Popup | Qt::X11BypassWindowManagerHint);
     ptz->setAttribute(Qt::WA_DeleteOnClose, true);
     ptz->setWindowOpacity(0.8);
-//    int x = geometry().x() + (width() - ptz->width())/2;
-//    int y = geometry().y() + g_dsCtx->m_tInit.output_titlebar_height + 2;
-//    ptz->move(x, y);
     centerWidget(ptz);
     ptz->show();
 }
@@ -394,6 +391,17 @@ void HGLWidget::drawDebugInfo(){
         di.top += span;
         sprintf(info, "input: %u | %u fps: %d", item->a_input, item->v_input, fps);
         drawStr(info, &di);
+
+        if (item->video_buffer){
+            di.top += span;
+            sprintf(info, "vcache: %d", item->video_buffer->num());
+            drawStr(info, &di);
+        }
+        if (item->audio_buffer){
+            di.top += span;
+            sprintf(info, "acache: %d", item->audio_buffer->num());
+            drawStr(info, &di);
+        }
     }
 }
 

@@ -324,14 +324,17 @@ DSSHARED_EXPORT int liboper(int media_type, int data_type, int opt, void* param,
         if (srvid < 1 || srvid > DIRECTOR_MAX_SERVS)
             return -5;
 
-        if (g_dsCtx->getSrvItem(srvid)->v_input < 1){
-            char c[5] = {0};
-            memcpy(c, &pic->fourcc, 4);
-            qInfo("pic[%d] type=%s w=%d h=%d", srvid, c, pic->width, pic->height);
+        DsSrvItem* item = g_dsCtx->getSrvItem(srvid);
+        if (item){
+            if (item->v_input < 1){
+                char c[5] = {0};
+                memcpy(c, &pic->fourcc, 4);
+                item->v_base_ts = pic->stamp;
+                qInfo("pic[%d] type=%s w=%d h=%d ts=%u", srvid, c, pic->width, pic->height, pic->stamp);
+            }
+            ++item->v_input;
+            g_dsCtx->push_video(srvid, pic);
         }
-
-        ++g_dsCtx->getSrvItem(srvid)->v_input;
-        g_dsCtx->push_video(srvid, pic);
     }
         break;
     case MediaTypeAudio:
@@ -357,12 +360,15 @@ DSSHARED_EXPORT int liboper(int media_type, int data_type, int opt, void* param,
         if (srvid < 1 || srvid > DIRECTOR_MAX_SERVS)
             return -5;
 
-        if (g_dsCtx->getSrvItem(srvid)->a_input < 1){
-            qInfo("pcm[%d] channel=%d, sample=%d len=%d", srvid, pcm->channels, pcm->samplerate, pcm->pcmlen);
+        DsSrvItem* item = g_dsCtx->getSrvItem(srvid);
+        if (item){
+            if (item->a_input < 1){
+                item->a_base_ts = pcm->stamp;
+                qInfo("pcm[%d] channel=%d, sample=%d len=%d ts=%u", srvid, pcm->channels, pcm->samplerate, pcm->pcmlen, pcm->stamp);
+            }
+            ++item->a_input;
+            g_dsCtx->push_audio(srvid, pcm);
         }
-
-        ++g_dsCtx->getSrvItem(srvid)->a_input;
-        g_dsCtx->push_audio(srvid, pcm);
     }
         break;
     default:

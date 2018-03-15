@@ -423,29 +423,48 @@ void HMainWidget::mouseReleaseEvent(QMouseEvent *event){
 }
 
 void HMainWidget::onTimerRepaint(){
-    bool isExtPopVideo = false;
     for (int i = 0; i < m_vecGLWdg.size(); ++i){
         HGLWidget* wdg = m_vecGLWdg[i];
+
+        // when fullscreen, just update m_fullscreenGLWdg
         if (m_fullscreenGLWdg && wdg != m_fullscreenGLWdg)
             continue;
 
-        if (!wdg->isResetStatus() && wdg->isVisible()){
-            if (g_dsCtx->pop_video(wdg->srvid) == 0)
-                //wdg->repaint();
-                wdg->update();
+        // pop_video
+        bool bPopSucceed = false;
+        bool bUpdateWdg = !wdg->isResetStatus() && wdg->isVisible();
+        bool bUpdateExt = wdg->srvid == OUTPUT_SRVID && m_extGLWdg != NULL && m_extGLWdg->isVisible();
+        if (bUpdateWdg || bUpdateExt){
+            DsSrvItem* item = g_dsCtx->getSrvItem(wdg->srvid);
+            // adjust video and audio sync
+            if (item && item->audio_player && !item->audio_player->pause){
+                long long a_span = item->a_cur_ts - item->a_base_ts;
+                if (a_span < 0)
+                    a_span = a_span + UINT_MAX;
+                long long v_span = item->v_cur_ts - item->v_base_ts;
+                if (v_span < 0)
+                    v_span = v_span + UINT_MAX;
+                if (v_span > a_span + g_dsCtx->m_tInit.av_maxspan){
+                    qDebug("srvid=%d video faster audio, v_span=%d, a_span=%d", wdg->srvid, v_span, a_span);
+                    continue;
+                }else if (v_span < a_span - g_dsCtx->m_tInit.av_maxspan){
+                    qDebug("srvid=%d video slower audio, v_span=%d, a_span=%d", wdg->srvid, v_span, a_span);
+                    g_dsCtx->discard_video(wdg->srvid, 1);
+                }else{
+                    qDebug("srvid=%d video approximate audio, v_span=%d, a_span=%d", wdg->srvid, v_span, a_span);
+                }
+            }
 
-            if (wdg->srvid == OUTPUT_SRVID)
-                isExtPopVideo = true;
+            bPopSucceed = (g_dsCtx->pop_video(wdg->srvid) == 0);
         }
-    }
 
-    if (m_extGLWdg){
-        int ret = 0;
-        if (!isExtPopVideo)
-            ret = g_dsCtx->pop_video(OUTPUT_SRVID);
+        if (bUpdateWdg && bPopSucceed){
+            wdg->update();
+        }
 
-        if (ret == 0)
-            m_extGLWdg->repaint();
+        if (bUpdateExt && bPopSucceed){
+            m_extGLWdg->update();
+        }
     }
 }
 

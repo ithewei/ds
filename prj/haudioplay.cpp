@@ -19,9 +19,10 @@ int HAudioPlay::playCallback(
     if (item){
         item->audio_mutex.lock();
         if (item->audio_buffer && frameCount*2*pObj->channels == pObj->pcmlen){
-            char* ptr = item->audio_buffer->read();
-            if (ptr){
-                memcpy(output, ptr, pObj->pcmlen);
+            frame_info fi = item->audio_buffer->read();
+            if (fi.data){
+                item->a_cur_ts = fi.ts;
+                memcpy(output, fi.data, pObj->pcmlen);
             }else{
                 memset(output, 0, pObj->pcmlen);
                 qInfo("audio_buffer is empty, memzero");
@@ -140,6 +141,7 @@ void HAudioPlay::stopPlay(){
     pcmlen = 0;
     channels = 0;
     samplerate = 0;
+    pause = true;
 }
 
 void HAudioPlay::pausePlay(bool bPause){

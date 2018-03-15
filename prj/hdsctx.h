@@ -82,6 +82,7 @@ public:
 
     int push_video(int srvid, const av_picture* pic);
     int pop_video(int srvid);
+    int discard_video(int srvid, int num);
     int push_audio(int srvid, const av_pcmbuff* pcm);
 
     void setAction(int action) {

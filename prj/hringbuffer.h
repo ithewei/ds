@@ -18,6 +18,21 @@
  *
 **/
 
+struct frame_info{
+    unsigned int ts;
+    char* data;
+    unsigned int len;
+
+    frame_info(){
+        ts = 0;
+        data = NULL;
+        len = 0;
+    }
+};
+
+// flag=1byte + ts=4bytes + data=_size(bytes)
+#define PRE_INFO_LEN    5
+
 class HRingBuffer
 {
 public:
@@ -25,7 +40,7 @@ public:
         _size = size;
         _num = num;
 
-        size_t total = (1+size)*num;
+        size_t total = (PRE_INFO_LEN+size)*num;
         _ptr = (char*)malloc(total);
         memset(_ptr, 0, total);
 
@@ -43,24 +58,31 @@ public:
         }
     }
 
-    char* read(){
+    // we don't memcpy in read and write for flexibility, for exsample, copy YV12 to YUV420P
+    // so use in multi thread, please lock for read and write and whole memcpy
+    frame_info read(){
+        frame_info fi;
         char* ret = get(read_index);
 
         if (*ret == USED){
             read_index = (read_index + 1)%_num;
             *ret = UNUSED;
             readable_num--;
-            return ret+1;
+
+            fi.ts = *(unsigned int *)(ret+1);
+            fi.data = ret+PRE_INFO_LEN;
+            fi.len = _size;
         }
 
-        return NULL;
+        return fi;
     }
 
-    char* write(){
+    frame_info write(){
+        frame_info fi;
         char* ret = get(write_index);
         if (*ret == USED){
             if (policy == POLICY_DISCARD){
-                return NULL;
+                return fi;
             }
             // edge out read_index
             read_index = (read_index+1)%_num;
@@ -71,7 +93,9 @@ public:
         *ret = USED;
         readable_num++;
 
-        return ret+1;
+        fi.data = ret+PRE_INFO_LEN;
+        fi.len = _size;
+        return fi;
     }
 
     int readable(){
@@ -82,11 +106,15 @@ public:
         return _size;
     }
 
+    int num(){
+        return _num;
+    }
+
 private:
     char* get(int index){
         if (index < 0 || index >= _num)
             return NULL;
-        return _ptr + index*(1+_size);
+        return _ptr + index*(PRE_INFO_LEN+_size);
     }
 
 private:
