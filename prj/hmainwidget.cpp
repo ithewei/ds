@@ -284,9 +284,11 @@ HGLWidget* HMainWidget::getGLWdgByPos(QPoint pt){
 
 HGLWidget* HMainWidget::getGLWdgByPos(int x, int y){
     for (int i = m_vecGLWdg.size() - 1; i >= 0; --i){
-        QRect rc = m_vecGLWdg[i]->geometry();
-        if (rc.contains(x,y)){
-            return m_vecGLWdg[i];
+        if (m_vecGLWdg[i]->isVisible()){
+            QRect rc = m_vecGLWdg[i]->geometry();
+            if (rc.contains(x,y)){
+                return m_vecGLWdg[i];
+            }
         }
     }
 
@@ -437,7 +439,10 @@ void HMainWidget::onTimerRepaint(){
         if (bUpdateWdg || bUpdateExt){
             DsSrvItem* item = g_dsCtx->getSrvItem(wdg->srvid);
             // adjust video and audio sync
-            if (item && item->audio_player && !item->audio_player->pause){
+            if (item && item->bAudio && item->audio_player && !item->audio_player->pause &&
+                    item->a_cur_ts != 0 && item->v_cur_ts != 0 &&
+                    item->src_type != SRC_TYPE_LMIC){ // lmic span don't well
+                qDebug("a_cur_ts=%u a_base_ts=%u v_cur_ts=%u v_base_ts=%u", item->a_cur_ts, item->a_base_ts, item->v_cur_ts, item->v_base_ts);
                 long long a_span = item->a_cur_ts - item->a_base_ts;
                 if (a_span < 0)
                     a_span = a_span + UINT_MAX;
@@ -445,13 +450,14 @@ void HMainWidget::onTimerRepaint(){
                 if (v_span < 0)
                     v_span = v_span + UINT_MAX;
                 if (v_span > a_span + g_dsCtx->m_tInit.av_maxspan){
-                    qDebug("srvid=%d video faster audio, v_span=%d, a_span=%d", wdg->srvid, v_span, a_span);
-                    continue;
+                    qDebug("srvid=%d video faster audio, v_span=%ld, a_span=%ld", wdg->srvid, v_span, a_span);
+                    if (item->src_type != SRC_TYPE_FILE) // file back maybe cause v_span faster audio
+                        continue;
                 }else if (v_span < a_span - g_dsCtx->m_tInit.av_maxspan){
-                    qDebug("srvid=%d video slower audio, v_span=%d, a_span=%d", wdg->srvid, v_span, a_span);
+                    qDebug("srvid=%d video slower audio, v_span=%ld, a_span=%ld", wdg->srvid, v_span, a_span);
                     g_dsCtx->discard_video(wdg->srvid, 1);
                 }else{
-                    qDebug("srvid=%d video approximate audio, v_span=%d, a_span=%d", wdg->srvid, v_span, a_span);
+                    qDebug("srvid=%d video approximate audio, v_span=%ld, a_span=%ld", wdg->srvid, v_span, a_span);
                 }
             }
 

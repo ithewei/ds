@@ -92,6 +92,8 @@ public:
         write_index = (write_index+1)%_num;
         *ret = USED;
         readable_num++;
+        if (readable_num > _num)
+            readable_num = _num;
 
         fi.data = ret+PRE_INFO_LEN;
         fi.len = _size;

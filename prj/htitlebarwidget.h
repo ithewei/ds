@@ -55,6 +55,9 @@ public:
     QPushButton* m_btnFullScreen;
     QPushButton* m_btnExitFullScreen;
 
+    QPushButton* m_btnVoice;
+    QPushButton* m_btnMute;
+
     QPushButton* m_btnPinb;
     QPushButton* m_btnPinr;
 

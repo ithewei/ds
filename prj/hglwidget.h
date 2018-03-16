@@ -26,16 +26,6 @@ enum GLWND_STATUS{
     PLAY_AUDIO  =  0x0200,
 };
 
-enum GLWDG_ICONS{
-    NONE = 0,
-
-    HAVE_AUDIO  = 1,
-
-    PICK        = 10,
-    PROHIBIT,
-    CHANGING,
-};
-
 class HGLWidget : public QGLWidgetImpl
 {
     Q_OBJECT
@@ -75,15 +65,14 @@ public:
         srvid = 0;
         m_status = STOP;
         fps = 0;
-        m_mapIcons.clear();
         repaint();
     }
 
-    void addIcon(int type, int x, int y, int w, int h);
-    void removeIcon(int type);
-    Texture* getTexture(int type);
+    virtual bool showToolWidgets(bool bShow = true){
+        updateToolWidgets();
+        return bShow;
+    }
 
-    virtual bool showToolWidgets(bool bShow = true);
     virtual void updateToolWidgets() {}
 
     QRect videoArea(){
@@ -109,6 +98,20 @@ public slots:
         emit fullScreen(false);
     }
 
+    void enableAudio(){
+        DsSrvItem* item = g_dsCtx->getSrvItem(srvid);
+        if (item){
+            item->bAudio = true;
+        }
+    }
+
+    void disableAudio(){
+        DsSrvItem* item = g_dsCtx->getSrvItem(srvid);
+        if (item){
+            item->bAudio = false;
+        }
+    }
+
     void enableDrawInfo() {m_bDrawInfo = true;}
     void disableDrawInfo() {m_bDrawInfo = false;}
 
@@ -127,7 +130,6 @@ protected:
     virtual void drawAudio();
     virtual void drawAudioStyle1(QRect rc, int num);
     virtual void drawAudioStyle2(QRect rc, int num);
-    virtual void drawIcon();
     virtual void drawTitle();
     virtual void drawTaskInfo();
     virtual void drawOutline();
@@ -152,7 +154,6 @@ public:
     int wndid;
     int srvid;
     int m_status;
-    std::map<int ,DrawInfo> m_mapIcons; // type : DrawInfo
 
     QElapsedTimer timer_elapsed;
     int framecnt;
@@ -203,6 +204,33 @@ public:
     HNumSelectWidget* m_numSelector;
 };
 
+//<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+class HLmicGLWidget : public HGLWidget{
+    Q_OBJECT
+public:
+    HLmicGLWidget(QWidget* parent = Q_NULLPTR);
+    ~HLmicGLWidget();
+
+protected:
+    void initUI();
+    void initConnect();
+    virtual void updateToolWidgets();
+public:
+    virtual void mousePressEvent(QMouseEvent* e){
+        QPushButton* btn = m_btnVoice->isVisible() ? m_btnVoice : m_btnMute;
+        if (btn->geometry().contains(e->pos()-pos())){
+            emit btn->click();
+            e->accept();
+        }
+    }
+
+private:
+    QPushButton* m_btnVoice;
+    QPushButton* m_btnMute;
+};
+
+//>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
 
 //<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 #include "hchangecolorwidget.h"
@@ -234,33 +262,7 @@ public:
     virtual bool showToolWidgets(bool bShow = true);
     virtual void updateToolWidgets();
 #if LAYOUT_TYPE_ONLY_OUTPUT
-#define LIMC_WNDID_BASE 100
-    HGLWidget* allocGLWdgForLimc(){
-        int cell_w = width()/3;
-        int cell_h = height()/2;
-        QRect rc[6];
-        int x = 0;
-        int y = 0;
-        for (int r = 0; r < 2; ++r){
-            x = 0;
-            for (int c = 0; c < 3; ++c){
-                rc[r*3+c].setRect(x, y, cell_w, cell_h);
-                x += cell_w;
-            }
-            y += cell_h;
-        }
-
-        int sort[6] = {5, 2, 3, 0, 4, 1};
-        for (int i = 0; i < m_vecGLWdgForLimc.size(); ++i){
-            if (m_vecGLWdgForLimc[i]->isResetStatus()){
-                m_vecGLWdgForLimc[i]->setGeometry(rc[sort[i]]);
-                m_vecGLWdgForLimc[i]->wndid = LIMC_WNDID_BASE + sort[i];
-                return m_vecGLWdgForLimc[i];
-            }
-        }
-
-        return NULL;
-    }
+    HGLWidget* allocGLWdgForLimc();
 #endif
 
 public slots:
@@ -302,7 +304,6 @@ protected:
     QRect scaleToOrigin(QRect rc);
     QRect scaleToDraw(QRect rc);
 
-    void onTargetChanged();
     bool updateOperateTarget();
     bool showOperateTarget();
 
@@ -314,7 +315,7 @@ private:
 
 private:
 #if LAYOUT_TYPE_ONLY_OUTPUT
-    std::vector<HGLWidget*> m_vecGLWdgForLimc;
+    std::vector<HLmicGLWidget*> m_vecGLWdgForLimc;
 #endif
     QLabel* m_label;
     HOperateWidget* m_targetWdg;

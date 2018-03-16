@@ -903,7 +903,7 @@ int HDsContext::push_video(int srvid, const av_picture* pic){
             s_v += pic->stride[2];
         }
     }else{
-        if (srvid == playaudio_srvid){
+        if (item->bAudio && item->src_type != SRC_TYPE_LMIC){ // lmic don't extend
             // extend video_buffer for video and audio sync
             int bufnum = item->video_buffer->num();
             int new_bufnum = bufnum + 10;
@@ -1060,58 +1060,60 @@ int HDsContext::push_audio(int srvid, const av_pcmbuff* pcm){
     if (!item)
         return -2;
 
-    item->audio_mutex.lock();
-    if (item->pcmlen != pcm->pcmlen){
-        if (item->audio_buffer){
-            delete item->audio_buffer;
-            item->audio_buffer = NULL;
+    if (item->bAudio){
+        // new audio_buffer
+        item->audio_mutex.lock();
+        if (item->pcmlen != pcm->pcmlen){
+            if (item->audio_buffer){
+                delete item->audio_buffer;
+                item->audio_buffer = NULL;
+            }
+            item->audio_buffer = new HRingBuffer(pcm->pcmlen, m_tInit.audio_bufnum > 0 ? m_tInit.audio_bufnum : DEFAULT_AUDIO_BUFNUM);
+            item->a_channels = pcm->channels;
+            item->pcmlen = pcm->pcmlen;
+            item->samplerate = pcm->samplerate;
         }
-        item->audio_buffer = new HRingBuffer(pcm->pcmlen, m_tInit.audio_bufnum > 0 ? m_tInit.audio_bufnum : DEFAULT_AUDIO_BUFNUM);
-        item->a_channels = pcm->channels;
-        item->pcmlen = pcm->pcmlen;
-        item->samplerate = pcm->samplerate;
-    }
 
-    if (item->audio_buffer){
-        frame_info fi = item->audio_buffer->write();
-        if (fi.data){
-            *(unsigned int*)(fi.data-4) = pcm->stamp;
-            memcpy(fi.data, pcm->pcmbuf, pcm->pcmlen);
-        }else{
-            if (g_dsCtx->playaudio_srvid == srvid){
-                int bufnum = item->audio_buffer->num();
-                int new_bufnum = bufnum + 10;
-                if (new_bufnum <= g_dsCtx->m_tInit.audio_bufnum_max){
-                    // extend audio_buffer
-                    HRingBuffer *newbuf = new HRingBuffer(item->audio_buffer->size(), new_bufnum);
-                    for (int i = 0; i < bufnum; ++i){
-                        frame_info r = item->audio_buffer->read();
-                        frame_info w = newbuf->write();
-                        if (r.data && w.data){
-                            memcpy(w.data-4, r.data-4, item->audio_buffer->size()+4);
+        if (item->audio_buffer){
+            frame_info fi = item->audio_buffer->write();
+            if (fi.data){
+                *(unsigned int*)(fi.data-4) = pcm->stamp;
+                memcpy(fi.data, pcm->pcmbuf, pcm->pcmlen);
+            }else{
+                if (g_dsCtx->playaudio_srvid == srvid){
+                    int bufnum = item->audio_buffer->num();
+                    int new_bufnum = bufnum + 10;
+                    if (new_bufnum <= g_dsCtx->m_tInit.audio_bufnum_max){
+                        // extend audio_buffer
+                        HRingBuffer *newbuf = new HRingBuffer(item->audio_buffer->size(), new_bufnum);
+                        for (int i = 0; i < bufnum; ++i){
+                            frame_info r = item->audio_buffer->read();
+                            frame_info w = newbuf->write();
+                            if (r.data && w.data){
+                                memcpy(w.data-4, r.data-4, item->audio_buffer->size()+4);
+                            }
                         }
-                    }
-                    delete item->audio_buffer;
-                    item->audio_buffer = newbuf;
-                }else{
-                    qInfo("audio_full: discard some frames");
-                    for (int i = 0; i < bufnum/2; ++i){
-                        item->audio_buffer->read();
+                        delete item->audio_buffer;
+                        item->audio_buffer = newbuf;
+                    }else{
+                        qInfo("audio_full: discard some frames");
+                        for (int i = 0; i < bufnum/2; ++i){
+                            item->audio_buffer->read();
+                        }
                     }
                 }
             }
+
+            int cache = item->audio_buffer->readable();
+            qDebug("srvid=%d audio_cache=%d", srvid, cache);
+            if (cache <= 1)
+                item->audio_empty++;
+            else if (cache >= 6)
+                item->audio_empty = 0;
         }
+        item->audio_mutex.unlock();
 
-        int cache = item->audio_buffer->readable();
-        qDebug("srvid=%d audio_cache=%d", srvid, cache);
-        if (cache <= 1)
-            item->audio_empty++;
-        else if (cache >= 6)
-            item->audio_empty = 0;
-    }
-    item->audio_mutex.unlock();
-
-    if (srvid == playaudio_srvid || item->src_type == SRC_TYPE_LMIC){
+        // new audio_player
         if (!item->audio_player){
             item->audio_player = new HAudioPlay;
             item->audio_player->srvid = srvid;
@@ -1142,6 +1144,7 @@ int HDsContext::push_audio(int srvid, const av_pcmbuff* pcm){
         }
     }
 
+    // cal average for drawAudio
     if (item->canShow() && item->bUpdateAverage){
         int channels = pcm->channels;
         unsigned short * src = (unsigned short *)pcm->pcmbuf;
@@ -1237,8 +1240,14 @@ void HDsContext::setPlayProgress(int srvid, int progress){
 void HDsContext::setPlayaudioSrvid(int id){
     if (playaudio_srvid != id){
         DsSrvItem* item = getSrvItem(playaudio_srvid);
-        if (item && item->audio_player){
-            item->audio_player->stopPlay();
+        if (item){
+            item->bAudio = false;
+            if (item->audio_player)
+                item->audio_player->stopPlay();
+        }
+        DsSrvItem* new_item = getSrvItem(id);
+        if (new_item){
+            new_item->bAudio = true;
         }
         playaudio_srvid = id;
     }

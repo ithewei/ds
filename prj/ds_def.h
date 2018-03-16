@@ -259,6 +259,7 @@ struct DsSrvItem{
     Texture tex_yuv;
     SwsContext* pSwsCtx; // for scale
 
+    bool bAudio;
     HAudioPlay* audio_player;
     HRingBuffer* audio_buffer;
     QMutex audio_mutex;
@@ -318,6 +319,7 @@ struct DsSrvItem{
         src_addr.clear();
         ptz_enabled = false;
 
+        bAudio = false;
         audio_empty = 0;
         audio_full = 0;
         a_channels = 0;

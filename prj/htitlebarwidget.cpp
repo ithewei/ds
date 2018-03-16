@@ -128,6 +128,13 @@ void HCombTitlebarWidget::initUI(){
     m_btnPinr->hide();
     hbox->addWidget(m_btnPinr);
 
+    m_btnVoice = genPushButton(sz, rcloader->get(RC_VOICE));
+    hbox->addWidget(m_btnVoice);
+
+    m_btnMute = genPushButton(sz, rcloader->get(RC_MUTE));
+    m_btnMute->hide();
+    hbox->addWidget(m_btnMute);
+
     m_btnFullScreen = genPushButton(sz, rcloader->get(RC_FULLSCREEN));
     hbox->addWidget(m_btnFullScreen);
 
@@ -149,6 +156,7 @@ void HCombTitlebarWidget::initConnect(){
 #endif
     connectButtons(m_btnPinb, m_btnPinr);
     connectButtons(m_btnInfob, m_btnInfor);
+    connectButtons(m_btnVoice, m_btnMute);
 }
 
 bool HCombTitlebarWidget::event(QEvent *e){

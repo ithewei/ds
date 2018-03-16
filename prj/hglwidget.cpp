@@ -29,11 +29,6 @@ HGLWidget::~HGLWidget(){
 
 }
 
-bool HGLWidget::showToolWidgets(bool bShow){
-    updateToolWidgets();
-    return bShow;
-}
-
 void HGLWidget::onStart(){
     g_dsCtx->pause(srvid, false);
 }
@@ -153,42 +148,16 @@ void HGLWidget::hideEvent(QHideEvent* e){
     }
 }
 
-void HGLWidget::enterEvent(QEvent* e){    
-    if (g_dsCtx->m_tInit.mouse)
+void HGLWidget::enterEvent(QEvent *e){
+    if (g_dsCtx->m_tInit.mouse){
         showToolWidgets(true);
+    }
 }
 
-void HGLWidget::leaveEvent(QEvent* e){
-    if (g_dsCtx->m_tInit.mouse)
+void HGLWidget::leaveEvent(QEvent *e){
+    if (g_dsCtx->m_tInit.mouse){
         showToolWidgets(false);
-}
-
-void HGLWidget::addIcon(int type, int x, int y, int w, int h){
-    if (m_mapIcons.find(type) == m_mapIcons.end()){
-        DrawInfo di;
-        di.left = x;
-        di.top = y;
-        di.right = x+w;
-        di.bottom = y+h;
-        m_mapIcons[type] = di;
-        update();
     }
-}
-
-void HGLWidget::removeIcon(int type){
-    std::map<int,DrawInfo>::iterator iter = m_mapIcons.find(type);
-    if (iter != m_mapIcons.end()){
-        m_mapIcons.erase(iter);
-    }
-}
-
-Texture* HGLWidget::getTexture(int type){
-    switch(type){
-    case HAVE_AUDIO:
-        return &rcloader->tex_sound;
-    }
-
-    return NULL;
 }
 
 void HGLWidget::calFps(){
@@ -305,18 +274,6 @@ void HGLWidget::drawAudio(){
         }
 
         item->bUpdateAverage = true;
-    }
-}
-
-void HGLWidget::drawIcon(){
-    std::map<int,DrawInfo>::iterator iter = m_mapIcons.begin();
-    while (iter != m_mapIcons.end()){
-        Texture *tex = getTexture(iter->first);
-        DrawInfo di = iter->second;
-        if (tex){
-            drawTex(tex, &di);
-        }
-        ++iter;
     }
 }
 
@@ -531,6 +488,8 @@ void HGeneralGLWidget::updateToolWidgets(){
     str.replace("%src", item->src_addr);
     m_titlebar->m_label->setText(str);
 
+    m_titlebar->m_btnPtz->setVisible(item->ptz_enabled);
+
 #if LAYOUT_TYPE_OUTPUT_AND_INPUT
     if (m_status | PLAY_AUDIO){
         if (item->bVoice){
@@ -566,27 +525,21 @@ void HGeneralGLWidget::updateToolWidgets(){
 
 #if LAYOUT_TYPE_MULTI_INPUT
     if (m_status | PLAY_AUDIO){
-        if (g_dsCtx->playaudio_srvid == srvid){
-            m_titlebar->m_btnMute->hide();
-            m_titlebar->m_btnVoice->show();
-        }else{
-            m_titlebar->m_btnVoice->hide();
-            m_titlebar->m_btnMute->show();
-        }
+        m_titlebar->m_btnVoice->setVisible(g_dsCtx->playaudio_srvid == srvid);
+        m_titlebar->m_btnMute->setVisible(g_dsCtx->playaudio_srvid != srvid);
     }else{
         m_titlebar->m_btnVoice->hide();
         m_titlebar->m_btnMute->hide();
     }
 #endif
     if (item->src_type == SRC_TYPE_LMIC){
-        m_titlebar->m_btnVoice->hide();
-        m_titlebar->m_btnMute->hide();
+        m_titlebar->m_btnVoice->setVisible(item->bAudio);
+        m_titlebar->m_btnMute->setVisible(!item->bAudio);
         m_titlebar->m_btnMicphoneClosed->hide();
         m_titlebar->m_btnMicphoneOpened->hide();
     }
 
-#if LAYOUT_TYPE_MULTI_INPUT
-#else
+#if !LAYOUT_TYPE_MULTI_INPUT
     m_titlebar->m_btnExitFullScreen->setVisible(m_bFullScreen);
     m_titlebar->m_btnFullScreen->setVisible(!m_bFullScreen);
 #endif
@@ -600,17 +553,7 @@ void HGeneralGLWidget::updateToolWidgets(){
         m_toolbar->m_btnPause->hide();
     }
 
-    if (item->src_type == SRC_TYPE_FILE){
-        m_toolbar->m_slider->show();
-    }else{
-        m_toolbar->m_slider->hide();
-    }
-
-    if (item->ptz_enabled){
-        m_titlebar->m_btnPtz->show();
-    }else{
-        m_titlebar->m_btnPtz->hide();
-    }
+    m_toolbar->m_slider->setVisible(item->src_type == SRC_TYPE_FILE);
 }
 
 bool HGeneralGLWidget::showToolWidgets(bool bShow){
@@ -671,7 +614,12 @@ void HGeneralGLWidget::closeMicphone(){
 
 void HGeneralGLWidget::onVoice(){
 #if LAYOUT_TYPE_OUTPUT_AND_INPUT
+    DsSrvItem* item = g_dsCtx->getSrvItem(srvid);
+    if (item->src_type == SRC_TYPE_LMIC){
+        item->bAudio = false;
+    }else{
         dsnetwork->setVoice(srvid, 0);
+    }
 #endif
 
 #if LAYOUT_TYPE_MULTI_INPUT
@@ -681,7 +629,12 @@ void HGeneralGLWidget::onVoice(){
 
 void HGeneralGLWidget::onMute(){   
 #if LAYOUT_TYPE_OUTPUT_AND_INPUT
-    dsnetwork->setVoice(srvid, 1);
+    DsSrvItem* item = g_dsCtx->getSrvItem(srvid);
+    if (item->src_type == SRC_TYPE_LMIC){
+        item->bAudio = true;
+    }else{
+        dsnetwork->setVoice(srvid, 1);
+    }
 #endif
 
 #if LAYOUT_TYPE_MULTI_INPUT
@@ -706,7 +659,7 @@ void HGeneralGLWidget::drawSelectNum(){
 
 void HGeneralGLWidget::drawSound(){
     DrawInfo di;
-    Texture *tex = getTexture(HAVE_AUDIO);
+    Texture *tex = &rcloader->tex_sound;
     di.right = width() - 1;
     di.top = 1;
     di.left = di.right - 32 + 1;
@@ -750,6 +703,55 @@ void HGeneralGLWidget::paintGL(){
 
 //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
+//<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+HLmicGLWidget::HLmicGLWidget(QWidget* parent)
+    : HGLWidget(parent)
+{
+    type = HGLWidget::LMIC;
+    initUI();
+    initConnect();
+}
+
+HLmicGLWidget::~HLmicGLWidget(){
+
+}
+
+void HLmicGLWidget::initUI(){
+    QBoxLayout* vbox = new QVBoxLayout;
+
+    QBoxLayout* hbox = genHBoxLayout();
+
+    int w = g_fontsize*3;
+    int h = g_fontsize*3;
+    QSize sz(w, h);
+    m_btnVoice = genPushButton(sz, rcloader->get(RC_VOICE));
+    m_btnMute = genPushButton(sz, rcloader->get(RC_MUTE));
+    m_btnVoice->hide();
+    hbox->addStretch();
+    hbox->addWidget(m_btnVoice);
+    hbox->addWidget(m_btnMute);
+
+    vbox->addLayout(hbox);
+    vbox->addStretch();
+    setLayout(vbox);
+}
+
+void HLmicGLWidget::initConnect(){
+    connectButtons(m_btnVoice, m_btnMute);
+    QObject::connect(m_btnVoice, SIGNAL(clicked(bool)), this, SLOT(disableAudio()));
+    QObject::connect(m_btnMute, SIGNAL(clicked(bool)), this, SLOT(enableAudio()));
+}
+
+void HLmicGLWidget::updateToolWidgets(){
+    DsSrvItem* item = g_dsCtx->getSrvItem(srvid);
+    if (item){
+        m_btnVoice->setVisible(item->bAudio);
+        m_btnMute->setVisible(!item->bAudio);
+    }
+}
+
+//>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
 //<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
 HCombGLWidget::HCombGLWidget(QWidget* parent)
@@ -772,9 +774,8 @@ HCombGLWidget::~HCombGLWidget(){
 void HCombGLWidget::initUI(){
 #if LAYOUT_TYPE_ONLY_OUTPUT
     for (int i = 0; i < MAXNUM_GLWDG_FOR_LMIC; i++){
-        HGLWidget* wdg = new HGLWidget(this);
+        HLmicGLWidget* wdg = new HLmicGLWidget(this);
         wdg->setVisible(false);
-        wdg->type = HGLWidget::LMIC;
         wdg->m_bDrawInfo = false;
         m_vecGLWdgForLimc.push_back(wdg);
     }
@@ -827,6 +828,8 @@ void HCombGLWidget::initConnect(){
 
     QObject::connect( m_titlebar->m_btnFullScreen, SIGNAL(clicked(bool)), this, SLOT(onFullScreen()) );
     QObject::connect( m_titlebar->m_btnExitFullScreen, SIGNAL(clicked(bool)), this, SLOT(onExitFullScreen()) );
+    QObject::connect( m_titlebar->m_btnVoice, SIGNAL(clicked(bool)), this, SLOT(disableAudio()) );
+    QObject::connect( m_titlebar->m_btnMute, SIGNAL(clicked(bool)), this, SLOT(enableAudio()) );
     QObject::connect( m_titlebar->m_btnPinb, SIGNAL(clicked(bool)), this, SLOT(lockTools()) );
     QObject::connect( m_titlebar->m_btnPinr, SIGNAL(clicked(bool)), this, SLOT(unlockTools()) );
     QObject::connect( m_titlebar->m_btnInfob, SIGNAL(clicked(bool)), this, SLOT(enableDrawInfo()) );
@@ -860,6 +863,11 @@ void HCombGLWidget::updateToolWidgets(){
 
     m_titlebar->m_label->setText(item->title.c_str());
 
+    m_titlebar->m_btnVoice->setVisible(item->bAudio);
+    m_titlebar->m_btnMute->setVisible(!item->bAudio);
+
+    m_titlebar->m_btnPtz->setVisible(item->ptz_enabled);
+
     if (!item->spacer){
         m_toolbar->m_btnStart->hide();
         m_toolbar->m_btnPause->hide();
@@ -869,12 +877,6 @@ void HCombGLWidget::updateToolWidgets(){
     }else{
         m_toolbar->m_btnStart->hide();
         m_toolbar->m_btnPause->show();
-    }
-
-    if (item->ptz_enabled){
-        m_titlebar->m_btnPtz->show();
-    }else{
-        m_titlebar->m_btnPtz->hide();
     }
 }
 
@@ -894,9 +896,35 @@ bool HCombGLWidget::showToolWidgets(bool bShow){
     return bShow;
 }
 
-void HCombGLWidget::onTargetChanged(){
-    //...
+#if LAYOUT_TYPE_ONLY_OUTPUT
+#define LIMC_WNDID_BASE 100
+HGLWidget* HCombGLWidget::allocGLWdgForLimc(){
+    int cell_w = width()/3;
+    int cell_h = height()/2;
+    QRect rc[6];
+    int x = 0;
+    int y = 0;
+    for (int r = 0; r < 2; ++r){
+        x = 0;
+        for (int c = 0; c < 3; ++c){
+            rc[r*3+c].setRect(x, y, cell_w, cell_h);
+            x += cell_w;
+        }
+        y += cell_h;
+    }
+
+    int sort[6] = {5, 2, 3, 0, 4, 1};
+    for (int i = 0; i < m_vecGLWdgForLimc.size(); ++i){
+        if (m_vecGLWdgForLimc[i]->isResetStatus()){
+            m_vecGLWdgForLimc[i]->setGeometry(rc[sort[i]]);
+            m_vecGLWdgForLimc[i]->wndid = LIMC_WNDID_BASE + sort[i];
+            return m_vecGLWdgForLimc[i];
+        }
+    }
+
+    return NULL;
 }
+#endif
 
 #define LOCATION_PADDING    32
 #define MIN_LOCATION        96
@@ -1140,8 +1168,8 @@ void HCombGLWidget::showEffect(){
 
 void HCombGLWidget::onTextAccepted(HTextItem item){
     if (m_vecTexts.size() + m_vecPictures.size() >= g_dsCtx->m_tInit.maxnum_overlay){
-        QMessageBox::information(this, "提示", "已超过最大叠加物数量，请删除后再添加！");
-        g_mainWdg->raise();
+//        QMessageBox::information(this, "提示", "已超过最大叠加物数量，请删除后再添加！");
+//        g_mainWdg->raise();
         return;
     }
 
@@ -1151,8 +1179,6 @@ void HCombGLWidget::onTextAccepted(HTextItem item){
     int w = m_target.pWdg->width();
     int h = m_target.pWdg->height();
     m_target.pWdg->move((width()-w)/2, (height()-h)/2);
-
-    onTargetChanged();
 }
 
 void HCombGLWidget::showExpre(){
@@ -1174,8 +1200,8 @@ void HCombGLWidget::showExpre(){
 
 void HCombGLWidget::onExpreSelected(QString& filepath){
     if (m_vecTexts.size() + m_vecPictures.size() >= g_dsCtx->m_tInit.maxnum_overlay){
-        QMessageBox::information(this, "提示", "已超过最大叠加物数量，请删除后再添加！");
-        g_mainWdg->raise();
+//        QMessageBox::information(this, "提示", "已超过最大叠加物数量，请删除后再添加！");
+//        g_mainWdg->raise();
         return;
     }
 
@@ -1206,8 +1232,6 @@ void HCombGLWidget::onExpreSelected(QString& filepath){
     m_target.pWdg->setGeometry(adjustPos(QRect((width()-w)/2, (height()-h)/2, w, h), rect()));
     m_target.pWdg->setPixmap(pixmap);
     m_target.pWdg->show();
-
-    onTargetChanged();
 }
 
 void HCombGLWidget::onEffectSelected(HPictureItem item){
@@ -1224,8 +1248,6 @@ void HCombGLWidget::onEffectSelected(HPictureItem item){
     int h = EXPRE_DEFAULT_SIZE;
     m_target.pWdg->setGeometry(QRect((width()-w)/2, (height()-h)/2, w, h));
     m_target.pWdg->show();
-
-    onTargetChanged();
 }
 
 bool HCombGLWidget::updateOperateTarget(){
@@ -1435,6 +1457,15 @@ void HCombGLWidget::resizeEvent(QResizeEvent *e){
 }
 
 void HCombGLWidget::mousePressEvent(QMouseEvent* e){
+#if LAYOUT_TYPE_ONLY_OUTPUT
+    for (int i = 0; i < m_vecGLWdgForLimc.size(); ++i){
+        HLmicGLWidget* wdg = m_vecGLWdgForLimc[i];
+        if (wdg->isVisible() && wdg->geometry().contains(e->pos())){
+            wdg->mousePressEvent(e);
+            return;
+        }
+    }
+#endif
     HGLWidget::mousePressEvent(e);
 
     m_target.obj = getObejctByPos(e->pos());

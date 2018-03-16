@@ -365,6 +365,9 @@ DSSHARED_EXPORT int liboper(int media_type, int data_type, int opt, void* param,
             if (item->a_input < 1){
                 item->a_base_ts = pcm->stamp;
                 qInfo("pcm[%d] channel=%d, sample=%d len=%d ts=%u", srvid, pcm->channels, pcm->samplerate, pcm->pcmlen, pcm->stamp);
+                if (srvid == OUTPUT_SRVID){
+                    item->bAudio = true;
+                }
             }
             ++item->a_input;
             g_dsCtx->push_audio(srvid, pcm);
