@@ -1,4 +1,4 @@
-#include "hexprewidget.h"
+﻿#include "hexprewidget.h"
 #include "hrcloader.h"
 #include "hdsctx.h"
 #include "hdsconf.h"
@@ -42,7 +42,7 @@ bool delDir(const QString &path)
 }
 
 //<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-HExportWidget::HExportWidget(QWidget *parent)
+HExportWidget::HExportWidget(QWidget* parent)
     :   QDialog(parent)
 {
     initUI();

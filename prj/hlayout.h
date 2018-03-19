@@ -33,7 +33,7 @@ class HLayout : public QObject
 public:
     explicit HLayout(QObject *parent = 0);
 
-    int init(int row, int col);
+    void init(int row, int col);
     bool getLayoutCell(int id, HLayoutCell& rst);
     HLayoutCell merge(int lt, int rb);
 

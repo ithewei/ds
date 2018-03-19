@@ -5,7 +5,7 @@ HLayout::HLayout(QObject *parent) : QObject(parent)
 
 }
 
-int HLayout::init(int row, int col){
+void HLayout::init(int row, int col){
     this->row = row;
     this->col = col;
     num = row * col;

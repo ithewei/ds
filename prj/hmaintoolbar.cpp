@@ -1,4 +1,4 @@
-#include "hmaintoolbar.h"
+﻿#include "hmaintoolbar.h"
 #include "hrcloader.h"
 #include "hdsctx.h"
 #include <QWebChannel>
@@ -199,7 +199,7 @@ void HStyleToolbar::initUI(){
     hbox->addWidget(m_btnStyle64);
 
     m_btnMerge = genPushButton(sz, rcloader->get(RC_MERGE));
-    m_btnMerge->setToolTip(tr("通过鼠标圈选，合并单元格"));
+    m_btnMerge->setToolTip(tr("通过鼠标圈选，合并单元格!"));
     hbox->addWidget(m_btnMerge);
 
     hbox->addStretch();

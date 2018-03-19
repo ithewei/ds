@@ -82,4 +82,5 @@ QRect HSettingWidget::getRect(){
     int w = m_editW->text().toInt();
     int h = m_editH->text().toInt();
     m_rc.setRect(x,y,w,h);
+    return m_rc;
 }

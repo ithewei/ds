@@ -1,4 +1,4 @@
-#include "hglwidget.h"
+﻿#include "hglwidget.h"
 #include "hdsctx.h"
 #include "hrcloader.h"
 #include "hmainwidget.h"
@@ -351,12 +351,12 @@ void HGLWidget::drawDebugInfo(){
 
         if (item->video_buffer){
             di.top += span;
-            sprintf(info, "vcache: %d", item->video_buffer->num());
+            sprintf(info, "vcache: %d/%d", item->video_buffer->readable(), item->video_buffer->num());
             drawStr(info, &di);
         }
         if (item->audio_buffer){
             di.top += span;
-            sprintf(info, "acache: %d", item->audio_buffer->num());
+            sprintf(info, "acache: %d/%d", item->audio_buffer->readable(), item->audio_buffer->num());
             drawStr(info, &di);
         }
     }

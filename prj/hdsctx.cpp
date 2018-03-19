@@ -187,7 +187,7 @@ void HDsContext::start_gui_thread(){
 #endif
 
 #ifdef WIN32
-    unsigned int hThread_glut = _beginthread(thread_glut, 0, this);
+    unsigned int hThread_glut = _beginthread(thread_gui, 0, this);
     //WaitForSingleObject((HANDLE)hThread_glut, INFINITE);
 #endif
 

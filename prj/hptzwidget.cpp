@@ -35,8 +35,8 @@ void HPtzWidget::initUI(){
 //    m_btnRight->setIconSize(sz);
 //    m_btnRight->setArrowType(Qt::RightArrow);
 
-    m_btnTop = genPushButton(sz, rcloader->get(RC_UP));
-    m_btnBottom = genPushButton(sz, rcloader->get(RC_DOWN));
+    m_btnTop = genPushButton(sz, rcloader->get(RC_TOP));
+    m_btnBottom = genPushButton(sz, rcloader->get(RC_BOTTOM));
     m_btnLeft = genPushButton(sz, rcloader->get(RC_LEFT));
     m_btnRight = genPushButton(sz, rcloader->get(RC_RIGHT));
 

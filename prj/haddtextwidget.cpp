@@ -1,4 +1,4 @@
-#include "haddtextwidget.h"
+﻿#include "haddtextwidget.h"
 #include "hrcloader.h"
 #include "hdsctx.h"
 
@@ -42,16 +42,16 @@ void HAddTextWidget::initUI(){
     grid->addLayout(hbox, row, 1);
 
     ++row;
-    grid->addWidget(new QLabel("文本:"), row, 0);
+    grid->addWidget(new QLabel(tr("文本:")), row, 0);
     m_editText = new QLineEdit;
-    m_editText->setText("请输入标签文本");
+    m_editText->setText(tr("请输入标签文本"));
     grid->addWidget(m_editText, row, 1);
 
     ++row;
-    grid->addWidget(new QLabel("字体:"), row, 0);
+    grid->addWidget(new QLabel(tr("字体:")), row, 0);
 
     hbox = genHBoxLayout();
-    hbox->addWidget(new QLabel("字号"));
+    hbox->addWidget(new QLabel(tr("字号")));
 
     m_cmbFontSize = new QComboBox;
     m_cmbFontSize->setFixedWidth(g_fontsize*3);

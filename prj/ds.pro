@@ -91,23 +91,29 @@ HEADERS += \
     somedef.h \
     hptzwidget.h
 
-unix {
-    target.path = /usr/lib
-    INSTALLS += target
-}
-
-INCLUDEPATH += ./ook/ \
-               /usr/include/freetype2/
-
 LIBS += -lGL \
         -lGLU \
         -lGLEW \
         -lfreetype \
         -lftgl \
-        -L../lib/ubuntu12/x86_64 \
-        -ltrans \
         -lportaudio
 
 DISTFILES += \
     ../readme
+
+unix {
+    target.path = /usr/lib
+    INSTALLS += target
+
+    INCLUDEPATH += /usr/include/freetype2/
+}
+
+win32 {
+    INCLUDEPATH += ../3rd/inc/ \
+                   ../3rd/inc/freetype2/
+}
+
+debug {
+    CONFIG += _DEBUG
+}
 

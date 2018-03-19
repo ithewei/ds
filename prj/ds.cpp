@@ -1,5 +1,6 @@
 #include "ds.h"
 #include "hdsctx.h"
+#include <QTextCodec>
 
 DSSHARED_EXPORT int libversion()    { return VERSION; }
 DSSHARED_EXPORT int libchar()       {
@@ -33,12 +34,6 @@ DSSHARED_EXPORT int libinit(const char* xml, void* task, void** ctx){
             APPENDSEPARTOR(strXmlPath)
             g_dsCtx->ds_path = strXmlPath;
             strXmlPath += "director_service.xml";
-            if(job_check_path(strXmlPath.c_str()) != 0)
-            {
-                qWarning("not found director_service.xml");
-                err = -1004;
-                break;
-            }
             if (g_dsCtx->parse_layout_xml(strXmlPath.c_str()) != 0){
                 qWarning("parse_layout_xml failed");
                 err = -1005;
@@ -231,13 +226,10 @@ DSSHARED_EXPORT int liboper(int media_type, int data_type, int opt, void* param,
                             qInfo("srvid=%d ascii=%s strlen=%d", srvid, title, strlen(title));
                             g_dsCtx->setTitle(srvid, title);
                         }else{
-                            ANSICODE2UTF8 a2u(title);
-                            if (a2u.c_str() == NULL || strlen(a2u.c_str()) == 0){
-                                qCritical("title format error!");
-                                return -111;
-                            }
-                            qInfo("srvid=%d utf8=%s strlen=%d", srvid, a2u.c_str(), strlen(a2u.c_str()));
-                            g_dsCtx->setTitle(srvid, a2u.c_str());
+                            QTextCodec *codec = QTextCodec::codecForName("GB18030");
+                            QString str = codec->toUnicode(title);
+                            g_dsCtx->setTitle(srvid, str.toUtf8().data());
+                            qInfo("srvid=%d utf8=%s", srvid, str.toUtf8().data());
                         }
                     }
                 }
