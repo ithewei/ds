@@ -94,6 +94,7 @@ DSSHARED_EXPORT int libstop(void* ctx){
 
     if (g_dsCtx){
         if (--g_dsCtx->ref == 0){
+            qInfo("----------------------quit-----------------------");
             g_dsCtx->quit();
             g_dsCtx->m_mapTTID2Src.clear();
 //            delete g_dsCtx;

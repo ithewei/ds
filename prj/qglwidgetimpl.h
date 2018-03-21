@@ -1,4 +1,4 @@
-#ifndef QGLWIDGETIMPL_H
+﻿#ifndef QGLWIDGETIMPL_H
 #define QGLWIDGETIMPL_H
 
 #include <GL/glew.h>

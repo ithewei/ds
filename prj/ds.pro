@@ -91,13 +91,6 @@ HEADERS += \
     somedef.h \
     hptzwidget.h
 
-LIBS += -lGL \
-        -lGLU \
-        -lGLEW \
-        -lfreetype \
-        -lftgl \
-        -lportaudio
-
 DISTFILES += \
     ../readme
 
@@ -106,11 +99,25 @@ unix {
     INSTALLS += target
 
     INCLUDEPATH += /usr/include/freetype2/
+    LIBS += -lGLEW \
+            -lfreetype \
+            -lftgl \
+            -lportaudio
 }
 
 win32 {
+    DEFINES += GLEW_STATIC FTGL_LIBRARY_STATIC
     INCLUDEPATH += ../3rd/inc/ \
                    ../3rd/inc/freetype2/
+    LIBS += -L../3rd/lib/x86/ \
+            advapi32.lib \
+            opengl32.lib \
+            glu32.lib \
+            libglew32.a \
+            libfreetype2.a \
+            libftgl.a \
+            libportaudio.a \
+            swscale.lib
 }
 
 debug {

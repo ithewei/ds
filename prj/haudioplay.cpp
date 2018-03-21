@@ -9,22 +9,18 @@ int HAudioPlay::playCallback(
     const PaStreamCallbackTimeInfo* timeInfo,
     PaStreamCallbackFlags statusFlags,
     void *userData ){
-
-    HAudioPlay* pObj = (HAudioPlay*)userData;
-    if (!pObj)
-        return -1;
-
-    qDebug("dev=%d frameCount=%ld, pcmlen=%d",pObj->dev, frameCount, pObj->pcmlen);
-    DsSrvItem* item = g_dsCtx->getSrvItem(pObj->srvid);
+    int srvid = (long)userData;
+    DsSrvItem* item = g_dsCtx->getSrvItem(srvid);
     if (item){
         item->audio_mutex.lock();
-        if (item->audio_buffer && frameCount*2*pObj->channels == pObj->pcmlen){
+        if (item->audio_buffer && item->audio_player){
+            qDebug("srvid=%d dev=%d pcmlen=%d",srvid, item->audio_player->dev, item->pcmlen);
             frame_info fi = item->audio_buffer->read();
             if (fi.data){
                 item->a_cur_ts = fi.ts;
-                memcpy(output, fi.data, pObj->pcmlen);
+                memcpy(output, fi.data, item->pcmlen);
             }else{
-                memset(output, 0, pObj->pcmlen);
+                memset(output, 0, item->pcmlen);
                 qInfo("audio_buffer is empty, memzero");
             }
         }
@@ -103,7 +99,7 @@ int HAudioPlay::startPlay(int dev){
         // @bug: don't konw how to deal this problem
         qCritical("channel is preempted, maybe need to reboot to fix the problem!");
         this->dev = dout;
-        err = Pa_OpenDefaultStream(&m_pStream, 0, channels, paInt16, samplerate, pcmlen/channels/2, playCallback, this);
+        err = Pa_OpenDefaultStream(&m_pStream, 0, channels, paInt16, samplerate, pcmlen/channels/2, playCallback, (void*)srvid);
     }else{
         PaStreamParameters op;
         memset(&op, 0, sizeof op);
@@ -111,7 +107,7 @@ int HAudioPlay::startPlay(int dev){
         op.channelCount = channels;
         op.sampleFormat = paInt16;
         op.suggestedLatency = devinfo->defaultHighOutputLatency;
-        err = Pa_OpenStream(&m_pStream, NULL, &op, samplerate, pcmlen/channels/2, paDitherOff, playCallback, this);
+        err = Pa_OpenStream(&m_pStream, NULL, &op, samplerate, pcmlen/channels/2, paDitherOff, playCallback, (void*)srvid);
     }
 
     if (err != paNoError){

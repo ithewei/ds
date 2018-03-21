@@ -109,6 +109,7 @@ public:
         }
     }
     void stop(int srvid){
+        qInfo("srvid=%d", srvid);
         DsSrvItem* item = getSrvItem(srvid);
         if (item){
             item->release();

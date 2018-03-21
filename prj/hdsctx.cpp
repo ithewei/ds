@@ -42,8 +42,14 @@ void myLogHandler(QtMsgType type, const QMessageLogContext & ctx, const QString 
                                        msg.toUtf8().data(),
                                        ctx.file,ctx.line,ctx.function);
 
+#ifdef linux
     //QString strLogFilePath = QCoreApplication::applicationDirPath() + "/ds.log";
     QString strLogFilePath = "/var/log/ds.log";
+#endif
+
+#ifdef WIN32
+    QString strLogFilePath = "./ds.log";
+#endif
 
     FILE* fp = fopen(strLogFilePath.toLocal8Bit().data(), "a");
     if (fp){
@@ -116,7 +122,20 @@ void* HDsContext::thread_gui(void* param){
     progress->setValue(10);
     app.processEvents();
     QString str = g_dsCtx->cur_path.c_str();
-    str += "ds.conf";
+    bool bSohu = false;
+    FILE *fp = fopen("/var/www/appname.txt", "r");
+    if (fp){
+        char sz[64] = {0};
+        fread(sz, 1, 64, fp);
+        if (strstr(sz, "transcoder_sohu") != NULL){
+            bSohu = true;
+        }
+    }
+    if (bSohu){
+        str += "ds_sohu.conf";
+    }else{
+        str += "ds.conf";
+    }
     dsconf->load(str);
 
     pObj->m_mutex.unlock(); // unlock when conf load finished
@@ -996,7 +1015,7 @@ int HDsContext::pop_video(int srvid){
     if (!fi.data){
         qWarning("[srvid=%d]read to fast", srvid);
         if (++item->pop_video_failed_cnt > 3*m_tInit.fps)
-            stop(srvid);
+            retcode = -110;
     }else{
         item->pop_video_failed_cnt = 0;
         if (item->pic_w == item->tex_yuv.width && item->pic_h == item->tex_yuv.height){
@@ -1024,6 +1043,10 @@ int HDsContext::pop_video(int srvid){
         retcode = 0;
     }
     item->video_mutex.unlock();
+
+    if (retcode == -110){
+        stop(srvid);
+    }
 
     item->v_cur_ts = fi.ts;
 

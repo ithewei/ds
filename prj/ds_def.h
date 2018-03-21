@@ -363,12 +363,12 @@ struct DsSrvItem{
             delete audio_buffer;
             audio_buffer = NULL;
         }
-        audio_mutex.unlock();
 
         if (audio_player){
             delete audio_player;
             audio_player = NULL;
         }
+        audio_mutex.unlock();
     }
 
     void free_scale(){

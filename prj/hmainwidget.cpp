@@ -135,7 +135,7 @@ void HMainWidget::initConnect(){
     QObject::connect( g_dsCtx, SIGNAL(requestShow(int)), this, SLOT(onRequestShow(int)) );
     QObject::connect( g_dsCtx, SIGNAL(videoPushed(int,bool)), this, SLOT(onvideoPushed(int,bool)) );
     QObject::connect( g_dsCtx, SIGNAL(audioPushed(int)), this, SLOT(onAudioPushed(int)) );
-    QObject::connect( g_dsCtx, SIGNAL(sigStop(int)), this, SLOT(onStop(int)) );
+    QObject::connect( g_dsCtx, SIGNAL(sigStop(int)), this, SLOT(onStop(int)), Qt::DirectConnection);
     QObject::connect( g_dsCtx, SIGNAL(quit()), this, SLOT(hide()) );
     QObject::connect( g_dsCtx, SIGNAL(sigProgressNty(int,int)), this, SLOT(onProgressNty(int,int)) );
     QObject::connect( g_dsCtx, SIGNAL(combChanged()), this, SLOT(onCombChanged()) );
@@ -552,9 +552,6 @@ void HMainWidget::onStop(int srvid){
     if (wdg == NULL)
         return;
 
-    wdg->onStop();
-
-
 #if LAYOUT_TYPE_ONLY_OUTPUT
     if (isLmic(srvid)){
         wdg->hide();
@@ -568,6 +565,8 @@ void HMainWidget::onStop(int srvid){
         }
     }
 #endif
+
+    wdg->onStop();
 }
 
 void HMainWidget::onProgressNty(int srvid, int progress){

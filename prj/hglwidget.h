@@ -65,7 +65,7 @@ public:
         srvid = 0;
         m_status = STOP;
         fps = 0;
-        repaint();
+        update();
     }
 
     virtual bool showToolWidgets(bool bShow = true){
