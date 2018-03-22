@@ -90,6 +90,10 @@ void* HDsContext::thread_gui(void* param){
     int argc = 0;
     QApplication app(argc, NULL);
 
+#ifdef WIN32
+    //QTextCodec* codec = QTextCodec::codecForName("GB18030");
+#endif
+
 #ifndef QT_NO_TRANSLATION
     QString translatorFileName = QLatin1String("qt_");
     translatorFileName += QLocale::system().name();

@@ -1,4 +1,4 @@
-#include "ds.h"
+﻿#include "ds.h"
 #include "hdsctx.h"
 #include <QTextCodec>
 
@@ -28,6 +28,7 @@ DSSHARED_EXPORT int libinit(const char* xml, void* task, void** ctx){
             g_dsCtx = new HDsContext;
 
             std::string strXmlPath = tid->cur_path;
+            qInfo("cur_path=%s", tid->cur_path.c_str());
             APPENDSEPARTOR(strXmlPath)
             g_dsCtx->cur_path = strXmlPath;
             strXmlPath += "ds";

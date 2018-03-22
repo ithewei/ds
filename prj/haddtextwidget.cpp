@@ -22,14 +22,14 @@ void HAddTextWidget::initUI(){
     grid->setSpacing(g_fontsize/2);
 
     int row = 0;
-    grid->addWidget(new QLabel("类别:"), row, 0);
+    grid->addWidget(new QLabel(STR("类别:")), row, 0);
 
     m_grpCategory = new QButtonGroup(this);
-    QRadioButton* btnLabel = new QRadioButton("标签");
+    QRadioButton* btnLabel = new QRadioButton(STR("标签"));
     btnLabel->setChecked(true);
-    QRadioButton* btnTime = new QRadioButton("时间");
-    QRadioButton* btnWatch = new QRadioButton("秒表");
-    //QRadioButton* btnSubtitle = new QRadioButton("字幕");
+    QRadioButton* btnTime = new QRadioButton(STR("时间"));
+    QRadioButton* btnWatch = new QRadioButton(STR("秒表"));
+    //QRadioButton* btnSubtitle = new QRadioButton(STR("字幕"));
     m_grpCategory->addButton(btnLabel, 0);
     m_grpCategory->addButton(btnTime, 1);
     m_grpCategory->addButton(btnWatch, 2);
@@ -42,16 +42,16 @@ void HAddTextWidget::initUI(){
     grid->addLayout(hbox, row, 1);
 
     ++row;
-    grid->addWidget(new QLabel(tr("文本:")), row, 0);
+    grid->addWidget(new QLabel(STR("文本:")), row, 0);
     m_editText = new QLineEdit;
-    m_editText->setText(tr("请输入标签文本"));
+    m_editText->setText(STR("请输入标签文本"));
     grid->addWidget(m_editText, row, 1);
 
     ++row;
-    grid->addWidget(new QLabel(tr("字体:")), row, 0);
+    grid->addWidget(new QLabel(STR("字体:")), row, 0);
 
     hbox = genHBoxLayout();
-    hbox->addWidget(new QLabel(tr("字号")));
+    hbox->addWidget(new QLabel(STR("字号")));
 
     m_cmbFontSize = new QComboBox;
     m_cmbFontSize->setFixedWidth(g_fontsize*3);
@@ -72,7 +72,7 @@ void HAddTextWidget::initUI(){
     }
     hbox->addWidget(m_cmbFontSize);
     hbox->addSpacing(g_fontsize*2);
-    hbox->addWidget(new QLabel("颜色"));
+    hbox->addWidget(new QLabel(STR("颜色")));
     m_btnColor = new QPushButton;
     m_btnColor->setFixedWidth(g_fontsize*3);
     m_btnColor->setFlat(true);
@@ -81,7 +81,7 @@ void HAddTextWidget::initUI(){
     grid->addLayout(hbox, row, 1);
 
     ++row;
-    grid->addWidget(new QLabel("预览:"), row, 0);
+    grid->addWidget(new QLabel(STR("预览:")), row, 0);
     m_labelPreview = new QLabel;
     m_labelPreview->setFixedHeight(100);
     m_labelPreview->setStyleSheet("background-color: #696969");
@@ -91,17 +91,17 @@ void HAddTextWidget::initUI(){
     QFont font = m_labelPreview->font();
     font.setPixelSize(default_font_size);
     m_labelPreview->setFont(font);
-    m_labelPreview->setText("123中文ABC");
+    m_labelPreview->setText(STR("123中文ABC"));
     grid->addWidget(m_labelPreview, row, 1);
 
     ++row;
     hbox = genHBoxLayout();
-    QPushButton* btnAccept = new QPushButton("确认");
+    QPushButton* btnAccept = new QPushButton(STR("确认"));
     btnAccept->setDefault(true);
     QObject::connect( btnAccept, SIGNAL(clicked(bool)), this, SLOT(accept()) );
     hbox->addWidget(btnAccept);
 
-    QPushButton* btnReject = new QPushButton("取消");
+    QPushButton* btnReject = new QPushButton(STR("取消"));
     QObject::connect( btnReject, SIGNAL(clicked(bool)), this, SLOT(reject()) );
     hbox->addWidget(btnReject);
     grid->addLayout(hbox, row, 1);
@@ -121,7 +121,7 @@ void HAddTextWidget::initConnect(){
 
 void HAddTextWidget::onCategoryChanged(int index){
     if (index == 0){
-        m_editText->setText("请输入标签文本");
+        m_editText->setText(STR("请输入标签文本"));
         m_editText->setReadOnly(false);
     }else if (index == 1){
         m_editText->setText("yyyy-MM-dd HH:mm:ss");

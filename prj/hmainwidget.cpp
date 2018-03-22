@@ -31,8 +31,6 @@ void HMainWidget::initUI(){
 
     QDesktopWidget* desktop = QApplication::desktop();
     qInfo("screenCount=%d, w=%d h=%d", desktop->screenCount(), desktop->width(), desktop->height());
-    //setGeometry(0,0,g_dsCtx->m_tLayout.width, g_dsCtx->m_tLayout.height);
-    // show in last screen
     setGeometry(desktop->screenGeometry(0));
     qInfo("x=%d y=%d screen_w=%d screen_h=%d", x(), y(), width(), height());
     if (g_dsCtx->m_tInit.autolayout){

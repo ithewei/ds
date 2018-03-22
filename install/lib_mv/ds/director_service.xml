@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<director_service>
+	<important 
+		debug="0" 
+		save_span="1" 
+		audio="1" 
+		display_mode="2" 
+		scale_mode="1" 
+		fps="25" 
+		audio_bufnum="10"
+		audio_bufnum_max="20"
+		video_bufnum="10" 
+		video_bufnum_max="20"
+		av_maxspan="100" />
+	<UI>
+		<layout auto="1" maxnum="64" row="3" col="3" />
+		<settings 
+			mouse="1" 
+			fontsize="24"
+			
+			drawtitle="0"
+			drawfps="0"
+			drawnum="0"
+			drawaudio="1"
+			drawinfo="1"
+			drawoutline="1"
+			drawdebuginfo="0"
+			
+			spacing="20"
+			titlebar_height="48"
+			toolbar_height="64"
+			output_titlebar_height="64"
+			output_toolbar_height="64"
+			
+			audiostyle="2"
+			audiocolor_bg="0x00FFFFFF"
+			audiocolor_fg_low="0x00FF00FF"
+			audiocolor_fg_high="0xFFFF00FF"
+			audiocolor_fg_top="0xFF0000FF"
+			
+			title_format="%wndid %src"
+			taskinfo_format="%title %rate"
+		/>
+	</UI>
+	
+	<!-- ptz left,right,top,bottom,near,far -->
+	<ptz numerator="1,1,1,1,1,1" denominator="20,20,20,20,10,10" />
+	
+	<overlay
+		maxnum="5"
+		expre_policy="0" 
+	/>
+</director_service>

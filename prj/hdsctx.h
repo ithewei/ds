@@ -1,4 +1,4 @@
-#ifndef HDSCONTEXT_H
+﻿#ifndef HDSCONTEXT_H
 #define HDSCONTEXT_H
 
 #include <QObject>
@@ -74,6 +74,7 @@ public:
                 return i;
             }
         }
+        return -1;
     }
 
     void freeLmicid(int lmicid){

@@ -5,6 +5,8 @@
 #include <process.h>
 #endif
 
+#define STR(str) QString::fromLocal8Bit(str)
+
 #include <QtCore/qglobal.h>
 
 #if defined(DS_LIBRARY)

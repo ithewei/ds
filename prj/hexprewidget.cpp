@@ -74,14 +74,14 @@ void HExportWidget::initUI(){
     QHBoxLayout* hbox = genHBoxLayout();
 
     QVBoxLayout* vbox_local = new QVBoxLayout;
-    vbox_local->addWidget(new QLabel("本地："));
+    vbox_local->addWidget(new QLabel(STR("本地：")));
     m_listLocal = new QListWidget;
     vbox_local->addWidget(m_listLocal);
     initList(m_listLocal, dsconf->value("PATH/pic_upload"));
     hbox->addLayout(vbox_local);
 
     QVBoxLayout* vbox_usb = new QVBoxLayout;
-    vbox_usb->addWidget(new QLabel("U盘："));
+    vbox_usb->addWidget(new QLabel(STR("U盘：")));
     m_listUsb = new QListWidget;
     vbox_usb->addWidget(m_listUsb);
     initList(m_listUsb, dsconf->value("PATH/pic_usb"));
@@ -91,13 +91,13 @@ void HExportWidget::initUI(){
 
     QHBoxLayout* hbox_okcancel = genHBoxLayout();
     hbox_okcancel->addSpacing(width()/2);
-    QPushButton* btnAccept = new QPushButton("确认");
+    QPushButton* btnAccept = new QPushButton(STR("确认"));
     //QSize sz(g_fontsize*2,g_fontsize*2);
     //QPushButton* btnAccept = genPushButton(sz, rcloader->get(RC_SUBMIT));
     QObject::connect( btnAccept, SIGNAL(clicked(bool)), this, SLOT(accept()) );
     hbox_okcancel->addWidget(btnAccept);
 
-    QPushButton* btnReject = new QPushButton("取消");
+    QPushButton* btnReject = new QPushButton(STR("取消"));
     //QPushButton* btnReject = genPushButton(sz, rcloader->get(RC_CLOSE));
     QObject::connect( btnReject, SIGNAL(clicked(bool)), this, SLOT(reject()) );
     hbox_okcancel->addWidget(btnReject);
@@ -499,7 +499,7 @@ void HExpreWidget::onSelectExpre(QListWidgetItem* item){
 }
 
 void HExpreWidget::onMkdir(){
-    QString label = QInputDialog::getText(this, tr("新建分类"), tr("请输入一个分类名称："));
+    QString label = QInputDialog::getText(this, STR("新建分类"), STR("请输入一个分类名称："));
     if (label.length() == 0)
         return;
 
@@ -509,7 +509,7 @@ void HExpreWidget::onMkdir(){
     for (int i = 0; iter != m_conf.records.end(); ++i, ++iter){
         ExpreRecord record = *iter;
         if (label == record.label){
-            QMessageBox::information(this, tr("新建分类"), tr("已存在相同的分类名，新建分类失败！"));
+            QMessageBox::information(this, STR("新建分类"), STR("已存在相同的分类名，新建分类失败！"));
             return;
         }
     }
@@ -560,7 +560,7 @@ void HExpreWidget::onRmdir(){
 
     char info[256];
     snprintf(info, 256, "确定删除分类《%s》及其下的所有图片吗？", label.toLocal8Bit().constData());
-    if (QMessageBox::question(this, tr("删除分类"), info) ==  QMessageBox::Yes){
+    if (QMessageBox::question(this, STR("删除分类"), info) ==  QMessageBox::Yes){
         std::list<ExpreRecord>::iterator iter = m_conf.records.begin();
         for (int i = 0; iter != m_conf.records.end(); ++i, ++iter){
             ExpreRecord record = *iter;

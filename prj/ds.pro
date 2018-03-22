@@ -95,9 +95,6 @@ DISTFILES += \
     ../readme
 
 unix {
-    target.path = /usr/lib
-    INSTALLS += target
-
     INCLUDEPATH += /usr/include/freetype2/
     LIBS += -lGLEW \
             -lfreetype \
